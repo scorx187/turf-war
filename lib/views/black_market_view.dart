@@ -15,20 +15,24 @@ class BlackMarketView extends StatelessWidget {
     // --- قائمة بضاعة المتجر الكاملة ---
     final List<Map<String, dynamic>> items = [
       // --- الأسلحة القتالية (PVP) ---
-      {'id': 'dagger', 'name': 'خنجر صدئ', 'description': 'يزيد القوة (+5) والسرعة (+2)', 'price': 1500, 'currency': 'cash', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon'},
-      {'id': 'revolver', 'name': 'مسدس ريفولفر', 'description': 'يزيد القوة (+20) والسرعة (+5)', 'price': 15000, 'currency': 'cash', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon'},
-      {'id': 'katana', 'name': 'كاتانا الساموراي', 'description': 'تزيد القوة (+40) والسرعة (+30)', 'price': 85000, 'currency': 'cash', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon'},
-      {'id': 'shotgun', 'name': 'بندقية شوزن', 'description': 'تزيد القوة (+100) والسرعة (-10)', 'price': 250000, 'currency': 'cash', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon'},
-      {'id': 'sniper', 'name': 'قناصة الصقر', 'description': 'تزيد القوة (+300) والسرعة (+50)', 'price': 1200, 'currency': 'gold', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon'},
+      {'id': 'dagger', 'name': 'خنجر صدئ', 'description': 'يزيد القوة (+5) والسرعة (+2)', 'price': 1500, 'currency': 'cash', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'revolver', 'name': 'مسدس ريفولفر', 'description': 'يزيد القوة (+20) والسرعة (+5)', 'price': 15000, 'currency': 'cash', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'katana', 'name': 'كاتانا الساموراي', 'description': 'تزيد القوة (+40) والسرعة (+30)', 'price': 85000, 'currency': 'cash', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'shotgun', 'name': 'بندقية شوزن', 'description': 'تزيد القوة (+100) والسرعة (-10)', 'price': 250000, 'currency': 'cash', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'sniper', 'name': 'قناصة الصقر', 'description': 'تزيد القوة (+300) والسرعة (+50)', 'price': 1200, 'currency': 'gold', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon', 'isConsumable': false},
 
       // --- الدروع القتالية (PVP) ---
-      {'id': 'riot_shield', 'name': 'درع مكافحة الشغب', 'description': 'يزيد الدفاع (+15) والمهارة (+5)', 'price': 3000, 'currency': 'cash', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor'},
-      {'id': 'kevlar_vest', 'name': 'سترة واقية', 'description': 'تزيد الدفاع (+40) والمهارة (+15)', 'price': 25000, 'currency': 'cash', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor'},
-      {'id': 'steel_armor', 'name': 'درع فولاذي', 'description': 'يزيد الدفاع (+120) والمهارة (-5)', 'price': 120000, 'currency': 'cash', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor'},
-      {'id': 'ninja_suit', 'name': 'زي النينجا الأسود', 'description': 'يزيد الدفاع (+80) والمهارة (+60)', 'price': 500000, 'currency': 'cash', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor'},
-      {'id': 'exoskeleton', 'name': 'البدلة الخارقة', 'description': 'تزيد الدفاع (+400) والمهارة (+100)', 'price': 2500, 'currency': 'gold', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor'},
+      {'id': 'riot_shield', 'name': 'درع مكافحة الشغب', 'description': 'يزيد الدفاع (+15) والمهارة (+5)', 'price': 3000, 'currency': 'cash', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor', 'isConsumable': false},
+      {'id': 'kevlar_vest', 'name': 'سترة واقية', 'description': 'تزيد الدفاع (+40) والمهارة (+15)', 'price': 25000, 'currency': 'cash', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor', 'isConsumable': false},
+      {'id': 'steel_armor', 'name': 'درع فولاذي', 'description': 'يزيد الدفاع (+120) والمهارة (-5)', 'price': 120000, 'currency': 'cash', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor', 'isConsumable': false},
+      {'id': 'ninja_suit', 'name': 'زي النينجا الأسود', 'description': 'يزيد الدفاع (+80) والمهارة (+60)', 'price': 500000, 'currency': 'cash', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor', 'isConsumable': false},
+      {'id': 'exoskeleton', 'name': 'البدلة الخارقة', 'description': 'تزيد الدفاع (+400) والمهارة (+100)', 'price': 2500, 'currency': 'gold', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor', 'isConsumable': false},
 
-      // --- [جديد] عتاد الجرائم (يخرب ويحتاج إصلاح) ---
+      // --- الأقنعة (مطلوبة للجرائم) ---
+      {'id': 'black_mask', 'name': 'قناع أسود', 'description': 'مطلوب لسرقة السيارات ويهربك 35%', 'price': 15000, 'currency': 'cash', 'icon': Icons.theater_comedy, 'color': Colors.black, 'type': 'mask', 'isConsumable': false},
+      {'id': 'silicon_mask', 'name': 'قناع سيليكون', 'description': 'مطلوب لسطو البنك ويهربك 55%', 'price': 120000, 'currency': 'cash', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent, 'type': 'mask', 'isConsumable': false},
+
+      // --- عتاد الجرائم ---
       {'id': 'crowbar', 'name': 'عتلة فولاذية', 'description': 'تخفض فشل السطو 5%', 'price': 2500, 'currency': 'cash', 'icon': Icons.hardware, 'color': Colors.grey, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'slim_jim', 'name': 'مفتاح مسطرة', 'description': 'تخفض فشل السيارات 10%', 'price': 5000, 'currency': 'cash', 'icon': Icons.horizontal_rule, 'color': Colors.blueGrey, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'jammer', 'name': 'جهاز تشويش', 'description': 'يعطل الإنذار (فشل -12%)', 'price': 12000, 'currency': 'cash', 'icon': Icons.vibration, 'color': Colors.teal, 'type': 'crime_tool', 'isConsumable': false},
@@ -39,8 +43,9 @@ class BlackMarketView extends StatelessWidget {
       {'id': 'hydraulic', 'name': 'قاطع هيدروليك', 'description': 'قص الأسوار (فشل -15%)', 'price': 90000, 'currency': 'cash', 'icon': Icons.content_cut, 'color': Colors.redAccent, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'thermite', 'name': 'ثيرميت حارق', 'description': 'يصهر الأبواب (فشل البنك -25%)', 'price': 150000, 'currency': 'cash', 'icon': Icons.whatshot, 'color': Colors.deepOrange, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'emp_device', 'name': 'جهاز EMP', 'description': 'يعطل الكاميرات (فشل عام -30%)', 'price': 500, 'currency': 'gold', 'icon': Icons.electric_bolt, 'color': Colors.yellowAccent, 'type': 'crime_tool', 'isConsumable': false},
+      {'id': 'master_key', 'name': 'المفتاح الرئيسي', 'description': 'مطلوب للسطو على الفلل الفاخرة', 'price': 150000, 'currency': 'cash', 'icon': Icons.vpn_key, 'color': Colors.amber, 'type': 'passive', 'isConsumable': false},
 
-      // --- الأدوات والمشروبات (مستهلكات) ---
+      // --- المستهلكات ---
       {'id': 'bribe_small', 'name': 'رشوة محقق', 'description': 'تبريد الحرارة (20 درجة)', 'price': 10000, 'currency': 'cash', 'icon': Icons.handshake, 'color': Colors.teal, 'type': 'consumable', 'isConsumable': true},
       {'id': 'fake_plates', 'name': 'لوحات مزورة', 'description': 'تبريد الحرارة (40 درجة)', 'price': 25000, 'currency': 'cash', 'icon': Icons.subtitles, 'color': Colors.lightBlue, 'type': 'consumable', 'isConsumable': true},
       {'id': 'bribe_big', 'name': 'رشوة كبرى', 'description': 'تصفر الملاحقة فوراً', 'price': 100, 'currency': 'gold', 'icon': Icons.account_balance_sharp, 'color': Colors.amber, 'type': 'consumable', 'isConsumable': true},
@@ -51,9 +56,10 @@ class BlackMarketView extends StatelessWidget {
       {'id': 'smoke_bomb', 'name': 'قنبلة دخانية', 'description': 'هروب فوري من السجن', 'price': 25, 'currency': 'gold', 'icon': Icons.air, 'color': Colors.grey, 'type': 'consumable', 'isConsumable': true},
     ];
 
+    // [الفرز الذكي] وضعنا أدوات الجرائم والأقنعة والمفتاح كلها في تبويب واحد
     final weapons = items.where((item) => item['type'] == 'weapon').toList();
     final armors = items.where((item) => item['type'] == 'armor').toList();
-    final crimeGear = items.where((item) => item['type'] == 'crime_tool').toList();
+    final crimeGear = items.where((item) => item['type'] == 'crime_tool' || item['type'] == 'mask' || item['id'] == 'master_key').toList();
     final tools = items.where((item) => item['type'] == 'consumable').toList();
 
     final List<Map<String, dynamic>> vips = [
@@ -64,7 +70,7 @@ class BlackMarketView extends StatelessWidget {
     ];
 
     return DefaultTabController(
-      length: 5, // زدنا عدد التبويبات إلى 5
+      length: 5,
       child: Column(
         children: [
           Padding(
@@ -81,8 +87,8 @@ class BlackMarketView extends StatelessWidget {
             tabs: [
               Tab(text: 'الأسلحة', icon: Icon(Icons.colorize)),
               Tab(text: 'الدروع', icon: Icon(Icons.shield)),
-              Tab(text: 'عتاد الجرائم', icon: Icon(Icons.engineering)), // التبويب الجديد
-              Tab(text: 'مستهلكات', icon: Icon(Icons.medical_services)),
+              Tab(text: 'عتاد الجرائم', icon: Icon(Icons.engineering)),
+              Tab(text: 'أدوات', icon: Icon(Icons.medical_services)),
               Tab(text: 'VIP', icon: Icon(Icons.workspace_premium)),
             ],
             indicatorColor: Colors.redAccent,
@@ -94,7 +100,7 @@ class BlackMarketView extends StatelessWidget {
               children: [
                 _buildItemsList(player, weapons),
                 _buildItemsList(player, armors),
-                _buildItemsList(player, crimeGear), // عرض عتاد الجرائم
+                _buildItemsList(player, crimeGear),
                 _buildItemsList(player, tools),
                 _buildVIPList(player, vips),
               ],
@@ -120,12 +126,12 @@ class BlackMarketView extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-            side: BorderSide(color: (item['color'] as Color).withValues(alpha:0.5)),
+            side: BorderSide(color: (item['color'] as Color).withValues(alpha: 0.5)),
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             leading: CircleAvatar(
-              backgroundColor: (item['color'] as Color).withValues(alpha:0.2),
+              backgroundColor: (item['color'] as Color).withValues(alpha: 0.2),
               child: Icon(item['icon'] as IconData, color: item['color'], size: 20),
             ),
             title: Text(item['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
@@ -172,18 +178,18 @@ class BlackMarketView extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha:0.1),
+                color: Colors.amber.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(15),
                 border: Border.all(color: Colors.amber)
             ),
             child: Column(
               children: [
-                Row(
+                const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
-                      const SizedBox(width: 8),
-                      const Text('عضوية VIP مفعلة', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14))
+                      Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
+                      SizedBox(width: 8),
+                      Text('عضوية VIP مفعلة', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14))
                     ]
                 ),
                 const SizedBox(height: 2),
@@ -203,7 +209,7 @@ class BlackMarketView extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 8),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
-                    side: BorderSide(color: Colors.amber.withValues(alpha:0.3))
+                    side: BorderSide(color: Colors.amber.withValues(alpha: 0.3))
                 ),
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),

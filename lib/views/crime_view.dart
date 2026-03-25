@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
-import '../widgets/quick_recovery_dialog.dart';
 
 class CrimeView extends StatelessWidget {
   final int courage;
   final List<int> crimeSuccessCounts;
   final Function(int reward, int index, int energyUsed) onSuccess;
   final VoidCallback onFailure;
+
+  // تعريف كائن Random مرة واحدة لتوزيع الاحتمالات بشكل عادل ودقيق
+  static final Random _random = Random();
 
   const CrimeView({
     super.key,
@@ -95,7 +97,6 @@ class CrimeView extends StatelessWidget {
 
     return Column(
       children: [
-        // --- عداد الحرارة (Heat Meter) الماسي ---
         _buildHeatMeter(player.heat),
 
         const Padding(
@@ -127,20 +128,20 @@ class CrimeView extends StatelessWidget {
               bool hasCar = crime.containsKey('requireCar') ? player.activeCarId != null : true;
               bool isUnlocked = isSequenceUnlocked && hasItem && hasCar;
 
-              // [نظام العتاد الماسي] حساب نسبة الفشل النهائية
-              double heatPenalty = (player.heat / 100) * 0.3; // زيادة تصل لـ 30% فشل
+              // [توحيد حساب النسبة] يتم هنا عرض النسبة الحقيقية اللي بتطبق وقت الضغط
+              double heatPenalty = (player.heat / 100) * 0.3; // زيادة تصل لـ 30% فشل بسبب الحرارة
               double finalFailChance = (crime['failChance'] as double) + heatPenalty - (stars * 0.05);
 
               // خصم القناع
               if (player.equippedMaskId != null) finalFailChance -= 0.1;
 
-              // [جديد] تأثير أداة الجريمة المجهزة
+              // تأثير أداة الجريمة المجهزة (الخصم أو العقوبة)
               if (player.equippedCrimeToolId != null) {
                 double toolDurability = player.getItemDurability(player.equippedCrimeToolId!);
-                if (toolDurability > 5) {
-                  // تقليل الفشل بناءً على تخصص الأداة
+                if (toolDurability >= 10) {
+                  // الأداة سليمة: تعطي الخصم
                   if (player.equippedCrimeToolId == 'emp_device') {
-                    finalFailChance -= 0.30; // EMP الأقوى
+                    finalFailChance -= 0.30;
                   } else if (player.equippedCrimeToolId == 'thermite' && crime['name'] == 'سطو على البنك') {
                     finalFailChance -= 0.25;
                   } else if (player.equippedCrimeToolId == 'slim_jim' && crime['name'] == 'سرقة سيارة') {
@@ -148,11 +149,15 @@ class CrimeView extends StatelessWidget {
                   } else if (player.equippedCrimeToolId == 'lockpick' && crime['name'] == 'سطو على فيلا') {
                     finalFailChance -= 0.15;
                   } else {
-                    finalFailChance -= 0.10; // خصم عام لباقي الأدوات
+                    finalFailChance -= 0.10;
                   }
+                } else {
+                  // الأداة معطلة: تزيد نسبة الفشل بـ 20% وتظهر للمستخدم في الشاشة
+                  finalFailChance += 0.20;
                 }
               }
 
+              // التأكد إن النسبة ما تنزل عن 2% وما تتعدى 98%
               finalFailChance = finalFailChance.clamp(0.02, 0.98);
 
               return _buildGoldCrimeCard(context, player, index, crime, isUnlocked, stars, progress, finalFailChance, hasItem, hasCar);
@@ -163,7 +168,6 @@ class CrimeView extends StatelessWidget {
     );
   }
 
-  // ويدجت عداد الحرارة
   Widget _buildHeatMeter(double heatValue) {
     Color heatColor = heatValue > 70 ? Colors.red : heatValue > 40 ? Colors.orange : Colors.yellow;
     return Container(
@@ -172,7 +176,7 @@ class CrimeView extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black45,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: heatColor.withValues(alpha:0.3), width: 1),
+        border: Border.all(color: heatColor.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         children: [
@@ -198,8 +202,8 @@ class CrimeView extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black45,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isUnlocked ? mainColor.withValues(alpha:0.5) : Colors.white10, width: 1.5),
-        boxShadow: isUnlocked ? [BoxShadow(color: mainColor.withValues(alpha:0.1), blurRadius: 10)] : [],
+        border: Border.all(color: isUnlocked ? mainColor.withValues(alpha: 0.5) : Colors.white10, width: 1.5),
+        boxShadow: isUnlocked ? [BoxShadow(color: mainColor.withValues(alpha: 0.1), blurRadius: 10)] : [],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
@@ -246,7 +250,7 @@ class CrimeView extends StatelessWidget {
                   children: [
                     _buildSmallInfo(Icons.bolt, '${crime['courage']}', Colors.orange),
                     if (crime['energy'] > 0) _buildSmallInfo(Icons.flash_on, '${crime['energy']}', Colors.yellow),
-                    _buildSmallInfo(Icons.dangerous, '${(failChance * 100).toInt()}%', Colors.redAccent),
+                    _buildSmallInfo(Icons.dangerous, '${(failChance * 100).toInt()}%', failChance > 0.5 ? Colors.redAccent : Colors.greenAccent),
                     if (!isUnlocked)
                       Text(_getLockReason(index, hasItem, hasCar, crime['itemName'] ?? ''), style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
                   ],
@@ -276,7 +280,40 @@ class CrimeView extends StatelessWidget {
     return 'مغلق';
   }
 
-  void _handleCrimeClick(BuildContext context, PlayerProvider player, int index, Map<String, dynamic> crime, bool isUnlocked, bool hasItem, bool hasCar, double failChance) {
+  // دالة مخصصة لعرض الـ Dialog داخل الشاشة مباشرة لضمان عملها 100%
+  void _showRecoveryDialog(BuildContext context, String type, int missingAmount) {
+    bool isCourage = type == 'courage';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isCourage ? Colors.orange : Colors.yellow, width: 2)),
+        title: Row(
+          children: [
+            Icon(isCourage ? Icons.bolt : Icons.flash_on, color: isCourage ? Colors.orange : Colors.yellow, size: 28),
+            const SizedBox(width: 10),
+            Text(isCourage ? 'شجاعة غير كافية!' : 'طاقة غير كافية!', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'ينقصك $missingAmount ${isCourage ? 'شجاعة' : 'طاقة'} للقيام بهذه الجريمة.\n\nاذهب إلى المخزن واستخدم ${isCourage ? '(قهوة مركزة ☕)' : '(حقنة منشط 💉)'} لتعويض النقص فوراً، أو انتظر قليلاً.',
+          style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isCourage ? Colors.orange : Colors.yellow,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('حسناً', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleCrimeClick(BuildContext context, PlayerProvider player, int index, Map<String, dynamic> crime, bool isUnlocked, bool hasItem, bool hasCar, double finalFailChance) {
     if (!isUnlocked) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أكمل المتطلبات أولاً! 🔒'), backgroundColor: Colors.redAccent));
       return;
@@ -285,40 +322,49 @@ class CrimeView extends StatelessWidget {
     int reqCourage = crime['courage'] as int;
     int reqEnergy = crime['energy'] as int;
 
+    // استدعاء الدالة المدمجة المخصصة
     if (player.courage < reqCourage) {
-      QuickRecoveryDialog.show(context, 'courage', reqCourage - player.courage);
+      _showRecoveryDialog(context, 'courage', reqCourage - player.courage);
       return;
     }
     if (player.energy < reqEnergy) {
-      QuickRecoveryDialog.show(context, 'energy', reqEnergy - player.energy);
+      _showRecoveryDialog(context, 'energy', reqEnergy - player.energy);
       return;
     }
 
-    // [Diamond Check] فحص حالة أداة الجريمة فقط
-    double finalFailChance = failChance;
     if (player.equippedCrimeToolId != null && player.getItemDurability(player.equippedCrimeToolId!) < 10) {
-      finalFailChance += 0.2; // عقوبة 20% بسبب تعطل أداة الجريمة
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ أداة الجريمة معطلة وتحتاج إصلاح!')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ أداة الجريمة معطلة وتحتاج إصلاح! نسبة الفشل لديك مرتفعة.')));
     }
 
-    if (Random().nextDouble() < finalFailChance) {
-      // فشل: زيادة الحرارة (15 درجة) وخصم الشجاعة
-      player.increaseHeat(15.0);
+    double crimeHeat = crime['heat'] as double;
+
+    if (_random.nextDouble() < finalFailChance) {
+      player.increaseHeat(crimeHeat * 1.5);
       player.setCourage(player.courage - reqCourage);
       if (reqEnergy > 0) player.setEnergy(player.energy - reqEnergy);
       onFailure();
     } else {
-      // نجاح: زيادة الحرارة + [تعديل] استهلاك متانة أداة الجريمة فقط
-      player.increaseHeat(crime['heat'] as double);
+      player.increaseHeat(crimeHeat);
 
-      // استهلاك أداة الجريمة المجهزة فقط (الأسلحة القتالية أصبحت أبدية)
       if (player.equippedCrimeToolId != null) {
-        player.reduceDurability(player.equippedCrimeToolId, 5.0);
+        double durabilityLoss = 5.0;
+        switch (player.equippedCrimeToolId) {
+          case 'crowbar': durabilityLoss = 10.0; break;
+          case 'slim_jim': durabilityLoss = 8.0; break;
+          case 'jammer': durabilityLoss = 6.0; break;
+          case 'lockpick': durabilityLoss = 5.0; break;
+          case 'glass_cutter': durabilityLoss = 4.0; break;
+          case 'stethoscope': durabilityLoss = 4.0; break;
+          case 'laptop': durabilityLoss = 3.0; break;
+          case 'hydraulic': durabilityLoss = 3.0; break;
+          case 'thermite': durabilityLoss = 2.0; break;
+          case 'emp_device': durabilityLoss = 1.0; break;
+        }
+        player.reduceDurability(player.equippedCrimeToolId, durabilityLoss);
       }
 
-      int reward = (crime['minCash'] as int) + Random().nextInt((crime['maxCash'] as int) - (crime['minCash'] as int) + 1);
+      int reward = (crime['minCash'] as int) + _random.nextInt((crime['maxCash'] as int) - (crime['minCash'] as int) + 1);
 
-      // حدث عشوائي (15% فرصة)
       _checkRandomEvent(context, player);
 
       player.addCrimeXP(crime['xp'] as int);
@@ -327,20 +373,20 @@ class CrimeView extends StatelessWidget {
   }
 
   void _checkRandomEvent(BuildContext context, PlayerProvider player) {
-    if (Random().nextDouble() < 0.15) {
-      int eventType = Random().nextInt(4);
+    if (_random.nextDouble() < 0.15) {
+      int eventType = _random.nextInt(4);
       if (eventType == 0) {
         player.addGold(1);
         _showEventSnackBar(context, "💎 وجدت قطعة ذهب أثناء الهروب!", Colors.blueAccent);
       } else if (eventType == 1) {
-        int bonus = 500 + Random().nextInt(1001);
+        int bonus = 500 + _random.nextInt(1001);
         player.addCash(bonus, reason: "كاش إضافي من حدث عشوائي");
         _showEventSnackBar(context, "💰 وجدت محفظة إضافية ملقاة! +$bonus كاش", Colors.green);
       } else if (eventType == 2) {
         player.setEnergy(min(player.maxEnergy, player.energy + 10));
         _showEventSnackBar(context, "⚡ جرعة أدريناين! استعدت 10 طاقة فوراً", Colors.orange);
       } else {
-        player.increaseHeat(-10.0);
+        player.reduceHeat(10.0);
         _showEventSnackBar(context, "👮 ضيعت عيون الشرطة! انخفض مستوى الملاحقة.", Colors.teal);
       }
     }

@@ -4,39 +4,39 @@ import '../providers/player_provider.dart';
 
 class WorkshopView extends StatelessWidget {
   final VoidCallback onBack;
+
   const WorkshopView({super.key, required this.onBack});
 
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // حصر الأغراض التي تحتاج إصلاح (الأسلحة والدروع التي متانتها أقل من 100)
-    final List<Map<String, dynamic>> brokenItems = [];
-
-    // قائمة المراجع لكل الأغراض الممكنة لجلب أسمائها وأيقوناتها
-    final Map<String, Map<String, dynamic>> itemData = {
-      'dagger': {'name': 'خنجر صدئ', 'icon': Icons.colorize, 'color': Colors.grey},
-      'revolver': {'name': 'مسدس ريفولفر', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey},
-      'katana': {'name': 'كاتانا الساموراي', 'icon': Icons.colorize_outlined, 'color': Colors.indigo},
-      'shotgun': {'name': 'بندقية شوزن', 'icon': Icons.settings_overscan, 'color': Colors.orange},
-      'sniper': {'name': 'قناصة الصقر', 'icon': Icons.track_changes, 'color': Colors.red},
-      'riot_shield': {'name': 'درع مكافحة الشغب', 'icon': Icons.shield_outlined, 'color': Colors.blue},
-      'kevlar_vest': {'name': 'سترة واقية', 'icon': Icons.shield, 'color': Colors.green},
-      'steel_armor': {'name': 'درع فولاذي', 'icon': Icons.security, 'color': Colors.grey},
-      'ninja_suit': {'name': 'زي النينجا الأسود', 'icon': Icons.accessibility_new, 'color': Colors.black},
-      'exoskeleton': {'name': 'البدلة الخارقة', 'icon': Icons.precision_manufacturing, 'color': Colors.amber},
-      'black_mask': {'name': 'قناع أسود', 'icon': Icons.theater_comedy, 'color': Colors.black},
-      'silicon_mask': {'name': 'قناع سيليكون', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent},
+    // [Diamond Standard] القاموس المحدث: يضم فقط عتاد الجريمة الـ 10
+    final Map<String, Map<String, dynamic>> itemDetails = {
+      'crowbar': {'name': 'عتلة فولاذية', 'icon': Icons.hardware, 'color': Colors.grey},
+      'slim_jim': {'name': 'مفتاح مسطرة', 'icon': Icons.horizontal_rule, 'color': Colors.blueGrey},
+      'jammer': {'name': 'جهاز تشويش', 'icon': Icons.vibration, 'color': Colors.teal},
+      'lockpick': {'name': 'طقم مفاتيح', 'icon': Icons.vpn_key_outlined, 'color': Colors.amber},
+      'glass_cutter': {'name': 'قاطع زجاج', 'icon': Icons.architecture, 'color': Colors.cyan},
+      'laptop': {'name': 'لابتوب تهكير', 'icon': Icons.laptop_mac, 'color': Colors.deepPurpleAccent},
+      'thermite': {'name': 'ثيرميت حارق', 'icon': Icons.whatshot, 'color': Colors.deepOrange},
+      'stethoscope': {'name': 'سماعة طبية', 'icon': Icons.hearing, 'color': Colors.blue},
+      'hydraulic': {'name': 'قاطع هيدروليك', 'icon': Icons.content_cut, 'color': Colors.redAccent},
+      'emp_device': {'name': 'جهاز EMP', 'icon': Icons.electric_bolt, 'color': Colors.yellowAccent},
     };
 
+    final List<Map<String, dynamic>> damagedItems = [];
+
     player.inventory.forEach((id, count) {
-      if (itemData.containsKey(id)) {
+      if (itemDetails.containsKey(id)) {
         double dur = player.getItemDurability(id);
         if (dur < 100) {
-          brokenItems.add({
+          damagedItems.add({
             'id': id,
+            'name': itemDetails[id]!['name'],
+            'icon': itemDetails[id]!['icon'],
+            'color': itemDetails[id]!['color'],
             'durability': dur,
-            ...itemData[id]!,
           });
         }
       }
@@ -44,18 +44,18 @@ class WorkshopView extends StatelessWidget {
 
     return Column(
       children: [
-        // هيدر الورشة
-        _buildHeader(context, player.spareParts),
+        // --- هيدر الورشة ---
+        _buildWorkshopHeader(player.spareParts),
 
         Expanded(
-          child: brokenItems.isEmpty
-              ? _buildEmptyState()
+          child: damagedItems.isEmpty
+              ? _buildAllFixedState()
               : ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: brokenItems.length,
+            itemCount: damagedItems.length,
             itemBuilder: (context, index) {
-              final item = brokenItems[index];
-              return _buildRepairCard(context, player, item);
+              final item = damagedItems[index];
+              return _buildRepairCard(player, item);
             },
           ),
         ),
@@ -63,50 +63,52 @@ class WorkshopView extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, int spareParts) {
+  Widget _buildWorkshopHeader(int spareParts) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.blueGrey.withValues(alpha:0.2),
-          border: const Border(bottom: BorderSide(color: Colors.blueAccent, width: 1))
+      padding: const EdgeInsets.all(16.0),
+      decoration: const BoxDecoration(
+          color: Color.fromRGBO(96, 125, 139, 0.15), // بديل نظيف لـ withOpacity
+          border: Border(bottom: BorderSide(color: Colors.blueAccent, width: 2))
       ),
       child: Row(
         children: [
           IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: onBack),
           const Expanded(
-            child: Text('ورشة الصيانة 🔧', style: TextStyle(color: Colors.blueAccent, fontSize: 22, fontWeight: FontWeight.bold)),
+            child: Text('ورشة الصيانة 🛠️', style: TextStyle(color: Colors.blueAccent, fontSize: 22, fontWeight: FontWeight.bold)),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber)),
+            decoration: BoxDecoration(color: Colors.black38, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber)),
             child: Row(
               children: [
                 const Icon(Icons.settings, color: Colors.amber, size: 16),
-                const SizedBox(width: 8),
-                Text('$spareParts قطعة', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 6),
+                Text('$spareParts قطعة غيار', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
+  Widget _buildAllFixedState() {
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle_outline, size: 80, color: Colors.green.withValues(alpha:0.3)),
-          const SizedBox(height: 16),
-          const Text('كل معداتك في حالة ممتازة!', style: TextStyle(color: Colors.white54, fontSize: 16)),
+          Icon(Icons.verified, size: 80, color: Color.fromRGBO(76, 175, 80, 0.2)),
+          SizedBox(height: 16),
+          Text('جميع معدات العمليات سليمة 100%', style: TextStyle(color: Colors.white38, fontSize: 16)),
         ],
       ),
     );
   }
 
-  Widget _buildRepairCard(BuildContext context, PlayerProvider player, Map<String, dynamic> item) {
+  Widget _buildRepairCard(PlayerProvider player, Map<String, dynamic> item) {
     bool canAfford = player.spareParts >= 10;
+    Color durColor = item['durability'] > 70 ? Colors.green : item['durability'] > 30 ? Colors.orange : Colors.red;
+    Color itemColor = item['color'] as Color;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -114,54 +116,48 @@ class WorkshopView extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black45,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: (item['color'] as Color).withValues(alpha:0.3)),
+        border: Border.all(color: itemColor.withValues(alpha: 0.3)), // تم التنظيف هنا
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: (item['color'] as Color).withValues(alpha:0.2),
-            child: Icon(item['icon'], color: item['color']),
+            backgroundColor: itemColor.withValues(alpha: 0.1), // تم التنظيف هنا
+            child: Icon(item['icon'], color: itemColor),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(item['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
                   value: item['durability'] / 100,
                   backgroundColor: Colors.white10,
-                  color: _getDurabilityColor(item['durability']),
-                  minHeight: 6,
+                  color: durColor,
+                  minHeight: 5,
                 ),
-                Text('الحالة: ${item['durability'].toInt()}%', style: TextStyle(color: _getDurabilityColor(item['durability']), fontSize: 11)),
+                const SizedBox(height: 4),
+                Text('الحالة: ${item['durability'].toInt()}%', style: TextStyle(color: durColor, fontSize: 10)),
               ],
             ),
           ),
           const SizedBox(width: 16),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: canAfford ? Colors.blueAccent : Colors.grey,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
-            ),
-            onPressed: canAfford ? () => player.repairItem(item['id']) : null,
-            child: Column(
-              children: [
-                const Text('إصلاح', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text('10 قطع', style: TextStyle(color: Colors.white.withValues(alpha:0.7), fontSize: 9)),
-              ],
-            ),
-          )
+          Column(
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: canAfford ? Colors.blueAccent : Colors.grey,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: canAfford ? () => player.repairItem(item['id']) : null,
+                child: const Text('إصلاح', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              const Text('10 قطع غيار', style: TextStyle(color: Colors.white38, fontSize: 9)),
+            ],
+          ),
         ],
       ),
     );
-  }
-
-  Color _getDurabilityColor(double val) {
-    if (val > 70) return Colors.green;
-    if (val > 30) return Colors.orange;
-    return Colors.red;
   }
 }

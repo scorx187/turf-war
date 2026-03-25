@@ -172,7 +172,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       return PrisonView(
         prisonReleaseTime: player.prisonReleaseTime,
         cash: player.cash,
-        onBailPaid: () { player.payBail(); setState(() { _activeArea = 'الخريطة'; _selectedIndex = 2; }); },
+        onBailPaid: () {
+          player.payBail();
+          // تم مسح الكود اللي يرجعك للخريطة إجبارياً
+          // الآن اللعبة بتخليك في نفس المكان اللي كنت فيه (مثل صفحة الجرائم)
+        },
       );
     }
     if (player.isHospitalized) {

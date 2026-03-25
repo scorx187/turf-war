@@ -396,7 +396,7 @@ class PlayerProvider with ChangeNotifier {
       syncCounter++;
 
       if (_heat > 0) {
-        _heat = max(0, _heat - 0.05);
+        _heat = max(0, _heat - 0.0278);
         localChanged = true;
       }
 

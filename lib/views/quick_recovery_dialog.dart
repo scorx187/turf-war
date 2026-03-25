@@ -2,75 +2,86 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 
-class PrisonView extends StatelessWidget {
-  final DateTime? prisonReleaseTime;
-  final int cash;
-  final VoidCallback onBailPaid;
+class QuickRecoveryDialog {
+  static void show(BuildContext context, String type, int missingAmount) {
+    bool isCourage = type == 'courage';
+    String itemName = isCourage ? 'قهوة مركزة ☕' : 'حقنة منشط 💉';
+    String itemId = isCourage ? 'coffee' : 'steroids';
+    int cost = 50;
 
-  const PrisonView({
-    super.key,
-    required this.prisonReleaseTime,
-    required this.cash,
-    required this.onBailPaid,
-  });
+    showDialog(
+      context: context,
+      builder: (context) {
+        // نستخدم Consumer عشان النافذة تتحدث فوراً إذا اشترى اللاعب أو استخدم
+        return Consumer<PlayerProvider>(
+          builder: (context, player, child) {
+            bool hasItem = (player.inventory[itemId] ?? 0) > 0;
 
-  @override
-  Widget build(BuildContext context) {
-    final player = Provider.of<PlayerProvider>(context);
-    int left = prisonReleaseTime != null
-        ? prisonReleaseTime!.difference(DateTime.now()).inSeconds
-        : 0;
-    if (left < 0) left = 0;
-
-    final int bailPrice = player.bailPrice;
-
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        margin: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.black54,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.redAccent, width: 2),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.lock, size: 80, color: Colors.grey),
-            const SizedBox(height: 10),
-            const Text('أنت الآن خلف القضبان!', 
-              style: TextStyle(color: Colors.redAccent, fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            Text(
-              'الوقت المتبقي: ${left ~/ 60}:${(left % 60).toString().padLeft(2, '0')}',
-              style: const TextStyle(color: Colors.amber, fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.money_off, color: Colors.white),
-                label: Text('دفع كفالة ($bailPrice كاش)', 
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.withValues(alpha: 0.8),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            return AlertDialog(
+              backgroundColor: Colors.grey[900],
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: isCourage ? Colors.orange : Colors.yellow, width: 2)
+              ),
+              title: Row(
+                children: [
+                  Icon(isCourage ? Icons.bolt : Icons.flash_on, color: isCourage ? Colors.orange : Colors.yellow, size: 28),
+                  const SizedBox(width: 10),
+                  Text(isCourage ? 'شجاعة غير كافية!' : 'طاقة غير كافية!', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Text(
+                'ينقصك $missingAmount ${isCourage ? 'شجاعة' : 'طاقة'} للقيام بهذه الجريمة.\n\nيمكنك استخدام $itemName لاستعادة المقياس بالكامل فوراً، أو الانتظار قليلاً.',
+                style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('إلغاء', style: TextStyle(color: Colors.white54)),
                 ),
-                onPressed: cash >= bailPrice ? onBailPaid : null,
-              ),
-            ),
-            if (cash < bailPrice)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text('تحتاج لـ $bailPrice كاش للخروج!', 
-                  style: const TextStyle(color: Colors.red, fontSize: 12)),
-              ),
-          ],
-        ),
-      ),
+                if (hasItem)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () {
+                      player.useItem(itemId);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('تم استخدام $itemName بنجاح! 🚀', style: const TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.green),
+                      );
+                    },
+                    child: Text('استخدام (لديك ${player.inventory[itemId]})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  )
+                else
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isCourage ? Colors.orange : Colors.yellow,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () {
+                      if (player.gold >= cost) {
+                        player.buyItem(itemId, cost, isConsumable: true, currency: 'gold');
+                        player.useItem(itemId);
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('تم شراء واستخدام $itemName بنجاح! 🚀', style: const TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.green),
+                        );
+                      } else {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('لا تملك ذهب كافي! تحتاج 50 ذهب.', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.redAccent),
+                        );
+                      }
+                    },
+                    child: Text('شراء واستخدام ($cost ذهب)', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
