@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/player_provider.dart';
+// [تعديل] استدعاء شاشة البروفايل الجديدة
+import 'player_profile_view.dart';
 
 class ChatView extends StatefulWidget {
   const ChatView({super.key});
@@ -29,71 +31,12 @@ class _ChatViewState extends State<ChatView> {
     _controller.clear();
   }
 
-  // [الدايموند 💎] دالة عرض الملف الشخصي عند الضغط على صورة اللاعب
-  void _showPlayerProfile(BuildContext context, String uid, String name) async {
-    final player = Provider.of<PlayerProvider>(context, listen: false);
-
-    // إظهار شاشة تحميل مؤقتة
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.amber)),
-    );
-
-    // جلب بيانات اللاعب من السيرفر
-    final data = await player.getPlayerById(uid);
-    Navigator.pop(context); // إغلاق التحميل
-
-    if (data == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا يمكن العثور على بيانات اللاعب!')));
-      return;
-    }
-
-    // عرض بيانات اللاعب
-    showDialog(
-        context: context,
-        builder: (c) => AlertDialog(
-          backgroundColor: Colors.grey[900],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Colors.amber, width: 2)),
-          title: Row(
-            children: [
-              const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.person, color: Colors.black)),
-              const SizedBox(width: 10),
-              Expanded(child: Text(data['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildStatRow('مستوى الساحة', '${data['arenaLevel'] ?? 1}', Icons.shield, Colors.redAccent),
-              _buildStatRow('مستوى الإجرام', '${data['crimeLevel'] ?? 1}', Icons.local_police, Colors.blueAccent),
-              _buildStatRow('مستوى العمل', '${data['workLevel'] ?? 1}', Icons.work, Colors.green),
-              _buildStatRow('العصابة', data['gangName'] ?? 'لا ينتمي لعصابة', Icons.group, Colors.orange),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-              onPressed: () => Navigator.pop(c),
-              child: const Text('إغلاق', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        )
-    );
-  }
-
-  Widget _buildStatRow(String label, String val, IconData icon, Color iconColor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: iconColor, size: 22),
-          const SizedBox(width: 10),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-          const Spacer(),
-          Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        ],
-      ),
+  // [الدايموند 💎] تحويل اللاعب لشاشة البروفايل الكاملة
+  void _openPlayerProfile(BuildContext context, String uid) {
+    // استخدمنا push لفتح شاشة كاملة تغطي الـ Bottom Navigation Bar
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => PlayerProfileView(targetUid: uid)),
     );
   }
 
@@ -104,35 +47,16 @@ class _ChatViewState extends State<ChatView> {
         Container(
           padding: const EdgeInsets.all(16),
           width: double.infinity,
-          decoration: const BoxDecoration(
-            color: Colors.black26,
-            border: Border(bottom: BorderSide(color: Colors.white10)),
-          ),
-          child: const Text(
-            'شات المدينة أونلاين 🌐',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
+          decoration: const BoxDecoration(color: Colors.black26, border: Border(bottom: BorderSide(color: Colors.white10))),
+          child: const Text('شات المدينة أونلاين 🌐', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
         ),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _firestore.collection('chat').orderBy('timestamp', descending: true).limit(50).snapshots(),
             builder: (context, snapshot) {
-
-              // [إصلاح التعليق اللانهائي] عرض الخطأ إن وجد لمعرفة السبب الحقيقي
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text('خطأ في الاتصال: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent), textAlign: TextAlign.center),
-                );
-              }
-
-              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator(color: Colors.amber));
-              }
-
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('لا توجد رسائل بعد...\nكن أول من يكتب في الشات!', style: TextStyle(color: Colors.white54), textAlign: TextAlign.center));
-              }
+              if (snapshot.hasError) return Center(child: Text('خطأ في الاتصال: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('لا توجد رسائل بعد...', style: TextStyle(color: Colors.white54)));
 
               final messages = snapshot.data!.docs;
               final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid;
@@ -149,51 +73,40 @@ class _ChatViewState extends State<ChatView> {
                   final String senderName = msg['user'] ?? 'مجهول';
 
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Directionality(
-                      // تثبيت الاتجاه لتنسيق أماكن الرسائل: رسائلك يمين والآخرين يسار
                       textDirection: TextDirection.ltr,
                       child: Row(
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (!isMe) _buildAvatar(senderUid, senderName, isVIP),
+                          if (!isMe) _buildAvatar(senderUid, isVIP),
                           if (!isMe) const SizedBox(width: 8),
 
-                          // صندوق الرسالة
                           Flexible(
                             child: Directionality(
-                              // محتوى الرسالة نفسه يكون من اليمين لليسار (عربي)
                               textDirection: TextDirection.rtl,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: isMe ? Colors.green.withValues(alpha: 0.2) : Colors.black45,
+                                  color: isMe ? const Color(0xFF1E3A2F) : const Color(0xFF2A2A2D),
                                   borderRadius: BorderRadius.only(
                                     topLeft: const Radius.circular(15),
                                     topRight: const Radius.circular(15),
-                                    // ذيل الرسالة يختلف حسب المرسل
                                     bottomLeft: isMe ? const Radius.circular(15) : Radius.zero,
                                     bottomRight: isMe ? Radius.zero : const Radius.circular(15),
                                   ),
-                                  border: Border.all(color: isMe ? Colors.green.withValues(alpha: 0.5) : Colors.white10),
+                                  border: Border.all(color: isMe ? Colors.green.withValues(alpha: 0.3) : Colors.white10),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       isMe ? 'أنت' : senderName,
-                                      style: TextStyle(
-                                          color: isMe ? Colors.greenAccent : (isVIP ? Colors.amber : Colors.white70),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12
-                                      ),
+                                      style: TextStyle(color: isMe ? Colors.greenAccent : (isVIP ? Colors.amber : Colors.white70), fontWeight: FontWeight.bold, fontSize: 13),
                                     ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      msg['message'] ?? '',
-                                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(msg['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.3)),
                                   ],
                                 ),
                               ),
@@ -201,7 +114,7 @@ class _ChatViewState extends State<ChatView> {
                           ),
 
                           if (isMe) const SizedBox(width: 8),
-                          if (isMe) _buildAvatar(senderUid, senderName, isVIP),
+                          if (isMe) _buildAvatar(senderUid, isVIP),
                         ],
                       ),
                     ),
@@ -211,9 +124,10 @@ class _ChatViewState extends State<ChatView> {
             },
           ),
         ),
+
         Container(
           padding: const EdgeInsets.all(10),
-          decoration: const BoxDecoration(color: Colors.black45),
+          decoration: const BoxDecoration(color: Color(0xFF1A1A1D), border: Border(top: BorderSide(color: Colors.white10))),
           child: Row(
             children: [
               Expanded(
@@ -225,19 +139,16 @@ class _ChatViewState extends State<ChatView> {
                     hintText: 'اكتب رسالة للجميع...',
                     hintStyle: const TextStyle(color: Colors.white24),
                     filled: true,
-                    fillColor: Colors.white10,
+                    fillColor: Colors.black45,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
               GestureDetector(
                 onTap: _sendMessage,
-                child: const CircleAvatar(
-                  backgroundColor: Colors.amber,
-                  child: Icon(Icons.send, color: Colors.black),
-                ),
+                child: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.send, color: Colors.black, size: 20)),
               ),
             ],
           ),
@@ -246,23 +157,14 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  // ويدجت منفصل لصورة اللاعب
-  Widget _buildAvatar(String uid, String name, bool isVIP) {
+  Widget _buildAvatar(String uid, bool isVIP) {
     return GestureDetector(
-      onTap: () => _showPlayerProfile(context, uid, name),
+      onTap: () => _openPlayerProfile(context, uid),
       child: Container(
-        width: 35,
-        height: 35,
-        decoration: BoxDecoration(
-          color: isVIP ? Colors.amber : Colors.grey[800],
-          shape: BoxShape.circle,
-          border: Border.all(color: isVIP ? Colors.orange : Colors.transparent, width: 2),
-        ),
-        child: Icon(
-          isVIP ? Icons.workspace_premium : Icons.person,
-          color: isVIP ? Colors.black : Colors.white54,
-          size: 20,
-        ),
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(color: isVIP ? Colors.amber : Colors.grey[800], shape: BoxShape.circle, border: Border.all(color: isVIP ? Colors.orange : Colors.transparent, width: 2)),
+        child: Icon(isVIP ? Icons.workspace_premium : Icons.person, color: isVIP ? Colors.black : Colors.white54, size: 22),
       ),
     );
   }
