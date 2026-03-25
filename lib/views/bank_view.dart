@@ -47,7 +47,7 @@ class _BankViewState extends State<BankView> {
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
-    
+
     return DefaultTabController(
       length: 4,
       child: Column(
@@ -96,12 +96,10 @@ class _BankViewState extends State<BankView> {
     int withAmt = _withdrawSliderValue.toInt();
     int lockAmt = _lockedInvestSliderValue.toInt();
 
-    int currentLoanFee = (player.loanAmount * 0.05).floor();
-
     return SingleChildScrollView(
       child: Column(
         children: [
-          _buildFinancialReportCard(currentLoanFee, player),
+          _buildFinancialReportCard(player),
           _buildBalanceCard(player),
           _buildLockedInvestmentSection(player, lockAmt),
 
@@ -131,7 +129,7 @@ class _BankViewState extends State<BankView> {
               }
             },
           ),
-          
+
           _buildBankActionCard(
             title: 'سحب كاش',
             sliderValue: _withdrawSliderValue,
@@ -163,14 +161,14 @@ class _BankViewState extends State<BankView> {
     );
   }
 
-  Widget _buildFinancialReportCard(int fee, PlayerProvider player) {
+  Widget _buildFinancialReportCard(PlayerProvider player) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05), 
-        borderRadius: BorderRadius.circular(15), 
-        border: Border.all(color: Colors.white10)
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.white10)
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +177,7 @@ class _BankViewState extends State<BankView> {
           const SizedBox(height: 10),
           _buildReportRow('السمعة الائتمانية:', '${player.creditScore}', Colors.blueAccent),
           _buildReportRow('حد القرض المتاح:', '${player.maxLoanLimit}', Colors.amber),
-          _buildReportRow('فوائد القروض الحالية:', '-$fee', Colors.redAccent),
+          _buildReportRow('إجمالي الديون الحالية:', '-${player.loanAmount}', Colors.redAccent),
           const Divider(color: Colors.white10),
           _buildReportRow('أرباح الاستثمار المتوقعة:', '+${player.lockedProfits}', Colors.greenAccent),
         ],
@@ -221,9 +219,9 @@ class _BankViewState extends State<BankView> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isLocked ? Colors.cyan.withValues(alpha: 0.1) : Colors.black26,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isLocked ? Colors.cyan : Colors.white10)
+          color: isLocked ? Colors.cyan.withValues(alpha: 0.1) : Colors.black26,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: isLocked ? Colors.cyan : Colors.white10)
       ),
       child: Column(
         children: [
@@ -270,9 +268,9 @@ class _BankViewState extends State<BankView> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: color.withValues(alpha: 0.2),
-          side: BorderSide(color: color),
-          minimumSize: const Size(double.infinity, 40)
+            backgroundColor: color.withValues(alpha: 0.2),
+            side: BorderSide(color: color),
+            minimumSize: const Size(double.infinity, 40)
         ),
         onPressed: _lockedInvestSliderValue > 0 ? () {
           player.startLockedInvestment(_lockedInvestSliderValue.toInt(), mins, rate);
@@ -385,10 +383,25 @@ class _BankViewState extends State<BankView> {
     int takeAmt = _loanTakeSliderValue.toInt();
     int repayAmt = _loanRepaySliderValue.toInt();
     int remainingLimit = player.maxLoanLimit - player.loanAmount;
-    
-    // حساب الرسوم والمبلغ الصافي
+
     int adminFee = (takeAmt * 0.05).floor();
     int netReceive = takeAmt - adminFee;
+
+    // [الدايموند 💎] معالجة حالة السداد بناءً على توقيت القرض
+    bool canRepay = player.canRepayLoan();
+    String repayInfoText = 'سداد الديون يزيد من سمعتك (+10)';
+
+    if (!canRepay && player.loanTime != null) {
+      final diff = DateTime.now().difference(player.loanTime!);
+      final int remSec = 300 - diff.inSeconds; // 5 دقائق = 300 ثانية
+      if (remSec > 0) {
+        int m = remSec ~/ 60;
+        int s = remSec % 60;
+        repayInfoText = 'يُسمح بالسداد بعد: $m:${s.toString().padLeft(2, '0')} ⏳';
+      } else {
+        canRepay = true; // احتياطاً في حال اللوب تأخر
+      }
+    }
 
     return SingleChildScrollView(
       child: Column(
@@ -410,9 +423,9 @@ class _BankViewState extends State<BankView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.blueAccent.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10), 
-                        border: Border.all(color: Colors.blueAccent)
+                          color: Colors.blueAccent.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.blueAccent)
                       ),
                       child: Text('السمعة: ${player.creditScore}', style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12)),
                     )
@@ -444,7 +457,8 @@ class _BankViewState extends State<BankView> {
               setState(() => _loanTakeSliderValue = v.toDouble());
             },
             actionText: 'استلام $netReceive',
-            infoText: 'الرسوم الإدارية: $adminFee (5%)',
+            // [تعديل] توضيح رسوم التأخير للاعب
+            infoText: 'رسوم: $adminFee | غرامة تأخير: 10% كل ساعتين',
             buttonColor: Colors.redAccent,
             onPressed: () {
               if (takeAmt > 0) {
@@ -455,8 +469,9 @@ class _BankViewState extends State<BankView> {
           ),
           _buildBankActionCard(
             title: 'سداد القرض',
-            sliderValue: _loanRepaySliderValue,
-            maxValue: (player.cash < player.loanAmount ? player.cash : player.loanAmount).toDouble(),
+            // [تعديل] تعطيل الشريط إذا كان لا يمكن السداد
+            sliderValue: canRepay ? _loanRepaySliderValue : 0.0,
+            maxValue: canRepay ? (player.cash < player.loanAmount ? player.cash : player.loanAmount).toDouble() : 0.0,
             controller: _loanRepayController,
             onSliderChanged: (val) {
               setState(() {
@@ -471,14 +486,16 @@ class _BankViewState extends State<BankView> {
               setState(() => _loanRepaySliderValue = v.toDouble());
             },
             actionText: 'سداد $repayAmt',
-            infoText: 'السداد بعد دقيقة يرفع السمعة بمقدار 2+',
-            buttonColor: Colors.orange,
-            onPressed: () {
+            // عرض رسالة المنع مع العداد
+            infoText: repayInfoText,
+            buttonColor: canRepay ? Colors.orange : Colors.grey,
+            // قفل الزر بالكامل إذا كان لا يمكن السداد
+            onPressed: canRepay ? () {
               if (repayAmt > 0) {
                 player.repayLoan(repayAmt);
                 setState(() { _loanRepaySliderValue = 0; _loanRepayController.text = '0'; });
               }
-            },
+            } : null,
           ),
         ],
       ),
@@ -527,8 +544,8 @@ class _BankViewState extends State<BankView> {
           color: Colors.black26,
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: ListTile(
-            leading: Icon(tx.isPositive ? Icons.add_circle : Icons.remove_circle, 
-                        color: tx.isPositive ? Colors.green : Colors.red),
+            leading: Icon(tx.isPositive ? Icons.add_circle : Icons.remove_circle,
+                color: tx.isPositive ? Colors.green : Colors.red),
             title: Text(tx.title, style: const TextStyle(color: Colors.white, fontSize: 14)),
             subtitle: Text(timeStr, style: const TextStyle(color: Colors.white54, fontSize: 12)),
             trailing: Text(
@@ -551,7 +568,7 @@ class _BankViewState extends State<BankView> {
     required String actionText,
     required String infoText,
     required Color buttonColor,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     double safeMax = maxValue > 0 ? maxValue : 1.0;
     double safeValue = sliderValue.clamp(0.0, safeMax);
@@ -575,7 +592,8 @@ class _BankViewState extends State<BankView> {
                     max: safeMax,
                     divisions: safeMax.toInt() > 0 ? safeMax.toInt() : 1,
                     activeColor: buttonColor,
-                    onChanged: maxValue > 0 ? onSliderChanged : null),
+                    // تعطيل السلايدر إذا كان الزر مقفولاً
+                    onChanged: (maxValue > 0 && onPressed != null) ? onSliderChanged : null),
               ),
               SizedBox(
                 width: 70,
@@ -585,6 +603,8 @@ class _BankViewState extends State<BankView> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(8), border: OutlineInputBorder()),
+                  // تعطيل الإدخال إذا كان الزر مقفولاً
+                  enabled: onPressed != null,
                   onChanged: onTextChanged,
                 ),
               ),
@@ -593,7 +613,7 @@ class _BankViewState extends State<BankView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(infoText, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              Text(infoText, style: TextStyle(color: onPressed != null ? Colors.white54 : Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
               Text(actionText, style: TextStyle(color: buttonColor, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -602,8 +622,12 @@ class _BankViewState extends State<BankView> {
             width: double.infinity,
             height: 45,
             child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: buttonColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                onPressed: maxValue > 0 && sliderValue > 0 ? onPressed : null,
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: buttonColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3)
+                ),
+                onPressed: (maxValue > 0 && sliderValue > 0 && onPressed != null) ? onPressed : null,
                 child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold))),
           ),
         ],

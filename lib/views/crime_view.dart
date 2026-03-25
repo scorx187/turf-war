@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
-// الآن فلاتر بيقرأ الـ Dialog من مكانه الصحيح 100%
-import 'quick_recovery_dialog.dart';
+import '../widgets/quick_recovery_dialog.dart'; // تأكد إن مسار الاستدعاء يطابق اللي عندك
 
 class CrimeView extends StatelessWidget {
   final int courage;
@@ -67,17 +66,24 @@ class CrimeView extends StatelessWidget {
 
               if (player.equippedMaskId != null) finalFailChance -= 0.1;
 
+              // [الدايموند 💎] التعديل المنطقي لفائدة العتاد الخربان
               if (player.equippedCrimeToolId != null) {
                 double toolDurability = player.getItemDurability(player.equippedCrimeToolId!);
+                double toolBonus = 0.0;
+
+                // تحديد الفائدة الأساسية للأداة
+                if (player.equippedCrimeToolId == 'emp_device') toolBonus = 0.30;
+                else if (player.equippedCrimeToolId == 'thermite' && crime['name'] == 'سطو على البنك') toolBonus = 0.25;
+                else if (player.equippedCrimeToolId == 'slim_jim' && crime['name'] == 'سرقة سيارة') toolBonus = 0.15;
+                else if (player.equippedCrimeToolId == 'lockpick' && crime['name'] == 'سطو على فيلا') toolBonus = 0.15;
+                else toolBonus = 0.10;
+
                 if (toolDurability >= 10) {
-                  if (player.equippedCrimeToolId == 'emp_device') {
-                    finalFailChance -= 0.30;
-                  } else if (player.equippedCrimeToolId == 'thermite' && crime['name'] == 'سطو على البنك') finalFailChance -= 0.25;
-                  else if (player.equippedCrimeToolId == 'slim_jim' && crime['name'] == 'سرقة سيارة') finalFailChance -= 0.15;
-                  else if (player.equippedCrimeToolId == 'lockpick' && crime['name'] == 'سطو على فيلا') finalFailChance -= 0.15;
-                  else finalFailChance -= 0.10;
+                  // الأداة سليمة: تعطي الخصم كامل
+                  finalFailChance -= toolBonus;
                 } else {
-                  finalFailChance += 0.20;
+                  // الأداة معطلة: تعطي (نصف) الخصم، وتظل أفضل من عدم وجود أداة!
+                  finalFailChance -= (toolBonus / 2);
                 }
               }
 
@@ -212,8 +218,9 @@ class CrimeView extends StatelessWidget {
       return;
     }
 
+    // [تعديل] تنبيه يوضح أن الأداة انخفضت كفاءتها للنصف
     if (player.equippedCrimeToolId != null && player.getItemDurability(player.equippedCrimeToolId!) < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ أداة الجريمة معطلة وتحتاج إصلاح! نسبة الفشل لديك مرتفعة.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ أداة الجريمة معطلة! كفاءتها انخفضت للنصف وتحتاج إصلاح.')));
     }
 
     double crimeHeat = crime['heat'] as double;

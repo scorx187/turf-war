@@ -122,6 +122,23 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
+    // [الدايموند 💎] شاشة تحميل لمنع التصفير!
+    if (player.isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.redAccent),
+              SizedBox(height: 20),
+              Text('جاري الاتصال بالعالم السفلي...', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[900],
       body: SafeArea(

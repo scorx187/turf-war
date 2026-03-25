@@ -17,21 +17,38 @@ class ArenaView extends StatefulWidget {
 class _ArenaViewState extends State<ArenaView> {
   String battleLog = "استعد للقتال! كلما فزت زادت قوة الخصوم.";
   bool isFighting = false;
-  bool isX2Speed = false; // حالة السرعة المضاعفة
+  bool isX2Speed = false;
   Map<String, dynamic>? currentEnemy;
 
+  // [جديد] التوزيع العشوائي المفرط لنقاط الخصم وتحديد الحد الأقصى
   void generateEnemy(int arenaLevel) {
     Random r = Random();
-    double totalStatPoints = 40.0 + (arenaLevel * 5);
-    List<double> stats = [0, 0, 0, 0];
-    for (int i = 0; i < totalStatPoints.toInt(); i++) {
-      stats[r.nextInt(4)] += 1.0;
+
+    // الحد الأقصى لصعوبة البوتات هو مستوى 100
+    int effectiveLevel = min(100, arenaLevel);
+
+    // إضافة نسبة حظ (Variance) لزيادة أو إنقاص القوة الإجمالية بنسبة 30%
+    double variance = 0.7 + (r.nextDouble() * 0.6);
+    int totalStatPoints = ((40 + (effectiveLevel * 8)) * variance).toInt();
+
+    List<double> stats = [10.0, 10.0, 10.0, 10.0];
+
+    // توزيع النقاط بشكل وحشي وعشوائي (ممكن طاقة كاملة تروح للهجوم وتترك الدفاع)
+    while (totalStatPoints > 0) {
+      int index = r.nextInt(4);
+      int chunk = r.nextInt(totalStatPoints > 15 ? 15 : totalStatPoints) + 1;
+      stats[index] += chunk;
+      totalStatPoints -= chunk;
     }
+
+    // صحة عشوائية تتأثر بمستوى الساحة
+    int hpVariance = r.nextInt(50 * effectiveLevel + 1) - (25 * effectiveLevel);
+    int hp = max(50, 100 + (effectiveLevel * 30) + hpVariance);
 
     setState(() {
       currentEnemy = {
-        'name': 'خصم مستوى $arenaLevel',
-        'health': 100 + (arenaLevel * 25),
+        'name': 'مقاتل الساحة (مستوى $effectiveLevel)',
+        'health': hp,
         'strength': stats[0],
         'defense': stats[1],
         'skill': stats[2],
@@ -47,7 +64,7 @@ class _ArenaViewState extends State<ArenaView> {
     }
 
     if (currentEnemy == null) generateEnemy(player.arenaLevel);
-    
+
     setState(() {
       isFighting = true;
       battleLog = "🥊 بدأت المعركة ضد ${currentEnemy!['name']}...\n";
@@ -86,11 +103,10 @@ class _ArenaViewState extends State<ArenaView> {
       }
 
       round++;
-      
-      // تبطيء سرعة القتال، واستخدام الماعمل X2 إذا كان مفعلاً
-      int delayMs = isX2Speed ? 400 : 800; 
+
+      int delayMs = isX2Speed ? 400 : 800;
       await Future.delayed(Duration(milliseconds: delayMs));
-      
+
       if (mounted) {
         setState(() => battleLog = log.toString());
       }
@@ -101,10 +117,10 @@ class _ArenaViewState extends State<ArenaView> {
       player.incrementArenaLevel();
       player.addCash(500 * player.arenaLevel, reason: "جائزة الساحة");
       player.setHealth(playerHP);
-      currentEnemy = null;
+      currentEnemy = null; // تفريغ العدو لتوليد عدو جديد عشوائي المعركة القادمة
     } else if (playerHP <= 0) {
       log.writeln("\n💀 هزيمة مرة... تم نقلك للمستشفى.");
-      player.setHealth(0); 
+      player.setHealth(0);
     } else {
       log.writeln("\n⏱️ تعادل! انتهى الوقت.");
       player.setHealth(playerHP);
@@ -135,8 +151,11 @@ class _ArenaViewState extends State<ArenaView> {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
     final audio = Provider.of<AudioProvider>(context, listen: false);
-    
-    if (currentEnemy == null && !isFighting) generateEnemy(player.arenaLevel);
+
+    if (currentEnemy == null && !isFighting) {
+      // استخدام Future.microtask لتجنب استدعاء setState أثناء الـ Build
+      Future.microtask(() => generateEnemy(player.arenaLevel));
+    }
 
     return Column(
       children: [
@@ -148,7 +167,6 @@ class _ArenaViewState extends State<ArenaView> {
               const Expanded(
                 child: Text('ساحة القتال ⚔️', style: TextStyle(color: Colors.redAccent, fontSize: 24, fontWeight: FontWeight.bold)),
               ),
-              // زر السرعة X2
               if (!isFighting)
                 TextButton(
                   style: TextButton.styleFrom(
@@ -161,8 +179,8 @@ class _ArenaViewState extends State<ArenaView> {
                     });
                   },
                   child: Text(
-                    "X2", 
-                    style: TextStyle(color: isX2Speed ? Colors.black : Colors.white, fontWeight: FontWeight.bold)
+                      "X2",
+                      style: TextStyle(color: isX2Speed ? Colors.black : Colors.white, fontWeight: FontWeight.bold)
                   ),
                 ),
             ],
