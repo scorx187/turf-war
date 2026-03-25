@@ -1,12 +1,12 @@
-import 'dart:typed_data'; // ضروري لـ Uint8List
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
-import 'private_chat_view.dart';
 import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
+import 'private_chat_view.dart';
 
 class PlayerProfileView extends StatefulWidget {
   final String targetUid;
@@ -23,11 +23,13 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
   Map<String, dynamic>? playerData;
   bool isLoading = true;
 
-  // [تعديل] متغيرات لمنع وميض الصور (Cache)
   String? _lastBgStr;
   Uint8List? _bgBytes;
   String? _lastProfileStr;
   Uint8List? _profileBytes;
+
+  // متغير للتحكم في التبويب الحالي (0: الأصدقاء، 1: الشات الخاص)
+  int _currentTab = 1;
 
   @override
   void initState() {
@@ -46,7 +48,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     }
   }
 
-  // دالة تحويل الخلفية لـ Bytes بدون وميض
   Uint8List? _getBgBytes(String? base64Str) {
     if (base64Str == null || base64Str.isEmpty) return null;
     if (base64Str != _lastBgStr) {
@@ -56,7 +57,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     return _bgBytes;
   }
 
-  // دالة تحويل الصورة الشخصية لـ Bytes بدون وميض
   Uint8List? _getProfileBytes(String? base64Str) {
     if (base64Str == null || base64Str.isEmpty) return null;
     if (base64Str != _lastProfileStr) {
@@ -72,15 +72,12 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
       final base64Str = base64Encode(bytes);
-
-      // [تحديث فوري للواجهة قبل انتظار الرفع]
       setState(() {
         _profileBytes = bytes;
         _lastProfileStr = base64Str;
         if (playerData != null) playerData!['profilePicUrl'] = base64Str;
       });
-
-      player.updateProfilePic(base64Str); // يتم الرفع بالخلفية بدون انتظار
+      player.updateProfilePic(base64Str);
     }
   }
 
@@ -141,8 +138,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
     bool isMe = widget.targetUid == player.uid;
     bool isVIP = playerData!['isVIP'] == true;
-
-    // جلب الـ Bytes بدلاً من قراءة السترينج المباشر لكي نمنع الوميض
     Uint8List? profilePicData = _getProfileBytes(isMe ? player.profilePicUrl : playerData!['profilePicUrl']);
     Uint8List? backgroundPicData = _getBgBytes(isMe ? player.backgroundPicUrl : playerData!['backgroundPicUrl']);
 
@@ -159,11 +154,11 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         children: [
           const SizedBox(height: 20),
 
-          // 1. الترويسة العلوية
+          // 1. الترويسة
           GestureDetector(
             onLongPress: isMe ? () => _pickBackgroundImage(player) : null,
             child: Directionality(
-              textDirection: TextDirection.rtl, // [تعديل] نثبت الاتجاه RTL لتصبح الصورة يمين والاسم يسار
+              textDirection: TextDirection.rtl,
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 15),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
@@ -171,21 +166,11 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                   color: const Color(0xFF1E1E1E),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: isVIP ? Colors.amber.withValues(alpha: 0.4) : Colors.white10),
-                  image: backgroundPicData != null
-                      ? DecorationImage(
-                    image: MemoryImage(backgroundPicData),
-                    fit: BoxFit.cover,
-                    colorFilter: ColorFilter.mode(
-                      Colors.black.withValues(alpha: 0.5),
-                      BlendMode.darken,
-                    ),
-                  )
-                      : null,
+                  image: backgroundPicData != null ? DecorationImage(image: MemoryImage(backgroundPicData), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.5), BlendMode.darken)) : null,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // الصورة مع مؤشر الاتصال والـ VIP (أصبحت الآن على اليمين بسبب RTL)
                     GestureDetector(
                       onTap: isMe ? () => _pickImage(player) : null,
                       child: Stack(
@@ -193,69 +178,26 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                                color: const Color(0xFF212121),
-                                shape: BoxShape.circle,
-                                border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null,
-                                boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10)]
-                            ),
-                            child: CircleAvatar(
-                              radius: 40,
-                              backgroundColor: Colors.grey[800],
-                              backgroundImage: profilePicData != null ? MemoryImage(profilePicData) : null,
-                              child: profilePicData == null
-                                  ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54)
-                                  : null,
-                            ),
+                            decoration: BoxDecoration(color: const Color(0xFF212121), shape: BoxShape.circle, border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null, boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10)]),
+                            child: CircleAvatar(radius: 40, backgroundColor: Colors.grey[800], backgroundImage: profilePicData != null ? MemoryImage(profilePicData) : null, child: profilePicData == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54) : null),
                           ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0, // تغيّر لليمين لأننا في RTL
-                            child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Color(0xFF1A1A1D), shape: BoxShape.circle), child: CircleAvatar(radius: 7, backgroundColor: isOnline ? Colors.greenAccent : Colors.redAccent)),
-                          ),
-                          if (isMe)
-                            const Positioned(
-                              top: 0,
-                              left: 0,
-                              child: CircleAvatar(radius: 12, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 14, color: Colors.black)),
-                            )
+                          Positioned(bottom: 0, right: 0, child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Color(0xFF1A1A1D), shape: BoxShape.circle), child: CircleAvatar(radius: 7, backgroundColor: isOnline ? Colors.greenAccent : Colors.redAccent))),
+                          if (isMe) const Positioned(top: 0, left: 0, child: CircleAvatar(radius: 12, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 14, color: Colors.black)))
                         ],
                       ),
                     ),
                     const SizedBox(width: 15),
-
-                    // الاسم ومعلومات العصابة (أصبحت الآن على اليسار)
                     Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start, // نحاذيها للبداية
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 24),
-                              if (isVIP) const SizedBox(width: 5),
-                              Flexible(child: Text(playerData!['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]), overflow: TextOverflow.ellipsis)),
-                            ],
-                          ),
+                          Row(children: [if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 24), if (isVIP) const SizedBox(width: 5), Flexible(child: Text(playerData!['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]), overflow: TextOverflow.ellipsis))]),
                           const SizedBox(height: 5),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withValues(alpha: 0.5))),
-                            child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                          ),
+                          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withValues(alpha: 0.5))), child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))),
                         ],
                       ),
                     ),
-
-                    // أيقونة تعديل الخلفية في أقصى اليسار
-                    if (isMe)
-                      GestureDetector(
-                        onTap: () => _pickBackgroundImage(player),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle, border: Border.all(color: Colors.white24)),
-                          child: const Icon(Icons.wallpaper, color: Colors.white, size: 18),
-                        ),
-                      ),
+                    if (isMe) GestureDetector(onTap: () => _pickBackgroundImage(player), child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle, border: Border.all(color: Colors.white24)), child: const Icon(Icons.wallpaper, color: Colors.white, size: 18))),
                   ],
                 ),
               ),
@@ -274,14 +216,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (isMe) const Icon(Icons.edit, color: Colors.amber, size: 16),
-                      if (isMe) const SizedBox(width: 5),
-                      const Text('البايو (الوصف):', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                    ],
-                  ),
+                  Row(mainAxisAlignment: MainAxisAlignment.end, children: [if (isMe) const Icon(Icons.edit, color: Colors.amber, size: 16), if (isMe) const SizedBox(width: 5), const Text('البايو (الوصف):', style: TextStyle(color: Colors.white54, fontSize: 12))]),
                   const SizedBox(height: 10),
                   Text(playerData!['bio'] ?? 'لا يوجد وصف حالياً...', style: const TextStyle(color: Colors.white, fontSize: 15, fontStyle: FontStyle.italic), textAlign: TextAlign.right),
                 ],
@@ -290,11 +225,11 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
           ),
           const SizedBox(height: 25),
 
-          // 3. الإحصائيات السريعة
+          // 3. الإحصائيات
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Directionality(
-              textDirection: TextDirection.rtl, // توحيد الاتجاه
+              textDirection: TextDirection.rtl,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -308,45 +243,180 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
           ),
           const SizedBox(height: 30),
 
-          // 4. القوائم أو الأزرار
+          // 4. أزرار التفاعل أو تبويبات الحساب الشخصي
           if (!isMe)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Wrap(
                 spacing: 15, runSpacing: 15, alignment: WrapAlignment.center,
                 children: [
-                  _buildActionBtn(Icons.person_add, 'إضافة', Colors.blue, () { }),
+                  _buildActionBtn(Icons.person_add, 'إضافة', Colors.blue, () {}),
                   _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => PrivateChatView(
-                          targetUid: widget.targetUid,
-                          targetName: playerData!['playerName'] ?? 'مجهول',
-                          targetPicUrl: playerData!['profilePicUrl'],
-                        ))
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatView(targetUid: widget.targetUid, targetName: playerData!['playerName'] ?? 'مجهول', targetPicUrl: playerData!['profilePicUrl'])));
                   }),
-                  _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () { }),
-                  _buildActionBtn(Icons.attach_money, 'تحويل', Colors.amber, () { }),
-                  _buildActionBtn(Icons.group, 'العصابة', Colors.deepPurpleAccent, () { }),
-                  _buildActionBtn(Icons.card_giftcard, 'هدية', Colors.pinkAccent, () { }),
-                  _buildActionBtn(Icons.favorite, 'زواج', Colors.redAccent, () { }),
-                  _buildActionBtn(Icons.block, 'حظر', Colors.grey, () { }),
+                  _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () {}),
+                  _buildActionBtn(Icons.attach_money, 'تحويل', Colors.amber, () {}),
+                  _buildActionBtn(Icons.group, 'العصابة', Colors.deepPurpleAccent, () {}),
+                  _buildActionBtn(Icons.card_giftcard, 'هدية', Colors.pinkAccent, () {}),
+                  _buildActionBtn(Icons.favorite, 'زواج', Colors.redAccent, () {}),
+                  _buildActionBtn(Icons.block, 'حظر', Colors.grey, () {}),
                 ],
               ),
             )
           else ...[
-            Container(margin: const EdgeInsets.symmetric(horizontal: 20), padding: const EdgeInsets.all(25), width: double.infinity, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.amber.withValues(alpha: 0.3))), child: Center(child: Text(widget.profileTabIndex == 0 ? "قائمة الأصدقاء ستظهر هنا قريباً 👥" : widget.profileTabIndex == 1 ? "شجرة المهارات ستظهر هنا قريباً 🧠" : "مستودع التسليح سيظهر هنا قريباً 🔫", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16), textAlign: TextAlign.center))),
+            // [التبويبات: الأصدقاء / الشات الخاص]
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Row(
+                  children: [
+                    Expanded(child: _buildTabBtn('الأصدقاء', Icons.people, 0)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance.collection('private_chats').where('participants', arrayContains: player.uid).snapshots(),
+                        builder: (context, snapshot) {
+                          int totalUnreadChats = 0;
+                          if (snapshot.hasData) {
+                            for (var doc in snapshot.data!.docs) {
+                              final data = doc.data() as Map<String, dynamic>;
+                              if ((data['unread_${player.uid}'] ?? 0) > 0) totalUnreadChats++;
+                            }
+                          }
+                          return _buildTabBtn('الشات الخاص', Icons.chat, 1, badgeCount: totalUnreadChats);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+
+            // محتوى التبويب المختار
+            if (_currentTab == 0)
+              Container(margin: const EdgeInsets.symmetric(horizontal: 20), padding: const EdgeInsets.all(25), width: double.infinity, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: const Center(child: Text("قائمة الأصدقاء ستظهر هنا قريباً 👥", style: TextStyle(color: Colors.white54, fontSize: 16), textAlign: TextAlign.center)))
+            else if (_currentTab == 1)
+              _buildChatList(player.uid!), // استدعاء قائمة المحادثات الخاصة
+
             const SizedBox(height: 20),
             if (player.heat > 0) Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha:0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent.withValues(alpha:0.3))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.local_police, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text("مستوى الملاحقة", style: TextStyle(color: Colors.white70))]), Text("${player.heat.toInt()}%", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))])),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: [ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: audio.isMuted ? Colors.redAccent.withValues(alpha:0.2) : Colors.green.withValues(alpha:0.2), side: BorderSide(color: audio.isMuted ? Colors.redAccent : Colors.green), minimumSize: const Size(double.infinity, 50)), onPressed: () => audio.toggleMute(), icon: Icon(audio.isMuted ? Icons.volume_off : Icons.volume_up, color: audio.isMuted ? Colors.redAccent : Colors.green), label: Text(audio.isMuted ? "تشغيل الصوت" : "كتم الصوت", style: TextStyle(color: audio.isMuted ? Colors.redAccent : Colors.green))), const SizedBox(height: 15), ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withValues(alpha:0.2), side: const BorderSide(color: Colors.red), minimumSize: const Size(double.infinity, 50)), onPressed: () { audio.playEffect('click.mp3'); _showResetConfirmation(player); }, icon: const Icon(Icons.delete_forever, color: Colors.red), label: const Text("مسح البيانات", style: TextStyle(color: Colors.red)))])),
           ],
-
           const SizedBox(height: 30),
-
-          // 5. زر الرجوع
           Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(left: 20, bottom: 30), child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent.shade700, padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), icon: const Icon(Icons.arrow_back, color: Colors.white), label: const Text('رجوع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), onPressed: widget.onBack ?? () => Navigator.pop(context)))),
         ],
+      ),
+    );
+  }
+
+  // تصميم زر التبويب (الأصدقاء / الشات) مع دائرة التنبيهات
+  Widget _buildTabBtn(String title, IconData icon, int index, {int badgeCount = 0}) {
+    bool isSelected = _currentTab == index;
+    return GestureDetector(
+      onTap: () => setState(() => _currentTab = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.amber.withValues(alpha: 0.2) : Colors.black45,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSelected ? Colors.amber : Colors.white10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: isSelected ? Colors.amber : Colors.white54, size: 20),
+            const SizedBox(width: 8),
+            Text(title, style: TextStyle(color: isSelected ? Colors.amber : Colors.white54, fontWeight: FontWeight.bold)),
+            if (badgeCount > 0) ...[
+              const SizedBox(width: 8),
+              Container(padding: const EdgeInsets.all(6), decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle), child: Text('$badgeCount', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  // عرض قائمة المحادثات (بترتيب برمجي لتجنب خطأ Firebase Index)
+  Widget _buildChatList(String myUid) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      height: 300,
+      decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
+      child: StreamBuilder<QuerySnapshot>(
+        // [تعديل هام] أزلنا orderBy من هنا حتى لا تطلب Firebase إنشاء Index إضافي
+        stream: FirebaseFirestore.instance.collection('private_chats').where('participants', arrayContains: myUid).snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
+          if (snapshot.data!.docs.isEmpty) return const Center(child: Text("لا توجد رسائل خاصة", style: TextStyle(color: Colors.white54)));
+
+          // [تعديل هام] الترتيب من الأحدث للأقدم يتم جدولته برمجياً (لتجنب الأخطاء)
+          final chatDocs = snapshot.data!.docs.toList();
+          chatDocs.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aTime = aData['timestamp'] as Timestamp?;
+            final bTime = bData['timestamp'] as Timestamp?;
+            if (aTime == null && bTime == null) return 0;
+            if (aTime == null) return 1;
+            if (bTime == null) return -1;
+            return bTime.compareTo(aTime); // الأحدث أولاً
+          });
+
+          return ListView.builder(
+            itemCount: chatDocs.length,
+            itemBuilder: (context, index) {
+              final chatData = chatDocs[index].data() as Map<String, dynamic>;
+              List parts = chatData['participants'] ?? [];
+              String targetUid = parts.firstWhere((id) => id != myUid, orElse: () => '');
+              int unreadCount = chatData['unread_$myUid'] ?? 0;
+              String lastMessage = chatData['lastMessage'] ?? '';
+
+              if (targetUid.isEmpty) return const SizedBox();
+
+              return FutureBuilder<Map<String, dynamic>?>(
+                future: Provider.of<PlayerProvider>(context, listen: false).getPlayerById(targetUid),
+                builder: (context, userSnap) {
+                  if (!userSnap.hasData) return const SizedBox();
+                  final targetData = userSnap.data!;
+                  String targetName = targetData['playerName'] ?? 'مجهول';
+                  String? targetPic = targetData['profilePicUrl'];
+
+                  return Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: ListTile(
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatView(targetUid: targetUid, targetName: targetName, targetPicUrl: targetPic)));
+                      },
+                      leading: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          CircleAvatar(backgroundColor: Colors.grey[800], backgroundImage: targetPic != null ? MemoryImage(base64Decode(targetPic)) : null, child: targetPic == null ? const Icon(Icons.person, color: Colors.white54) : null),
+                          // إظهار عدد الرسائل على أقصى يسار الصورة
+                          if (unreadCount > 0)
+                            Positioned(
+                                top: -5,
+                                left: -5,
+                                child: Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                                    child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))
+                                )
+                            ),
+                        ],
+                      ),
+                      title: Text(targetName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      subtitle: Text(lastMessage, style: TextStyle(color: unreadCount > 0 ? Colors.white : Colors.white54, fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
       ),
     );
   }

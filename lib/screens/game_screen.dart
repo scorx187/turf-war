@@ -160,7 +160,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   Widget _buildMainContent(PlayerProvider player) {
     if (_selectedIndex == 0) return const InventoryView();
-    if (_selectedIndex == 1) return const ChatView();
+    if (_selectedIndex == 1) return ChatView();
     if (_selectedIndex == 3) {
       return CrimeView(
         courage: player.courage, crimeSuccessCounts: player.crimeSuccessCounts,
