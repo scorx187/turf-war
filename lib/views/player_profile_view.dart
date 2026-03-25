@@ -23,11 +23,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
   Map<String, dynamic>? playerData;
   bool isLoading = true;
 
-  String? _lastBgStr;
-  Uint8List? _bgBytes;
-  String? _lastProfileStr;
-  Uint8List? _profileBytes;
-
   @override
   void initState() {
     super.initState();
@@ -36,10 +31,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
   Future<void> _loadData() async {
     final player = Provider.of<PlayerProvider>(context, listen: false);
-
-    // [تعديل هام] مسح الكاش للاعب الذي ندخل بروفايله الآن لضمان جلب أحدث بياناته
-    player.clearPlayerCache(widget.targetUid);
-
     final data = await player.getPlayerById(widget.targetUid);
     if (mounted) {
       setState(() {
@@ -49,24 +40,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     }
   }
 
-  Uint8List? _getBgBytes(String? base64Str) {
-    if (base64Str == null || base64Str.isEmpty) return null;
-    if (base64Str != _lastBgStr) {
-      _lastBgStr = base64Str;
-      _bgBytes = base64Decode(base64Str);
-    }
-    return _bgBytes;
-  }
-
-  Uint8List? _getProfileBytes(String? base64Str) {
-    if (base64Str == null || base64Str.isEmpty) return null;
-    if (base64Str != _lastProfileStr) {
-      _lastProfileStr = base64Str;
-      _profileBytes = base64Decode(base64Str);
-    }
-    return _profileBytes;
-  }
-
   Future<void> _pickImage(PlayerProvider player) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 25);
@@ -74,8 +47,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       final bytes = await pickedFile.readAsBytes();
       final base64Str = base64Encode(bytes);
       setState(() {
-        _profileBytes = bytes;
-        _lastProfileStr = base64Str;
         if (playerData != null) playerData!['profilePicUrl'] = base64Str;
       });
       player.updateProfilePic(base64Str);
@@ -90,7 +61,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       final base64Str = base64Encode(bytes);
       player.updateBackgroundPic(base64Str);
       setState(() {
-        playerData!['backgroundPicUrl'] = base64Str;
+        if (playerData != null) playerData!['backgroundPicUrl'] = base64Str;
       });
     }
   }
@@ -139,8 +110,10 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
     bool isMe = widget.targetUid == player.uid;
     bool isVIP = playerData!['isVIP'] == true;
-    Uint8List? profilePicData = _getProfileBytes(isMe ? player.profilePicUrl : playerData!['profilePicUrl']);
-    Uint8List? backgroundPicData = _getBgBytes(isMe ? player.backgroundPicUrl : playerData!['backgroundPicUrl']);
+
+    // [تعديل] استخدام الكاش المركزي للصور والخلفية
+    Uint8List? profilePicData = player.getDecodedImage(isMe ? player.profilePicUrl : playerData!['profilePicUrl']);
+    Uint8List? backgroundPicData = player.getDecodedImage(isMe ? player.backgroundPicUrl : playerData!['backgroundPicUrl']);
 
     bool isOnline = false;
     if (isMe) {
@@ -334,10 +307,13 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               return FutureBuilder<Map<String, dynamic>?>(
                 future: Provider.of<PlayerProvider>(context, listen: false).getPlayerById(targetUid),
                 builder: (context, userSnap) {
-                  if (!userSnap.hasData) return const SizedBox(); // هنا سيعود الكاش بالبيانات فوراً
+                  if (!userSnap.hasData) return const SizedBox();
                   final targetData = userSnap.data!;
                   String targetName = targetData['playerName'] ?? 'مجهول';
                   String? targetPic = targetData['profilePicUrl'];
+
+                  // [تعديل] استخدام الكاش لصور قائمة الدردشات
+                  final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(targetPic);
 
                   return Directionality(
                     textDirection: TextDirection.rtl,
@@ -348,7 +324,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       leading: Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          CircleAvatar(backgroundColor: Colors.grey[800], backgroundImage: targetPic != null ? MemoryImage(base64Decode(targetPic)) : null, child: targetPic == null ? const Icon(Icons.person, color: Colors.white54) : null),
+                          CircleAvatar(backgroundColor: Colors.grey[800], backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null, child: imageBytes == null ? const Icon(Icons.person, color: Colors.white54) : null),
                           if (unreadCount > 0)
                             Positioned(
                                 top: -5,

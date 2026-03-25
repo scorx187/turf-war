@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:convert';
 import '../providers/player_provider.dart';
 
 class TopBar extends StatelessWidget {
@@ -30,7 +29,6 @@ class TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // جلب بيانات اللاعب الحالي لمعرفة الـ uid والصورة
     final player = Provider.of<PlayerProvider>(context, listen: false);
 
     return Container(
@@ -41,10 +39,9 @@ class TopBar extends StatelessWidget {
         border: const Border(bottom: BorderSide(color: Colors.amber, width: 1.5)),
       ),
       child: Directionality(
-        textDirection: TextDirection.rtl, // لضمان أن الصورة في أقصى اليمين
+        textDirection: TextDirection.rtl,
         child: Row(
           children: [
-            // [جديد] صورة البروفايل الصغيرة مع النقطة الحمراء
             if (player.uid != null)
               Padding(
                 padding: const EdgeInsets.only(left: 6),
@@ -65,14 +62,17 @@ class TopBar extends StatelessWidget {
                       }
                     }
 
+                    // [تعديل] جلب الصورة الجاهزة من الكاش لمنع الرمش
+                    final imageBytes = player.getDecodedImage(player.profilePicUrl);
+
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
                         CircleAvatar(
                           radius: 18,
                           backgroundColor: Colors.grey[800],
-                          backgroundImage: player.profilePicUrl != null ? MemoryImage(base64Decode(player.profilePicUrl!)) : null,
-                          child: player.profilePicUrl == null ? const Icon(Icons.person, color: Colors.white54, size: 20) : null,
+                          backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
+                          child: imageBytes == null ? const Icon(Icons.person, color: Colors.white54, size: 20) : null,
                         ),
                         if (hasUnread)
                           Positioned(
@@ -89,7 +89,6 @@ class TopBar extends StatelessWidget {
                 ),
               ),
 
-            // الإحصائيات الخاصة بك كما هي
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -114,7 +113,6 @@ class TopBar extends StatelessWidget {
               ),
             ),
 
-            // العناصر القديمة كما هي
             _buildTopStatItem(Icons.payments, cash.toString(), Colors.green),
             _buildTopStatItem(Icons.monetization_on, gold.toString(), Colors.yellow),
             _buildTopStatItem(Icons.bolt, energy.toString(), Colors.orange),

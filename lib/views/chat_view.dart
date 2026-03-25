@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../widgets/top_bar.dart';
 import 'player_profile_view.dart';
@@ -147,7 +146,10 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
+  // [تعديل] استخدام الذاكرة المركزية الذكية لصور الشات
   Widget _buildAvatar(String uid, bool isVIP, bool isMe, String? picUrl) {
+    final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(picUrl);
+
     return GestureDetector(
       onTap: isMe ? null : () => _openPlayerProfile(context, uid),
       child: Container(
@@ -159,8 +161,8 @@ class _ChatViewState extends State<ChatView> {
           ),
           child: CircleAvatar(
             backgroundColor: Colors.transparent,
-            backgroundImage: picUrl != null ? MemoryImage(base64Decode(picUrl)) : null,
-            child: picUrl == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, color: isVIP ? Colors.amber : Colors.white54, size: 20) : null,
+            backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
+            child: imageBytes == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, color: isVIP ? Colors.amber : Colors.white54, size: 20) : null,
           )
       ),
     );

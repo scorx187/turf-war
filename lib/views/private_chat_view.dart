@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../widgets/top_bar.dart';
 
@@ -30,7 +29,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
   @override
   void initState() {
     super.initState();
-    // تصفير العداد (قراءة الرسائل) بمجرد دخول الشاشة
     WidgetsBinding.instance.addPostFrameCallback((_) {
       currentUserId = Provider.of<PlayerProvider>(context, listen: false).uid;
       if (currentUserId != null) {
@@ -44,11 +42,10 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     return uid1.hashCode <= uid2.hashCode ? '${uid1}_$uid2' : '${uid2}_$uid1';
   }
 
-  // دالة لإزالة النقطة الحمراء والأرقام
   void _markAsRead() {
     if (chatId != null && currentUserId != null) {
       _firestore.collection('private_chats').doc(chatId).set({
-        'unread_$currentUserId': 0, // تصفير الرسائل غير المقروءة الخاصة بك
+        'unread_$currentUserId': 0,
       }, SetOptions(merge: true));
     }
   }
@@ -59,29 +56,30 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     final id = getChatId(currentUserUid, widget.targetUid);
     final msgText = _controller.text.trim();
 
-    // إضافة الرسالة
     _firestore.collection('private_chats').doc(id).collection('messages').add({
       'senderId': currentUserUid,
       'message': msgText,
       'timestamp': FieldValue.serverTimestamp(),
     });
 
-    // تحديث المحادثة الرئيسية لزيادة عداد الطرف الآخر
     _firestore.collection('private_chats').doc(id).set({
       'participants': [currentUserUid, widget.targetUid],
       'lastMessage': msgText,
       'timestamp': FieldValue.serverTimestamp(),
-      'unread_${widget.targetUid}': FieldValue.increment(1), // الإشعار للشخص الآخر
+      'unread_${widget.targetUid}': FieldValue.increment(1),
     }, SetOptions(merge: true));
 
     _controller.clear();
-    _markAsRead(); // تأكيد التصفير لجهتك
+    _markAsRead();
   }
 
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
     final cId = getChatId(player.uid ?? '', widget.targetUid);
+
+    // [تعديل] استخدام الكاش لفك تشفير صورة اللاعب في الخاص
+    final targetImageBytes = player.getDecodedImage(widget.targetPicUrl);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1D),
@@ -104,7 +102,12 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                   const Spacer(),
                   Text(widget.targetName, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 12),
-                  CircleAvatar(radius: 20, backgroundColor: Colors.grey[800], backgroundImage: widget.targetPicUrl != null ? MemoryImage(base64Decode(widget.targetPicUrl!)) : null, child: widget.targetPicUrl == null ? const Icon(Icons.person, color: Colors.white54) : null),
+                  CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.grey[800],
+                      backgroundImage: targetImageBytes != null ? MemoryImage(targetImageBytes) : null,
+                      child: targetImageBytes == null ? const Icon(Icons.person, color: Colors.white54) : null
+                  ),
                 ],
               ),
             ),
