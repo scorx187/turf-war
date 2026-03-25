@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/top_bar.dart';
@@ -111,7 +112,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           ],
         ),
       ),
-      // [الدايموند 💎] تغيير الشريط السفلي إذا دخلت البروفايل
       bottomNavigationBar: _selectedIndex == 5
           ? BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -123,13 +123,44 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
           setState(() => _profileTabIndex = index);
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.group), label: 'الأصدقاء'),
-          BottomNavigationBarItem(icon: Icon(Icons.psychology), label: 'المهارات'),
-          BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
+        items: [ // تأكد من إزالة كلمة const من هنا
+          BottomNavigationBarItem(
+            icon: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('private_chats').where('participants', arrayContains: player.uid ?? '').snapshots(),
+              builder: (context, snapshot) {
+                int totalUnreadChats = 0;
+                if (snapshot.hasData) {
+                  for (var doc in snapshot.data!.docs) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    if ((data['unread_${player.uid}'] ?? 0) > 0) totalUnreadChats++;
+                  }
+                }
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.chat_bubble), // أيقونة الشات الخاص
+                    if (totalUnreadChats > 0)
+                      Positioned(
+                        top: -4,
+                        right: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                          child: Text('$totalUnreadChats', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      )
+                  ],
+                );
+              },
+            ),
+            label: 'الخاص',
+          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.group), label: 'الأصدقاء'),
+          const BottomNavigationBarItem(icon: Icon(Icons.psychology), label: 'المهارات'),
+          const BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
         ],
       )
-          : BottomNavigationBar(
+          : BottomNavigationBar( // ... (باقي الكود القديم للشريط الرئيسي)
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.black,
         selectedItemColor: Colors.amber,

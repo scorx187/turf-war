@@ -28,9 +28,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
   String? _lastProfileStr;
   Uint8List? _profileBytes;
 
-  // متغير للتحكم في التبويب الحالي (0: الأصدقاء، 1: الشات الخاص)
-  int _currentTab = 1;
-
   @override
   void initState() {
     super.initState();
@@ -243,7 +240,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
           ),
           const SizedBox(height: 30),
 
-          // 4. أزرار التفاعل أو تبويبات الحساب الشخصي
+          // 4. أزرار التفاعل (للاعبين الآخرين) أو التبويبات (لك)
           if (!isMe)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -264,46 +261,23 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               ),
             )
           else ...[
-            // [التبويبات: الأصدقاء / الشات الخاص]
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Directionality(
-                textDirection: TextDirection.rtl,
-                child: Row(
-                  children: [
-                    Expanded(child: _buildTabBtn('الأصدقاء', Icons.people, 0)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance.collection('private_chats').where('participants', arrayContains: player.uid).snapshots(),
-                        builder: (context, snapshot) {
-                          int totalUnreadChats = 0;
-                          if (snapshot.hasData) {
-                            for (var doc in snapshot.data!.docs) {
-                              final data = doc.data() as Map<String, dynamic>;
-                              if ((data['unread_${player.uid}'] ?? 0) > 0) totalUnreadChats++;
-                            }
-                          }
-                          return _buildTabBtn('الشات الخاص', Icons.chat, 1, badgeCount: totalUnreadChats);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 15),
-
-            // محتوى التبويب المختار
-            if (_currentTab == 0)
-              Container(margin: const EdgeInsets.symmetric(horizontal: 20), padding: const EdgeInsets.all(25), width: double.infinity, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: const Center(child: Text("قائمة الأصدقاء ستظهر هنا قريباً 👥", style: TextStyle(color: Colors.white54, fontSize: 16), textAlign: TextAlign.center)))
-            else if (_currentTab == 1)
-              _buildChatList(player.uid!), // استدعاء قائمة المحادثات الخاصة
+            // [جديد] عرض محتوى الشاشة الجديدة (الدردشات الخاصة أو الأصدقاء) بناءً على ضغطة الشريط السفلي
+            if (widget.profileTabIndex == 0)
+              _buildChatList(player.uid!)
+            else if (widget.profileTabIndex == 1)
+              _buildPlaceholder("قائمة الأصدقاء ستظهر هنا قريباً 👥")
+            else if (widget.profileTabIndex == 2)
+                _buildPlaceholder("شجرة المهارات ستظهر هنا قريباً 🧠")
+              else if (widget.profileTabIndex == 3)
+                  _buildPlaceholder("مستودع التسليح سيظهر هنا قريباً 🔫"),
 
             const SizedBox(height: 20),
+
+            // إعدادات اللاعب الإضافية
             if (player.heat > 0) Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha:0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent.withValues(alpha:0.3))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.local_police, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text("مستوى الملاحقة", style: TextStyle(color: Colors.white70))]), Text("${player.heat.toInt()}%", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))])),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: [ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: audio.isMuted ? Colors.redAccent.withValues(alpha:0.2) : Colors.green.withValues(alpha:0.2), side: BorderSide(color: audio.isMuted ? Colors.redAccent : Colors.green), minimumSize: const Size(double.infinity, 50)), onPressed: () => audio.toggleMute(), icon: Icon(audio.isMuted ? Icons.volume_off : Icons.volume_up, color: audio.isMuted ? Colors.redAccent : Colors.green), label: Text(audio.isMuted ? "تشغيل الصوت" : "كتم الصوت", style: TextStyle(color: audio.isMuted ? Colors.redAccent : Colors.green))), const SizedBox(height: 15), ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withValues(alpha:0.2), side: const BorderSide(color: Colors.red), minimumSize: const Size(double.infinity, 50)), onPressed: () { audio.playEffect('click.mp3'); _showResetConfirmation(player); }, icon: const Icon(Icons.delete_forever, color: Colors.red), label: const Text("مسح البيانات", style: TextStyle(color: Colors.red)))])),
           ],
+
           const SizedBox(height: 30),
           Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(left: 20, bottom: 30), child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent.shade700, padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), icon: const Icon(Icons.arrow_back, color: Colors.white), label: const Text('رجوع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), onPressed: widget.onBack ?? () => Navigator.pop(context)))),
         ],
@@ -311,48 +285,29 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     );
   }
 
-  // تصميم زر التبويب (الأصدقاء / الشات) مع دائرة التنبيهات
-  Widget _buildTabBtn(String title, IconData icon, int index, {int badgeCount = 0}) {
-    bool isSelected = _currentTab == index;
-    return GestureDetector(
-      onTap: () => setState(() => _currentTab = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.amber.withValues(alpha: 0.2) : Colors.black45,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? Colors.amber : Colors.white10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: isSelected ? Colors.amber : Colors.white54, size: 20),
-            const SizedBox(width: 8),
-            Text(title, style: TextStyle(color: isSelected ? Colors.amber : Colors.white54, fontWeight: FontWeight.bold)),
-            if (badgeCount > 0) ...[
-              const SizedBox(width: 8),
-              Container(padding: const EdgeInsets.all(6), decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle), child: Text('$badgeCount', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
-            ]
-          ],
-        ),
-      ),
+  // ويدجت مساعدة لعرض الصناديق الفارغة (الأصدقاء، الأسلحة، إلخ)
+  Widget _buildPlaceholder(String text) {
+    return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.all(35),
+        width: double.infinity,
+        decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
+        child: Center(child: Text(text, style: const TextStyle(color: Colors.white54, fontSize: 16), textAlign: TextAlign.center))
     );
   }
 
-  // عرض قائمة المحادثات (بترتيب برمجي لتجنب خطأ Firebase Index)
+  // عرض قائمة المحادثات الخاصة بك
   Widget _buildChatList(String myUid) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      height: 300,
+      height: 350,
       decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
       child: StreamBuilder<QuerySnapshot>(
-        // [تعديل هام] أزلنا orderBy من هنا حتى لا تطلب Firebase إنشاء Index إضافي
         stream: FirebaseFirestore.instance.collection('private_chats').where('participants', arrayContains: myUid).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
-          if (snapshot.data!.docs.isEmpty) return const Center(child: Text("لا توجد رسائل خاصة", style: TextStyle(color: Colors.white54)));
+          if (snapshot.data!.docs.isEmpty) return const Center(child: Text("لا توجد رسائل خاصة..", style: TextStyle(color: Colors.white54)));
 
-          // [تعديل هام] الترتيب من الأحدث للأقدم يتم جدولته برمجياً (لتجنب الأخطاء)
           final chatDocs = snapshot.data!.docs.toList();
           chatDocs.sort((a, b) {
             final aData = a.data() as Map<String, dynamic>;
@@ -362,7 +317,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
             if (aTime == null && bTime == null) return 0;
             if (aTime == null) return 1;
             if (bTime == null) return -1;
-            return bTime.compareTo(aTime); // الأحدث أولاً
+            return bTime.compareTo(aTime);
           });
 
           return ListView.builder(
@@ -394,7 +349,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                         clipBehavior: Clip.none,
                         children: [
                           CircleAvatar(backgroundColor: Colors.grey[800], backgroundImage: targetPic != null ? MemoryImage(base64Decode(targetPic)) : null, child: targetPic == null ? const Icon(Icons.person, color: Colors.white54) : null),
-                          // إظهار عدد الرسائل على أقصى يسار الصورة
                           if (unreadCount > 0)
                             Positioned(
                                 top: -5,
