@@ -30,7 +30,8 @@ class _ChatViewState extends State<ChatView> {
     _controller.clear();
   }
 
-  void _openPlayerProfile(BuildContext context, String uid) {
+  // [تعديل هام] استقبال الاسم والصورة لفتح البروفايل فوراً
+  void _openPlayerProfile(BuildContext context, String uid, String name, String? picUrl, bool isVIP) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) {
@@ -49,7 +50,13 @@ class _ChatViewState extends State<ChatView> {
                           playerName: player.playerName, level: player.crimeLevel,
                           xpPercent: player.crimeXP / player.xpToNextLevel, isVIP: player.isVIP,
                         ),
-                        Expanded(child: PlayerProfileView(targetUid: uid, onBack: () => Navigator.pop(context))),
+                        Expanded(child: PlayerProfileView(
+                            targetUid: uid,
+                            previewName: name, // تمرير الاسم
+                            previewPicUrl: picUrl, // تمرير الصورة
+                            previewIsVIP: isVIP, // تمرير حالة الفيب
+                            onBack: () => Navigator.pop(context)
+                        )),
                       ],
                     );
                   }
@@ -97,7 +104,7 @@ class _ChatViewState extends State<ChatView> {
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl),
+                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
                           if (!isMe) const SizedBox(width: 8),
                           Flexible(
                             child: Directionality(
@@ -121,7 +128,7 @@ class _ChatViewState extends State<ChatView> {
                             ),
                           ),
                           if (isMe) const SizedBox(width: 8),
-                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl),
+                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
                         ],
                       ),
                     ),
@@ -146,12 +153,12 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  // [تعديل] استخدام الذاكرة المركزية الذكية لصور الشات
-  Widget _buildAvatar(String uid, bool isVIP, bool isMe, String? picUrl) {
+  Widget _buildAvatar(String uid, bool isVIP, bool isMe, String? picUrl, String name) {
     final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(picUrl);
 
     return GestureDetector(
-      onTap: isMe ? null : () => _openPlayerProfile(context, uid),
+      // [تعديل هام] نمرر الاسم والصورة للبروفايل
+      onTap: isMe ? null : () => _openPlayerProfile(context, uid, name, picUrl, isVIP),
       child: Container(
           width: 42, height: 42,
           decoration: BoxDecoration(

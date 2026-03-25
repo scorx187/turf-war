@@ -35,7 +35,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   int _selectedIndex = 2;
-  int _profileTabIndex = 0; // [الدايموند 💎] لحفظ مكانك في أزرار البروفايل السفلية
+  int _profileTabIndex = 0;
   String _activeArea = 'الخريطة';
   StreamSubscription? _notificationSubscription;
 
@@ -123,7 +123,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
           setState(() => _profileTabIndex = index);
         },
-        items: [ // تأكد من إزالة كلمة const من هنا
+        items: [
           BottomNavigationBarItem(
             icon: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('private_chats').where('participants', arrayContains: player.uid ?? '').snapshots(),
@@ -138,7 +138,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    const Icon(Icons.chat_bubble), // أيقونة الشات الخاص
+                    const Icon(Icons.chat_bubble),
                     if (totalUnreadChats > 0)
                       Positioned(
                         top: -4,
@@ -160,7 +160,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           const BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
         ],
       )
-          : BottomNavigationBar( // ... (باقي الكود القديم للشريط الرئيسي)
+          : BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.black,
         selectedItemColor: Colors.amber,
@@ -207,8 +207,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       );
     }
 
-    // تمرير profileTabIndex للبروفايل، وزر الرجوع يرجعك للخريطة
-    if (_selectedIndex == 5) return PlayerProfileView(targetUid: player.uid!, profileTabIndex: _profileTabIndex, onBack: () => setState(() => _selectedIndex = 2));
+    // [السر السحري] تمرير بياناتك لفتح بروفايلك الشخصي فوراً بدون تحميل!
+    if (_selectedIndex == 5) return PlayerProfileView(
+        targetUid: player.uid!,
+        profileTabIndex: _profileTabIndex,
+        previewName: player.playerName,
+        previewPicUrl: player.profilePicUrl,
+        previewIsVIP: player.isVIP,
+        onBack: () => setState(() => _selectedIndex = 2)
+    );
 
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
 

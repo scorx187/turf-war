@@ -13,7 +13,20 @@ class PlayerProfileView extends StatefulWidget {
   final VoidCallback? onBack;
   final int profileTabIndex;
 
-  const PlayerProfileView({super.key, required this.targetUid, this.onBack, this.profileTabIndex = 0});
+  // [جديد] متغيرات لتسريع فتح الشاشة
+  final String? previewName;
+  final String? previewPicUrl;
+  final bool? previewIsVIP;
+
+  const PlayerProfileView({
+    super.key,
+    required this.targetUid,
+    this.onBack,
+    this.profileTabIndex = 0,
+    this.previewName,
+    this.previewPicUrl,
+    this.previewIsVIP,
+  });
 
   @override
   State<PlayerProfileView> createState() => _PlayerProfileViewState();
@@ -21,21 +34,35 @@ class PlayerProfileView extends StatefulWidget {
 
 class _PlayerProfileViewState extends State<PlayerProfileView> {
   Map<String, dynamic>? playerData;
-  bool isLoading = true;
+  bool isLoading = false; // [تعديل] لا داعي للانتظار، الشاشة تفتح فوراً!
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+
+    // [الحل السحري] وضع بيانات وهمية تظهر للمستخدم فوراً حتى يتم جلب البيانات الحقيقية
+    playerData = {
+      'playerName': widget.previewName ?? 'جاري التحميل...',
+      'profilePicUrl': widget.previewPicUrl,
+      'backgroundPicUrl': null,
+      'isVIP': widget.previewIsVIP ?? false,
+      'bio': 'جاري تحديث البيانات...',
+      'arenaLevel': 0,
+      'crimeLevel': 0,
+      'workLevel': 0,
+      'creditScore': 0,
+    };
+
+    _loadData(); // جلب البيانات الحقيقية في الخلفية بصمت
   }
 
   Future<void> _loadData() async {
     final player = Provider.of<PlayerProvider>(context, listen: false);
+
     final data = await player.getPlayerById(widget.targetUid);
-    if (mounted) {
+    if (mounted && data != null) {
       setState(() {
-        playerData = data;
-        isLoading = false;
+        playerData = data; // التحديث الصامت للواجهة
       });
     }
   }
@@ -105,13 +132,12 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     final player = Provider.of<PlayerProvider>(context);
     final audio = Provider.of<AudioProvider>(context);
 
-    if (isLoading) return const Center(child: CircularProgressIndicator(color: Colors.amber));
-    if (playerData == null) return const Center(child: Text("اللاعب غير موجود!", style: TextStyle(color: Colors.white)));
+    // [تعديل] لم نعد نحتاج الدائرة الصفراء بفضل الواجهة المتفائلة
+    if (playerData == null) return const Center(child: CircularProgressIndicator(color: Colors.amber));
 
     bool isMe = widget.targetUid == player.uid;
     bool isVIP = playerData!['isVIP'] == true;
 
-    // [تعديل] استخدام الكاش المركزي للصور والخلفية
     Uint8List? profilePicData = player.getDecodedImage(isMe ? player.profilePicUrl : playerData!['profilePicUrl']);
     Uint8List? backgroundPicData = player.getDecodedImage(isMe ? player.backgroundPicUrl : playerData!['backgroundPicUrl']);
 
@@ -207,9 +233,9 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildProfileStat('الساحة', '${playerData!['arenaLevel'] ?? 1}', Icons.shield, Colors.redAccent),
-                  _buildProfileStat('الإجرام', '${playerData!['crimeLevel'] ?? 1}', Icons.local_police, Colors.blueAccent),
-                  _buildProfileStat('العمل', '${playerData!['workLevel'] ?? 1}', Icons.work, Colors.green),
+                  _buildProfileStat('الساحة', '${playerData!['arenaLevel'] ?? 0}', Icons.shield, Colors.redAccent),
+                  _buildProfileStat('الإجرام', '${playerData!['crimeLevel'] ?? 0}', Icons.local_police, Colors.blueAccent),
+                  _buildProfileStat('العمل', '${playerData!['workLevel'] ?? 0}', Icons.work, Colors.green),
                   _buildProfileStat('السمعة', '${playerData!['creditScore'] ?? 0}', Icons.star, Colors.amber),
                 ],
               ),
@@ -307,12 +333,18 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               return FutureBuilder<Map<String, dynamic>?>(
                 future: Provider.of<PlayerProvider>(context, listen: false).getPlayerById(targetUid),
                 builder: (context, userSnap) {
-                  if (!userSnap.hasData) return const SizedBox();
+                  // [تعديل] عرض نص أثناء الجلب السريع بدلاً من تعليق القائمة
+                  if (!userSnap.hasData) {
+                    return const ListTile(
+                      leading: CircleAvatar(backgroundColor: Colors.black26),
+                      title: Text('جاري التحميل...', style: TextStyle(color: Colors.white24)),
+                    );
+                  }
+
                   final targetData = userSnap.data!;
                   String targetName = targetData['playerName'] ?? 'مجهول';
                   String? targetPic = targetData['profilePicUrl'];
 
-                  // [تعديل] استخدام الكاش لصور قائمة الدردشات
                   final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(targetPic);
 
                   return Directionality(
