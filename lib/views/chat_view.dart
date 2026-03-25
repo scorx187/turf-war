@@ -153,10 +153,28 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildAvatar(String uid, bool isVIP, bool isMe, String? picUrl, String name) {
-    final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(picUrl);
+    final playerProv = Provider.of<PlayerProvider>(context, listen: false);
+    final imageBytes = playerProv.getDecodedImage(picUrl);
 
     return GestureDetector(
-      onTap: isMe ? null : () => _openPlayerProfile(context, uid, name, picUrl, isVIP),
+      onTap: isMe ? null : () async {
+        // 1. إظهار دائرة تحميل فوق الشات تمنع اللمس مؤقتاً
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.amber)),
+        );
+
+        // 2. جلب بيانات اللاعب وتخزينها في الكاش (سريع جداً)
+        await playerProv.getPlayerById(uid);
+
+        // 3. إخفاء دائرة التحميل بعد اكتمال جلب البيانات
+        if (context.mounted) {
+          Navigator.pop(context);
+          // 4. فتح البروفايل، الآن سيكون جاهزاً 100% بدون أي "جاري التحميل"
+          _openPlayerProfile(context, uid, name, picUrl, isVIP);
+        }
+      },
       child: Container(
           width: 42, height: 42,
           decoration: BoxDecoration(
