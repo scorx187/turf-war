@@ -1,6 +1,6 @@
 {
-    "name": "first_app",
-    "short_name": "first_app",
+    "name": "turf_war",
+    "short_name": "turf_war",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
