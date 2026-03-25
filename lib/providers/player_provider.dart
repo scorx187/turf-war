@@ -35,7 +35,6 @@ class PlayerProvider with ChangeNotifier {
   int _maxHealth = 100;
   String _playerName = "لاعب جديد";
 
-  // [الدايموند 💎] متغير البايو الشخصي
   String _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال.";
   String get bio => _bio;
 
@@ -204,6 +203,9 @@ class PlayerProvider with ChangeNotifier {
   double get skill => _skill + _getArmorSkillBonus();
   double get speed => _speed + _getWeaponSpeedBonus();
 
+  // ----------------------------------------------------
+  // [الحل السحري 💎] إنشاء حساب اللاعب فوراً وبدون تأخير
+  // ----------------------------------------------------
   Future<void> initializePlayerOnServer(String uid, String name) async {
     _uid = uid;
     _isLoading = true;
@@ -217,6 +219,8 @@ class PlayerProvider with ChangeNotifier {
     } else if (name.isNotEmpty) {
       _playerName = name;
       _inventory['name_change_card'] = 1;
+      // فك حالة التحميل مؤقتاً عشان نسمح لدالة الحفظ تبني حسابك بالسيرفر فوراً!
+      _isLoading = false;
       await _syncWithFirestore();
     }
 
@@ -233,7 +237,7 @@ class PlayerProvider with ChangeNotifier {
 
   void _applyFirestoreData(Map<String, dynamic> data) {
     _playerName = data['playerName'] ?? _playerName;
-    _bio = data['bio'] ?? _bio; // [الدايموند 💎] جلب البايو
+    _bio = data['bio'] ?? _bio;
     _cash = data['cash'] ?? _cash;
     _gold = data['gold'] ?? _gold;
     _bankBalance = data['bankBalance'] ?? _bankBalance;
@@ -296,7 +300,7 @@ class PlayerProvider with ChangeNotifier {
     try {
       await _firestore.collection('players').doc(_uid).set({
         'playerName': _playerName,
-        'bio': _bio, // [الدايموند 💎] حفظ البايو
+        'bio': _bio,
         'cash': _cash,
         'gold': _gold,
         'bankBalance': _bankBalance,
@@ -410,9 +414,8 @@ class PlayerProvider with ChangeNotifier {
     });
   }
 
-  // [الدايموند 💎] تحديث البايو مع حد الحروف
   void updateBio(String newBio) {
-    if (newBio.length <= 150) { // حد الحروف عشان الشاشة ما تخرب
+    if (newBio.length <= 150) {
       _bio = newBio;
       _syncWithFirestore();
       notifyListeners();
