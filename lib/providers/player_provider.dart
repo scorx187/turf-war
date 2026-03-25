@@ -391,11 +391,20 @@ class PlayerProvider with ChangeNotifier {
 
   void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
 
-  // دالة تغيير الصورة
+  // دالة تغيير الصورة وتحديثها للجميع في الشات
   void updateProfilePic(String base64Image) {
     _profilePicUrl = base64Image;
-    _syncWithFirestore();
     notifyListeners();
+    _syncWithFirestore(); // حفظها في بيانات اللاعب
+
+    // [جديد] تحديث الصورة في جميع رسائل الشات القديمة ليراها الجميع
+    _firestore.collection('chat').where('uid', isEqualTo: _uid).get().then((snapshot) {
+      WriteBatch batch = _firestore.batch();
+      for (var doc in snapshot.docs) {
+        batch.update(doc.reference, {'profilePicUrl': base64Image});
+      }
+      batch.commit();
+    }).catchError((e) => debugPrint("خطأ في تحديث صور الشات: $e"));
   }
 
   // دالة تغيير صورة الخلفية

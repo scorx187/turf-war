@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'private_chat_view.dart';
 import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
@@ -71,10 +72,15 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
       final base64Str = base64Encode(bytes);
-      player.updateProfilePic(base64Str);
+
+      // [تحديث فوري للواجهة قبل انتظار الرفع]
       setState(() {
-        playerData!['profilePicUrl'] = base64Str;
+        _profileBytes = bytes;
+        _lastProfileStr = base64Str;
+        if (playerData != null) playerData!['profilePicUrl'] = base64Str;
       });
+
+      player.updateProfilePic(base64Str); // يتم الرفع بالخلفية بدون انتظار
     }
   }
 
@@ -310,7 +316,16 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                 spacing: 15, runSpacing: 15, alignment: WrapAlignment.center,
                 children: [
                   _buildActionBtn(Icons.person_add, 'إضافة', Colors.blue, () { }),
-                  _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () { }),
+                  _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => PrivateChatView(
+                          targetUid: widget.targetUid,
+                          targetName: playerData!['playerName'] ?? 'مجهول',
+                          targetPicUrl: playerData!['profilePicUrl'],
+                        ))
+                    );
+                  }),
                   _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () { }),
                   _buildActionBtn(Icons.attach_money, 'تحويل', Colors.amber, () { }),
                   _buildActionBtn(Icons.group, 'العصابة', Colors.deepPurpleAccent, () { }),

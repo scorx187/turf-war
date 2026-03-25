@@ -25,7 +25,7 @@ class _ChatViewState extends State<ChatView> {
       'uid': player.uid,
       'message': _controller.text.trim(),
       'isVIP': player.isVIP,
-      'profilePicUrl': player.profilePicUrl, // إرسال الصورة مع الرسالة للآخرين
+      'profilePicUrl': player.profilePicUrl,
       'timestamp': FieldValue.serverTimestamp(),
     });
     _controller.clear();
@@ -35,7 +35,6 @@ class _ChatViewState extends State<ChatView> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) {
-        // [تعديل] تغليف الصفحة بـ RTL لكي يكون الـ Top Bar متناسقاً مع الشاشة الرئيسية
         return Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
@@ -78,8 +77,6 @@ class _ChatViewState extends State<ChatView> {
 
               final messages = snapshot.data!.docs;
               final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid;
-              // نجلب صورة اللاعب الحالي لكي نحدثها في رسائله القديمة فوراً
-              final myCurrentPic = Provider.of<PlayerProvider>(context).profilePicUrl;
 
               return ListView.builder(
                 reverse: true,
@@ -91,9 +88,7 @@ class _ChatViewState extends State<ChatView> {
                   final String senderUid = msg['uid'] ?? '';
                   final bool isMe = senderUid == currentUserUid;
                   final String senderName = msg['user'] ?? 'مجهول';
-
-                  // [تعديل] إذا كانت الرسالة لي، أقرأ صورتي الحالية، وإلا أقرأ الصورة المحفوظة بالرسالة
-                  final String? finalPicUrl = isMe ? myCurrentPic : msg['profilePicUrl'];
+                  final String? picUrl = msg['profilePicUrl'];
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
@@ -103,7 +98,7 @@ class _ChatViewState extends State<ChatView> {
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, finalPicUrl),
+                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl),
                           if (!isMe) const SizedBox(width: 8),
                           Flexible(
                             child: Directionality(
@@ -113,8 +108,7 @@ class _ChatViewState extends State<ChatView> {
                                 decoration: BoxDecoration(
                                   color: isMe ? const Color(0xFF1E3A2F) : const Color(0xFF2A2A2D),
                                   borderRadius: BorderRadius.only(topLeft: const Radius.circular(15), topRight: const Radius.circular(15), bottomLeft: isMe ? const Radius.circular(15) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(15)),
-                                  border: Border.all(color: isMe ? Colors.green.withValues(alpha:0.3) : Colors.white10),
-                                  // [تعديل] تمت إزالة خلفية البروفايل من فقاعة الدردشة
+                                  border: Border.all(color: isMe ? Colors.green.withOpacity(0.3) : Colors.white10),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,7 +122,7 @@ class _ChatViewState extends State<ChatView> {
                             ),
                           ),
                           if (isMe) const SizedBox(width: 8),
-                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, finalPicUrl),
+                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl),
                         ],
                       ),
                     ),
@@ -159,10 +153,9 @@ class _ChatViewState extends State<ChatView> {
       child: Container(
           width: 42, height: 42,
           decoration: BoxDecoration(
-            color: Colors.grey[800],
-            shape: BoxShape.circle,
+            color: Colors.grey[800], shape: BoxShape.circle,
             border: isVIP ? Border.all(color: Colors.amberAccent, width: 2.5) : null,
-            boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 1)] : [],
+            boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withOpacity(0.5), blurRadius: 8, spreadRadius: 1)] : [],
           ),
           child: CircleAvatar(
             backgroundColor: Colors.transparent,
