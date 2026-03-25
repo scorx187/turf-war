@@ -36,6 +36,10 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
   Future<void> _loadData() async {
     final player = Provider.of<PlayerProvider>(context, listen: false);
+
+    // [تعديل هام] مسح الكاش للاعب الذي ندخل بروفايله الآن لضمان جلب أحدث بياناته
+    player.clearPlayerCache(widget.targetUid);
+
     final data = await player.getPlayerById(widget.targetUid);
     if (mounted) {
       setState(() {
@@ -261,7 +265,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               ),
             )
           else ...[
-            // [جديد] عرض محتوى الشاشة الجديدة (الدردشات الخاصة أو الأصدقاء) بناءً على ضغطة الشريط السفلي
             if (widget.profileTabIndex == 0)
               _buildChatList(player.uid!)
             else if (widget.profileTabIndex == 1)
@@ -273,7 +276,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
             const SizedBox(height: 20),
 
-            // إعدادات اللاعب الإضافية
             if (player.heat > 0) Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha:0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent.withValues(alpha:0.3))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.local_police, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text("مستوى الملاحقة", style: TextStyle(color: Colors.white70))]), Text("${player.heat.toInt()}%", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))])),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: [ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: audio.isMuted ? Colors.redAccent.withValues(alpha:0.2) : Colors.green.withValues(alpha:0.2), side: BorderSide(color: audio.isMuted ? Colors.redAccent : Colors.green), minimumSize: const Size(double.infinity, 50)), onPressed: () => audio.toggleMute(), icon: Icon(audio.isMuted ? Icons.volume_off : Icons.volume_up, color: audio.isMuted ? Colors.redAccent : Colors.green), label: Text(audio.isMuted ? "تشغيل الصوت" : "كتم الصوت", style: TextStyle(color: audio.isMuted ? Colors.redAccent : Colors.green))), const SizedBox(height: 15), ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withValues(alpha:0.2), side: const BorderSide(color: Colors.red), minimumSize: const Size(double.infinity, 50)), onPressed: () { audio.playEffect('click.mp3'); _showResetConfirmation(player); }, icon: const Icon(Icons.delete_forever, color: Colors.red), label: const Text("مسح البيانات", style: TextStyle(color: Colors.red)))])),
           ],
@@ -285,7 +287,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     );
   }
 
-  // ويدجت مساعدة لعرض الصناديق الفارغة (الأصدقاء، الأسلحة، إلخ)
   Widget _buildPlaceholder(String text) {
     return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -296,7 +297,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     );
   }
 
-  // عرض قائمة المحادثات الخاصة بك
   Widget _buildChatList(String myUid) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -334,7 +334,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               return FutureBuilder<Map<String, dynamic>?>(
                 future: Provider.of<PlayerProvider>(context, listen: false).getPlayerById(targetUid),
                 builder: (context, userSnap) {
-                  if (!userSnap.hasData) return const SizedBox();
+                  if (!userSnap.hasData) return const SizedBox(); // هنا سيعود الكاش بالبيانات فوراً
                   final targetData = userSnap.data!;
                   String targetName = targetData['playerName'] ?? 'مجهول';
                   String? targetPic = targetData['profilePicUrl'];

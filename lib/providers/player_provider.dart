@@ -112,6 +112,10 @@ class PlayerProvider with ChangeNotifier {
   List<int> crimeSuccessCounts = [0, 0, 0, 0, 0];
   List<Transaction> _transactions = [];
 
+  // [جديد] نظام الكاش الذكي لتسريع جلب بيانات اللاعبين
+  final Map<String, Map<String, dynamic>> _playersCache = {};
+  final Map<String, DateTime> _playersCacheTime = {};
+
   String? get uid => _uid;
   int get cash => _cash;
   int get gold => _gold;
@@ -239,8 +243,8 @@ class PlayerProvider with ChangeNotifier {
   void _applyFirestoreData(Map<String, dynamic> data) {
     _playerName = data['playerName'] ?? _playerName;
     _bio = data['bio'] ?? _bio;
-    _profilePicUrl = data['profilePicUrl']; // جلب الصورة
-    _backgroundPicUrl = data['backgroundPicUrl']; // جلب الخلفية
+    _profilePicUrl = data['profilePicUrl'];
+    _backgroundPicUrl = data['backgroundPicUrl'];
     _cash = data['cash'] ?? _cash;
     _gold = data['gold'] ?? _gold;
     _bankBalance = data['bankBalance'] ?? _bankBalance;
@@ -304,8 +308,8 @@ class PlayerProvider with ChangeNotifier {
       await _firestore.collection('players').doc(_uid).set({
         'playerName': _playerName,
         'bio': _bio,
-        'profilePicUrl': _profilePicUrl, // حفظ الصورة
-        'backgroundPicUrl': _backgroundPicUrl, // حفظ الخلفية
+        'profilePicUrl': _profilePicUrl,
+        'backgroundPicUrl': _backgroundPicUrl,
         'cash': _cash,
         'gold': _gold,
         'bankBalance': _bankBalance,
@@ -391,13 +395,11 @@ class PlayerProvider with ChangeNotifier {
 
   void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
 
-  // دالة تغيير الصورة وتحديثها للجميع في الشات
   void updateProfilePic(String base64Image) {
     _profilePicUrl = base64Image;
     notifyListeners();
-    _syncWithFirestore(); // حفظها في بيانات اللاعب
+    _syncWithFirestore();
 
-    // [جديد] تحديث الصورة في جميع رسائل الشات القديمة ليراها الجميع
     _firestore.collection('chat').where('uid', isEqualTo: _uid).get().then((snapshot) {
       WriteBatch batch = _firestore.batch();
       for (var doc in snapshot.docs) {
@@ -407,7 +409,6 @@ class PlayerProvider with ChangeNotifier {
     }).catchError((e) => debugPrint("خطأ في تحديث صور الشات: $e"));
   }
 
-  // دالة تغيير صورة الخلفية
   void updateBackgroundPic(String base64Image) {
     _backgroundPicUrl = base64Image;
     _syncWithFirestore();
@@ -466,11 +467,43 @@ class PlayerProvider with ChangeNotifier {
 
   Future<void> resetPlayerData() async { _cash = 5000000000; _gold = 5000000; _bankBalance = 0; _energy = 100; _courage = 100; _strength = 10; _defense = 10; _skill = 10; _speed = 10; _ownedProperties = []; _activePropertyId = null; _happiness = 0; _inventory = {'name_change_card': 1}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {}; crimeSuccessCounts = [0, 0, 0, 0, 0]; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null; _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; await _syncWithFirestore(); notifyListeners(); }
 
+  // [تعديل] دالة جلب اللاعبين مدعومة بنظام الكاش الذكي السريع
+  Future<Map<String, dynamic>?> getPlayerById(String uid) async {
+    // التحقق من وجود البيانات في الكاش ولم يمر عليها أكثر من دقيقتين
+    if (_playersCache.containsKey(uid) && _playersCacheTime.containsKey(uid)) {
+      if (DateTime.now().difference(_playersCacheTime[uid]!).inMinutes < 2) {
+        return _playersCache[uid];
+      }
+    }
+
+    try {
+      DocumentSnapshot doc = await _firestore.collection('players').doc(uid).get();
+      if (doc.exists) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['uid'] = doc.id;
+
+        // تخزين البيانات في الكاش للطلبات القادمة
+        _playersCache[uid] = data;
+        _playersCacheTime[uid] = DateTime.now();
+
+        return data;
+      }
+    } catch (e) {
+      debugPrint("خطأ في جلب بيانات اللاعب: $e");
+    }
+    return null;
+  }
+
+  // [جديد] دالة لمسح ذاكرة الكاش للاعب معين عند الدخول لبروفايله
+  void clearPlayerCache(String uid) {
+    _playersCache.remove(uid);
+    _playersCacheTime.remove(uid);
+  }
+
   Future<List<Map<String, dynamic>>> fetchRealOpponents() async { try { int minLevel = max(1, _arenaLevel - 2); int maxLevel = _arenaLevel + 2; QuerySnapshot snapshot = await _firestore.collection('players').where('arenaLevel', isGreaterThanOrEqualTo: minLevel).where('arenaLevel', isLessThanOrEqualTo: maxLevel).limit(10).get(); List<Map<String, dynamic>> opponents = []; for (var doc in snapshot.docs) { if (doc.id != _uid) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; opponents.add(data); } } return opponents; } catch (e) { return []; } }
   Future<List<Map<String, dynamic>>> fetchLeaderboard() async { try { QuerySnapshot snapshot = await _firestore.collection('players').orderBy('arenaLevel', descending: true).limit(10).get(); List<Map<String, dynamic>> topPlayers = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; topPlayers.add(data); } return topPlayers; } catch (e) { return []; } }
   Future<void> recordPvpVictory(String enemyUid, String enemyName, int reward) async { addCash(reward, reason: "غنيمة من $enemyName"); try { await _firestore.collection('players').doc(enemyUid).update({ 'cash': FieldValue.increment(-reward) }); await _firestore.collection('players').doc(enemyUid).collection('attacks_log').add({ 'attackerId': _uid, 'attackerName': _playerName, 'stolenAmount': reward, 'date': FieldValue.serverTimestamp(), 'hasAvenged': false }); } catch (e) {} }
   Future<List<Map<String, dynamic>>> fetchAttacksLog() async { if (_uid == null) return []; try { QuerySnapshot snapshot = await _firestore.collection('players').doc(_uid).collection('attacks_log').orderBy('date', descending: true).limit(20).get(); List<Map<String, dynamic>> logs = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['logId'] = doc.id; logs.add(data); } return logs; } catch (e) { return []; } }
-  Future<Map<String, dynamic>?> getPlayerById(String uid) async { try { DocumentSnapshot doc = await _firestore.collection('players').doc(uid).get(); if (doc.exists) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; return data; } } catch (e) {} return null; }
   Future<void> markAsAvenged(String logId) async { if (_uid == null) return; try { await _firestore.collection('players').doc(_uid).collection('attacks_log').doc(logId).update({'hasAvenged': true}); } catch (e) {} }
   void buyCar(String carId, int price) { if (_cash >= price && !_ownedCars.contains(carId)) { _cash -= price; _ownedCars.add(carId); _activeCarId ??= carId; _syncWithFirestore(); notifyListeners(); } }
   void setActiveCar(String carId) { if (_ownedCars.contains(carId)) { _activeCarId = carId; _syncWithFirestore(); notifyListeners(); } }
