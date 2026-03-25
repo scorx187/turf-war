@@ -1,3 +1,4 @@
+import 'dart:typed_data'; // ضروري لـ Uint8List
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,6 +22,12 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
   Map<String, dynamic>? playerData;
   bool isLoading = true;
 
+  // [تعديل] متغيرات لمنع وميض الصور (Cache)
+  String? _lastBgStr;
+  Uint8List? _bgBytes;
+  String? _lastProfileStr;
+  Uint8List? _profileBytes;
+
   @override
   void initState() {
     super.initState();
@@ -38,7 +45,26 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     }
   }
 
-  // [الدايموند 💎] دالة اختيار الصورة
+  // دالة تحويل الخلفية لـ Bytes بدون وميض
+  Uint8List? _getBgBytes(String? base64Str) {
+    if (base64Str == null || base64Str.isEmpty) return null;
+    if (base64Str != _lastBgStr) {
+      _lastBgStr = base64Str;
+      _bgBytes = base64Decode(base64Str);
+    }
+    return _bgBytes;
+  }
+
+  // دالة تحويل الصورة الشخصية لـ Bytes بدون وميض
+  Uint8List? _getProfileBytes(String? base64Str) {
+    if (base64Str == null || base64Str.isEmpty) return null;
+    if (base64Str != _lastProfileStr) {
+      _lastProfileStr = base64Str;
+      _profileBytes = base64Decode(base64Str);
+    }
+    return _profileBytes;
+  }
+
   Future<void> _pickImage(PlayerProvider player) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 25);
@@ -48,6 +74,19 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       player.updateProfilePic(base64Str);
       setState(() {
         playerData!['profilePicUrl'] = base64Str;
+      });
+    }
+  }
+
+  Future<void> _pickBackgroundImage(PlayerProvider player) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 40);
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      final base64Str = base64Encode(bytes);
+      player.updateBackgroundPic(base64Str);
+      setState(() {
+        playerData!['backgroundPicUrl'] = base64Str;
       });
     }
   }
@@ -96,7 +135,10 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
     bool isMe = widget.targetUid == player.uid;
     bool isVIP = playerData!['isVIP'] == true;
-    String? profilePicStr = playerData!['profilePicUrl'];
+
+    // جلب الـ Bytes بدلاً من قراءة السترينج المباشر لكي نمنع الوميض
+    Uint8List? profilePicData = _getProfileBytes(isMe ? player.profilePicUrl : playerData!['profilePicUrl']);
+    Uint8List? backgroundPicData = _getBgBytes(isMe ? player.backgroundPicUrl : playerData!['backgroundPicUrl']);
 
     bool isOnline = false;
     if (isMe) {
@@ -111,79 +153,111 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         children: [
           const SizedBox(height: 20),
 
-          // 1. الترويسة العلوية (الصورة والاسم يمين بجانب بعض متراصين)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+          // 1. الترويسة العلوية
+          GestureDetector(
+            onLongPress: isMe ? () => _pickBackgroundImage(player) : null,
+            child: Directionality(
+              textDirection: TextDirection.rtl, // [تعديل] نثبت الاتجاه RTL لتصبح الصورة يمين والاسم يسار
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: isVIP ? Colors.amber.withValues(alpha: 0.4) : Colors.white10),
+                  image: backgroundPicData != null
+                      ? DecorationImage(
+                    image: MemoryImage(backgroundPicData),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withValues(alpha: 0.5),
+                      BlendMode.darken,
+                    ),
+                  )
+                      : null,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 24),
-                        if (isVIP) const SizedBox(width: 5),
-                        Text(playerData!['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                      ],
+                    // الصورة مع مؤشر الاتصال والـ VIP (أصبحت الآن على اليمين بسبب RTL)
+                    GestureDetector(
+                      onTap: isMe ? () => _pickImage(player) : null,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                                color: const Color(0xFF212121),
+                                shape: BoxShape.circle,
+                                border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null,
+                                boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10)]
+                            ),
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.grey[800],
+                              backgroundImage: profilePicData != null ? MemoryImage(profilePicData) : null,
+                              child: profilePicData == null
+                                  ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54)
+                                  : null,
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0, // تغيّر لليمين لأننا في RTL
+                            child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Color(0xFF1A1A1D), shape: BoxShape.circle), child: CircleAvatar(radius: 7, backgroundColor: isOnline ? Colors.greenAccent : Colors.redAccent)),
+                          ),
+                          if (isMe)
+                            const Positioned(
+                              top: 0,
+                              left: 0,
+                              child: CircleAvatar(radius: 12, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 14, color: Colors.black)),
+                            )
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 5),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withValues(alpha: 0.5))),
-                      child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 15),
+
+                    // الاسم ومعلومات العصابة (أصبحت الآن على اليسار)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start, // نحاذيها للبداية
+                        children: [
+                          Row(
+                            children: [
+                              if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 24),
+                              if (isVIP) const SizedBox(width: 5),
+                              Flexible(child: Text(playerData!['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]), overflow: TextOverflow.ellipsis)),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withValues(alpha: 0.5))),
+                            child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
                     ),
+
+                    // أيقونة تعديل الخلفية في أقصى اليسار
+                    if (isMe)
+                      GestureDetector(
+                        onTap: () => _pickBackgroundImage(player),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle, border: Border.all(color: Colors.white24)),
+                          child: const Icon(Icons.wallpaper, color: Colors.white, size: 18),
+                        ),
+                      ),
                   ],
                 ),
-                const SizedBox(width: 15),
-
-                // الصورة مع مؤشر الاتصال والـ VIP
-                GestureDetector(
-                  onTap: isMe ? () => _pickImage(player) : null,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                            color: const Color(0xFF212121),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: isVIP ? Colors.amber : Colors.transparent, width: isVIP ? 3 : 0), // الإطار الذهبي للـ VIP
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10)]
-                        ),
-                        child: CircleAvatar(
-                          radius: 40,
-                          backgroundColor: Colors.grey[800],
-                          backgroundImage: profilePicStr != null ? MemoryImage(base64Decode(profilePicStr)) : null,
-                          child: profilePicStr == null
-                              ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54)
-                              : null,
-                        ),
-                      ),
-                      // الدائرة الخضراء/الحمراء
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Color(0xFF1A1A1D), shape: BoxShape.circle), child: CircleAvatar(radius: 7, backgroundColor: isOnline ? Colors.greenAccent : Colors.redAccent)),
-                      ),
-                      // أيقونة تعديل الصورة لحسابك
-                      if (isMe)
-                        const Positioned(
-                          top: 0,
-                          right: 0,
-                          child: CircleAvatar(radius: 12, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 14, color: Colors.black)),
-                        )
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 25),
 
-          // 2. البايو (كامل المربع قابل للضغط)
+          // 2. البايو
           GestureDetector(
             onTap: isMe ? () => _editBio(player) : null,
             child: Container(
@@ -213,14 +287,17 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
           // 3. الإحصائيات السريعة
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildProfileStat('الساحة', '${playerData!['arenaLevel'] ?? 1}', Icons.shield, Colors.redAccent),
-                _buildProfileStat('الإجرام', '${playerData!['crimeLevel'] ?? 1}', Icons.local_police, Colors.blueAccent),
-                _buildProfileStat('العمل', '${playerData!['workLevel'] ?? 1}', Icons.work, Colors.green),
-                _buildProfileStat('السمعة', '${playerData!['creditScore'] ?? 0}', Icons.star, Colors.amber),
-              ],
+            child: Directionality(
+              textDirection: TextDirection.rtl, // توحيد الاتجاه
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildProfileStat('الساحة', '${playerData!['arenaLevel'] ?? 1}', Icons.shield, Colors.redAccent),
+                  _buildProfileStat('الإجرام', '${playerData!['crimeLevel'] ?? 1}', Icons.local_police, Colors.blueAccent),
+                  _buildProfileStat('العمل', '${playerData!['workLevel'] ?? 1}', Icons.work, Colors.green),
+                  _buildProfileStat('السمعة', '${playerData!['creditScore'] ?? 0}', Icons.star, Colors.amber),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 30),
@@ -252,7 +329,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
           const SizedBox(height: 30),
 
-          // 5. زر الرجوع الأنيق أقصى اليسار تحت
+          // 5. زر الرجوع
           Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(left: 20, bottom: 30), child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent.shade700, padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), icon: const Icon(Icons.arrow_back, color: Colors.white), label: const Text('رجوع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), onPressed: widget.onBack ?? () => Navigator.pop(context)))),
         ],
       ),

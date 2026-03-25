@@ -25,7 +25,7 @@ class _ChatViewState extends State<ChatView> {
       'uid': player.uid,
       'message': _controller.text.trim(),
       'isVIP': player.isVIP,
-      'profilePicUrl': player.profilePicUrl, // إرسال الصورة مع الرسالة
+      'profilePicUrl': player.profilePicUrl, // إرسال الصورة مع الرسالة للآخرين
       'timestamp': FieldValue.serverTimestamp(),
     });
     _controller.clear();
@@ -35,23 +35,27 @@ class _ChatViewState extends State<ChatView> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) {
-        return Scaffold(
-          backgroundColor: const Color(0xFF1A1A1D),
-          body: SafeArea(
-            child: Consumer<PlayerProvider>(
-                builder: (context, player, child) {
-                  return Column(
-                    children: [
-                      TopBar(
-                        cash: player.cash, gold: player.gold, energy: player.energy,
-                        courage: player.courage, health: player.health,
-                        playerName: player.playerName, level: player.crimeLevel,
-                        xpPercent: player.crimeXP / player.xpToNextLevel, isVIP: player.isVIP,
-                      ),
-                      Expanded(child: PlayerProfileView(targetUid: uid, onBack: () => Navigator.pop(context))),
-                    ],
-                  );
-                }
+        // [تعديل] تغليف الصفحة بـ RTL لكي يكون الـ Top Bar متناسقاً مع الشاشة الرئيسية
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            backgroundColor: const Color(0xFF1A1A1D),
+            body: SafeArea(
+              child: Consumer<PlayerProvider>(
+                  builder: (context, player, child) {
+                    return Column(
+                      children: [
+                        TopBar(
+                          cash: player.cash, gold: player.gold, energy: player.energy,
+                          courage: player.courage, health: player.health,
+                          playerName: player.playerName, level: player.crimeLevel,
+                          xpPercent: player.crimeXP / player.xpToNextLevel, isVIP: player.isVIP,
+                        ),
+                        Expanded(child: PlayerProfileView(targetUid: uid, onBack: () => Navigator.pop(context))),
+                      ],
+                    );
+                  }
+              ),
             ),
           ),
         );
@@ -74,6 +78,8 @@ class _ChatViewState extends State<ChatView> {
 
               final messages = snapshot.data!.docs;
               final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid;
+              // نجلب صورة اللاعب الحالي لكي نحدثها في رسائله القديمة فوراً
+              final myCurrentPic = Provider.of<PlayerProvider>(context).profilePicUrl;
 
               return ListView.builder(
                 reverse: true,
@@ -85,7 +91,9 @@ class _ChatViewState extends State<ChatView> {
                   final String senderUid = msg['uid'] ?? '';
                   final bool isMe = senderUid == currentUserUid;
                   final String senderName = msg['user'] ?? 'مجهول';
-                  final String? picUrl = msg['profilePicUrl']; // جلب صورة المرسل
+
+                  // [تعديل] إذا كانت الرسالة لي، أقرأ صورتي الحالية، وإلا أقرأ الصورة المحفوظة بالرسالة
+                  final String? finalPicUrl = isMe ? myCurrentPic : msg['profilePicUrl'];
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
@@ -95,7 +103,7 @@ class _ChatViewState extends State<ChatView> {
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl),
+                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, finalPicUrl),
                           if (!isMe) const SizedBox(width: 8),
                           Flexible(
                             child: Directionality(
@@ -106,6 +114,7 @@ class _ChatViewState extends State<ChatView> {
                                   color: isMe ? const Color(0xFF1E3A2F) : const Color(0xFF2A2A2D),
                                   borderRadius: BorderRadius.only(topLeft: const Radius.circular(15), topRight: const Radius.circular(15), bottomLeft: isMe ? const Radius.circular(15) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(15)),
                                   border: Border.all(color: isMe ? Colors.green.withValues(alpha:0.3) : Colors.white10),
+                                  // [تعديل] تمت إزالة خلفية البروفايل من فقاعة الدردشة
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,7 +128,7 @@ class _ChatViewState extends State<ChatView> {
                             ),
                           ),
                           if (isMe) const SizedBox(width: 8),
-                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl),
+                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, finalPicUrl),
                         ],
                       ),
                     ),
@@ -144,13 +153,17 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  // [الدايموند 💎] ويدجت الصورة في الشات يعرض الصورة المخصصة وإطار الـ VIP الذهبي
   Widget _buildAvatar(String uid, bool isVIP, bool isMe, String? picUrl) {
     return GestureDetector(
       onTap: isMe ? null : () => _openPlayerProfile(context, uid),
       child: Container(
-          width: 38, height: 38,
-          decoration: BoxDecoration(color: Colors.grey[800], shape: BoxShape.circle, border: Border.all(color: isVIP ? Colors.amber : Colors.transparent, width: 2)),
+          width: 42, height: 42,
+          decoration: BoxDecoration(
+            color: Colors.grey[800],
+            shape: BoxShape.circle,
+            border: isVIP ? Border.all(color: Colors.amberAccent, width: 2.5) : null,
+            boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 1)] : [],
+          ),
           child: CircleAvatar(
             backgroundColor: Colors.transparent,
             backgroundImage: picUrl != null ? MemoryImage(base64Decode(picUrl)) : null,
