@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../widgets/top_bar.dart';
 import 'player_profile_view.dart';
@@ -19,25 +20,23 @@ class _ChatViewState extends State<ChatView> {
   void _sendMessage() {
     if (_controller.text.trim().isEmpty) return;
     final player = Provider.of<PlayerProvider>(context, listen: false);
-
     _firestore.collection('chat').add({
       'user': player.playerName,
       'uid': player.uid,
       'message': _controller.text.trim(),
       'isVIP': player.isVIP,
+      'profilePicUrl': player.profilePicUrl, // إرسال الصورة مع الرسالة
       'timestamp': FieldValue.serverTimestamp(),
     });
-
     _controller.clear();
   }
 
-  // فتح البروفايل مع تثبيت البار العلوي
   void _openPlayerProfile(BuildContext context, String uid) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) {
         return Scaffold(
-          backgroundColor: Colors.grey[900],
+          backgroundColor: const Color(0xFF1A1A1D),
           body: SafeArea(
             child: Consumer<PlayerProvider>(
                 builder: (context, player, child) {
@@ -49,7 +48,7 @@ class _ChatViewState extends State<ChatView> {
                         playerName: player.playerName, level: player.crimeLevel,
                         xpPercent: player.crimeXP / player.xpToNextLevel, isVIP: player.isVIP,
                       ),
-                      Expanded(child: PlayerProfileView(targetUid: uid, showBackButton: true)),
+                      Expanded(child: PlayerProfileView(targetUid: uid, onBack: () => Navigator.pop(context))),
                     ],
                   );
                 }
@@ -86,6 +85,7 @@ class _ChatViewState extends State<ChatView> {
                   final String senderUid = msg['uid'] ?? '';
                   final bool isMe = senderUid == currentUserUid;
                   final String senderName = msg['user'] ?? 'مجهول';
+                  final String? picUrl = msg['profilePicUrl']; // جلب صورة المرسل
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
@@ -95,9 +95,8 @@ class _ChatViewState extends State<ChatView> {
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe),
+                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl),
                           if (!isMe) const SizedBox(width: 8),
-
                           Flexible(
                             child: Directionality(
                               textDirection: TextDirection.rtl,
@@ -119,9 +118,8 @@ class _ChatViewState extends State<ChatView> {
                               ),
                             ),
                           ),
-
                           if (isMe) const SizedBox(width: 8),
-                          if (isMe) _buildAvatar(senderUid, isVIP, isMe),
+                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl),
                         ],
                       ),
                     ),
@@ -131,7 +129,6 @@ class _ChatViewState extends State<ChatView> {
             },
           ),
         ),
-
         Container(
           padding: const EdgeInsets.all(10),
           decoration: const BoxDecoration(color: Color(0xFF1A1A1D), border: Border(top: BorderSide(color: Colors.white10))),
@@ -147,14 +144,18 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  // تمرير isMe هنا لتعطيل الضغط
-  Widget _buildAvatar(String uid, bool isVIP, bool isMe) {
+  // [الدايموند 💎] ويدجت الصورة في الشات يعرض الصورة المخصصة وإطار الـ VIP الذهبي
+  Widget _buildAvatar(String uid, bool isVIP, bool isMe, String? picUrl) {
     return GestureDetector(
-      onTap: isMe ? null : () => _openPlayerProfile(context, uid), // تم التعطيل إذا كان أنت
+      onTap: isMe ? null : () => _openPlayerProfile(context, uid),
       child: Container(
-        width: 38, height: 38,
-        decoration: BoxDecoration(color: isVIP ? Colors.amber : Colors.grey[800], shape: BoxShape.circle, border: Border.all(color: isVIP ? Colors.orange : Colors.transparent, width: 2)),
-        child: Icon(isVIP ? Icons.workspace_premium : Icons.person, color: isVIP ? Colors.black : Colors.white54, size: 22),
+          width: 38, height: 38,
+          decoration: BoxDecoration(color: Colors.grey[800], shape: BoxShape.circle, border: Border.all(color: isVIP ? Colors.amber : Colors.transparent, width: 2)),
+          child: CircleAvatar(
+            backgroundColor: Colors.transparent,
+            backgroundImage: picUrl != null ? MemoryImage(base64Decode(picUrl)) : null,
+            child: picUrl == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, color: isVIP ? Colors.amber : Colors.white54, size: 20) : null,
+          )
       ),
     );
   }

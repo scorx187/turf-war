@@ -38,6 +38,10 @@ class PlayerProvider with ChangeNotifier {
   String _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال.";
   String get bio => _bio;
 
+  // [الدايموند 💎] متغير الصورة الشخصية
+  String? _profilePicUrl;
+  String? get profilePicUrl => _profilePicUrl;
+
   double _heat = 0.0;
   int _spareParts = 0;
   Map<String, double> _durability = {};
@@ -185,10 +189,7 @@ class PlayerProvider with ChangeNotifier {
     _firestore.collection('config').doc('game_settings').snapshots().listen((doc) {
       if (doc.exists) {
         final data = doc.data()!;
-        if (data.containsKey('bailPrice')) {
-          _bailPrice = data['bailPrice'];
-          notifyListeners();
-        }
+        if (data.containsKey('bailPrice')) { _bailPrice = data['bailPrice']; notifyListeners(); }
       }
     });
   }
@@ -203,9 +204,6 @@ class PlayerProvider with ChangeNotifier {
   double get skill => _skill + _getArmorSkillBonus();
   double get speed => _speed + _getWeaponSpeedBonus();
 
-  // ----------------------------------------------------
-  // [الحل السحري 💎] إنشاء حساب اللاعب فوراً وبدون تأخير
-  // ----------------------------------------------------
   Future<void> initializePlayerOnServer(String uid, String name) async {
     _uid = uid;
     _isLoading = true;
@@ -219,7 +217,6 @@ class PlayerProvider with ChangeNotifier {
     } else if (name.isNotEmpty) {
       _playerName = name;
       _inventory['name_change_card'] = 1;
-      // فك حالة التحميل مؤقتاً عشان نسمح لدالة الحفظ تبني حسابك بالسيرفر فوراً!
       _isLoading = false;
       await _syncWithFirestore();
     }
@@ -238,6 +235,7 @@ class PlayerProvider with ChangeNotifier {
   void _applyFirestoreData(Map<String, dynamic> data) {
     _playerName = data['playerName'] ?? _playerName;
     _bio = data['bio'] ?? _bio;
+    _profilePicUrl = data['profilePicUrl']; // جلب الصورة
     _cash = data['cash'] ?? _cash;
     _gold = data['gold'] ?? _gold;
     _bankBalance = data['bankBalance'] ?? _bankBalance;
@@ -301,6 +299,7 @@ class PlayerProvider with ChangeNotifier {
       await _firestore.collection('players').doc(_uid).set({
         'playerName': _playerName,
         'bio': _bio,
+        'profilePicUrl': _profilePicUrl, // حفظ الصورة
         'cash': _cash,
         'gold': _gold,
         'bankBalance': _bankBalance,
@@ -358,9 +357,7 @@ class PlayerProvider with ChangeNotifier {
         'equippedCrimeToolId': _equippedCrimeToolId,
         'transactions': _transactions.map((t) => t.toJson()).toList(),
       }, SetOptions(merge: true));
-    } catch (e) {
-      debugPrint("Sync failed: $e");
-    }
+    } catch (e) { debugPrint("Sync failed: $e"); }
   }
 
   void _startGameLoop() {
@@ -375,51 +372,24 @@ class PlayerProvider with ChangeNotifier {
       if (timer.tick % 4 == 0 && _courage < maxCourage) { _courage++; localChanged = true; }
       if (timer.tick % 8 == 0 && _energy < maxEnergy) { _energy++; localChanged = true; }
       if (timer.tick % 12 == 0 && _health < maxHealth) { _health++; localChanged = true; }
-
-      if (timer.tick % 60 == 0) {
-        for (var tool in _crimeToolsList) {
-          if ((_durability[tool] ?? 100) < 100) { _durability[tool] = min(100.0, (_durability[tool] ?? 100) + 1.0); localChanged = true; }
-        }
-      }
-
-      if (_loanAmount > 0 && _loanTime != null) {
-        if (DateTime.now().difference(_loanTime!).inHours >= 2) {
-          _loanAmount = (_loanAmount * 1.1).floor();
-          _loanTime = DateTime.now();
-          _showNotification("البنك 🏦: تمت إضافة فوائد 10% على قرضك لتأخرك في السداد!");
-          localChanged = true;
-        }
-      }
-
-      if (_isInPrison && _prisonReleaseTime != null) {
-        if (DateTime.now().isAfter(_prisonReleaseTime!)) { _isInPrison = false; _prisonReleaseTime = null; _showNotification("تم الإفراج عنك من السجن!"); localChanged = true; }
-      }
-
-      if (_isHospitalized && _hospitalReleaseTime != null) {
-        if (DateTime.now().isAfter(_hospitalReleaseTime!)) { _isHospitalized = false; _hospitalReleaseTime = null; _health = (maxHealth * 0.25).toInt(); _showNotification("تم خروجك من المستشفى!"); localChanged = true; }
-      }
-
-      if (_lockedUntil != null && DateTime.now().isAfter(_lockedUntil!)) {
-        int total = _lockedBalance + _lockedProfits; _bankBalance += total; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _showNotification("انتهى الاستثمار! استلمت $total كاش"); localChanged = true;
-      }
-
-      if (isUnderContract && _lastContractRewardTime != null && DateTime.now().difference(_lastContractRewardTime!).inMinutes >= 1) {
-        _cash += _contractSalary; _lastContractRewardTime = DateTime.now(); _addTransaction("راتب عقد: $_activeContractName", _contractSalary, true); _workXP += 5;
-        if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; }
-        localChanged = true;
-      }
-
+      if (timer.tick % 60 == 0) { for (var tool in _crimeToolsList) { if ((_durability[tool] ?? 100) < 100) { _durability[tool] = min(100.0, (_durability[tool] ?? 100) + 1.0); localChanged = true; } } }
+      if (_loanAmount > 0 && _loanTime != null) { if (DateTime.now().difference(_loanTime!).inHours >= 2) { _loanAmount = (_loanAmount * 1.1).floor(); _loanTime = DateTime.now(); _showNotification("البنك 🏦: تمت إضافة فوائد 10% على قرضك لتأخرك في السداد!"); localChanged = true; } }
+      if (_isInPrison && _prisonReleaseTime != null) { if (DateTime.now().isAfter(_prisonReleaseTime!)) { _isInPrison = false; _prisonReleaseTime = null; _showNotification("تم الإفراج عنك من السجن!"); localChanged = true; } }
+      if (_isHospitalized && _hospitalReleaseTime != null) { if (DateTime.now().isAfter(_hospitalReleaseTime!)) { _isHospitalized = false; _hospitalReleaseTime = null; _health = (maxHealth * 0.25).toInt(); _showNotification("تم خروجك من المستشفى!"); localChanged = true; } }
+      if (_lockedUntil != null && DateTime.now().isAfter(_lockedUntil!)) { int total = _lockedBalance + _lockedProfits; _bankBalance += total; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _showNotification("انتهى الاستثمار! استلمت $total كاش"); localChanged = true; }
+      if (isUnderContract && _lastContractRewardTime != null && DateTime.now().difference(_lastContractRewardTime!).inMinutes >= 1) { _cash += _contractSalary; _lastContractRewardTime = DateTime.now(); _addTransaction("راتب عقد: $_activeContractName", _contractSalary, true); _workXP += 5; if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; } localChanged = true; }
       if (localChanged) notifyListeners();
       if (syncCounter >= 60) { _syncWithFirestore(); syncCounter = 0; }
     });
   }
 
-  void updateBio(String newBio) {
-    if (newBio.length <= 150) {
-      _bio = newBio;
-      _syncWithFirestore();
-      notifyListeners();
-    }
+  void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
+
+  // دالة تغيير الصورة
+  void updateProfilePic(String base64Image) {
+    _profilePicUrl = base64Image;
+    _syncWithFirestore();
+    notifyListeners();
   }
 
   void increaseHeat(double amount) { _heat = min(100, _heat + amount); notifyListeners(); }
@@ -436,13 +406,7 @@ class PlayerProvider with ChangeNotifier {
   void addWorkXP(int amount) { _workXP += amount; if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; _showNotification("تمت ترقيتك للمستوى $_workLevel"); } _syncWithFirestore(); notifyListeners(); }
   void incrementCrimeSuccess(int index, String crimeName) { if (index < crimeSuccessCounts.length) { crimeSuccessCounts[index]++; _syncWithFirestore(); notifyListeners(); } }
 
-  void handleCrimeFailure(int minutes) {
-    double escapeChance = 0.0;
-    if (_equippedMaskId == 'black_mask') escapeChance = 0.35;
-    else if (_equippedMaskId == 'silicon_mask') escapeChance = 0.55;
-    if (Random().nextDouble() < escapeChance) { _showNotification("🎭 هربت بفضل القناع!"); }
-    else { _showNotification("⚠️ تم القبض عليك!"); startPrisonTimer(minutes); }
-  }
+  void handleCrimeFailure(int minutes) { double escapeChance = 0.0; if (_equippedMaskId == 'black_mask') escapeChance = 0.35; else if (_equippedMaskId == 'silicon_mask') escapeChance = 0.55; if (Random().nextDouble() < escapeChance) { _showNotification("🎭 هربت بفضل القناع!"); } else { _showNotification("⚠️ تم القبض عليك!"); startPrisonTimer(minutes); } }
 
   void depositToBank(int amount) { if (_cash >= amount) { _cash -= amount; _bankBalance += (amount * 0.9).floor(); _syncWithFirestore(); notifyListeners(); } }
   void withdrawFromBank(int amount) { if (_bankBalance >= amount) { _bankBalance -= amount; _cash += amount; _syncWithFirestore(); notifyListeners(); } }
@@ -469,35 +433,8 @@ class PlayerProvider with ChangeNotifier {
   void updateName(String newName) { if (_inventory.containsKey('name_change_card') && _inventory['name_change_card']! > 0) { _playerName = newName; _inventory['name_change_card'] = _inventory['name_change_card']! - 1; if (_inventory['name_change_card'] == 0) _inventory.remove('name_change_card'); _syncWithFirestore(); notifyListeners(); } }
   void startPrisonTimer(int minutes) { _isInPrison = true; _prisonReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
 
-  void buyItem(String itemId, int price, {bool isConsumable = false, String currency = 'cash'}) {
-    bool canBuy = currency == 'cash' ? _cash >= price : _gold >= price;
-    if (canBuy) {
-      if (currency == 'cash') _cash -= price; else _gold -= price;
-      _inventory[itemId] = (_inventory[itemId] ?? 0) + 1;
-      _syncWithFirestore(); notifyListeners();
-    }
-  }
-
-  void useItem(String itemId) {
-    if ((_inventory[itemId] ?? 0) > 0) {
-      if (_crimeToolsList.contains(itemId)) _equippedCrimeToolId = (_equippedCrimeToolId == itemId) ? null : itemId;
-      else if (['sniper', 'shotgun', 'katana', 'revolver', 'dagger'].contains(itemId)) _equippedWeaponId = (_equippedWeaponId == itemId) ? null : itemId;
-      else if (['exoskeleton', 'ninja_suit', 'steel_armor', 'kevlar_vest', 'riot_shield'].contains(itemId)) _equippedArmorId = (_equippedArmorId == itemId) ? null : itemId;
-      else if (['black_mask', 'silicon_mask'].contains(itemId)) _equippedMaskId = (_equippedMaskId == itemId) ? null : itemId;
-      else {
-        if (itemId == 'medkit') _health = maxHealth;
-        else if (itemId == 'steroids') _energy = maxEnergy;
-        else if (itemId == 'coffee') _courage = maxCourage;
-        else if (itemId == 'bribe_small') reduceHeat(20.0);
-        else if (itemId == 'fake_plates') reduceHeat(40.0);
-        else if (itemId == 'bribe_big') _heat = 0.0;
-        if (['medkit', 'bandage', 'painkillers'].contains(itemId) && _isHospitalized) { _isHospitalized = false; _hospitalReleaseTime = null; _showNotification("🏥 تم استخدام العلاج وخرجت من المستشفى فوراً!"); }
-        if (['medkit', 'bandage', 'painkillers', 'steroids', 'coffee', 'energy_bar', 'fast_food', 'tea', 'juice', 'happiness_booster', 'smoke_bomb', 'bribe_small', 'bribe_big', 'fake_plates'].contains(itemId)) { _inventory[itemId] = _inventory[itemId]! - 1; if (_inventory[itemId] == 0) _inventory.remove(itemId); }
-      }
-      _syncWithFirestore(); notifyListeners();
-    }
-  }
-
+  void buyItem(String itemId, int price, {bool isConsumable = false, String currency = 'cash'}) { bool canBuy = currency == 'cash' ? _cash >= price : _gold >= price; if (canBuy) { if (currency == 'cash') _cash -= price; else _gold -= price; _inventory[itemId] = (_inventory[itemId] ?? 0) + 1; _syncWithFirestore(); notifyListeners(); } }
+  void useItem(String itemId) { if ((_inventory[itemId] ?? 0) > 0) { if (_crimeToolsList.contains(itemId)) _equippedCrimeToolId = (_equippedCrimeToolId == itemId) ? null : itemId; else if (['sniper', 'shotgun', 'katana', 'revolver', 'dagger'].contains(itemId)) _equippedWeaponId = (_equippedWeaponId == itemId) ? null : itemId; else if (['exoskeleton', 'ninja_suit', 'steel_armor', 'kevlar_vest', 'riot_shield'].contains(itemId)) _equippedArmorId = (_equippedArmorId == itemId) ? null : itemId; else if (['black_mask', 'silicon_mask'].contains(itemId)) _equippedMaskId = (_equippedMaskId == itemId) ? null : itemId; else { if (itemId == 'medkit') _health = maxHealth; else if (itemId == 'steroids') _energy = maxEnergy; else if (itemId == 'coffee') _courage = maxCourage; else if (itemId == 'bribe_small') reduceHeat(20.0); else if (itemId == 'fake_plates') reduceHeat(40.0); else if (itemId == 'bribe_big') _heat = 0.0; if (['medkit', 'bandage', 'painkillers'].contains(itemId) && _isHospitalized) { _isHospitalized = false; _hospitalReleaseTime = null; _showNotification("🏥 تم استخدام العلاج وخرجت من المستشفى فوراً!"); } if (['medkit', 'bandage', 'painkillers', 'steroids', 'coffee', 'energy_bar', 'fast_food', 'tea', 'juice', 'happiness_booster', 'smoke_bomb', 'bribe_small', 'bribe_big', 'fake_plates'].contains(itemId)) { _inventory[itemId] = _inventory[itemId]! - 1; if (_inventory[itemId] == 0) _inventory.remove(itemId); } } _syncWithFirestore(); notifyListeners(); } }
   void addItemDirectly(String itemId, {int quantity = 1}) { _inventory[itemId] = (_inventory[itemId] ?? 0) + quantity; _syncWithFirestore(); notifyListeners(); }
   void buyVIP(int days, int cost) { if (_gold >= cost) { _gold -= cost; DateTime start = isVIP ? _vipUntil! : DateTime.now(); _vipUntil = start.add(Duration(days: days)); _syncWithFirestore(); notifyListeners(); } }
   void _showNotification(String message) => _notificationStream.add(message);
@@ -505,10 +442,7 @@ class PlayerProvider with ChangeNotifier {
   void _startGoldMarketTimer() { _goldMarketTimer = Timer.periodic(const Duration(hours: 2), (timer) { _oldGoldPrice = _goldPrice; _goldPrice = 15000 + Random().nextInt(2001); notifyListeners(); }); }
   void payBail() { if (_cash >= _bailPrice) { _cash -= _bailPrice; _isInPrison = false; _prisonReleaseTime = null; _syncWithFirestore(); notifyListeners(); } }
 
-  Future<void> resetPlayerData() async {
-    _cash = 5000000000; _gold = 5000000; _bankBalance = 0; _energy = 100; _courage = 100; _strength = 10; _defense = 10; _skill = 10; _speed = 10; _ownedProperties = []; _activePropertyId = null; _happiness = 0; _inventory = {'name_change_card': 1}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {}; crimeSuccessCounts = [0, 0, 0, 0, 0]; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null; _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال.";
-    await _syncWithFirestore(); notifyListeners();
-  }
+  Future<void> resetPlayerData() async { _cash = 5000000000; _gold = 5000000; _bankBalance = 0; _energy = 100; _courage = 100; _strength = 10; _defense = 10; _skill = 10; _speed = 10; _ownedProperties = []; _activePropertyId = null; _happiness = 0; _inventory = {'name_change_card': 1}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {}; crimeSuccessCounts = [0, 0, 0, 0, 0]; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null; _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; await _syncWithFirestore(); notifyListeners(); }
 
   Future<List<Map<String, dynamic>>> fetchRealOpponents() async { try { int minLevel = max(1, _arenaLevel - 2); int maxLevel = _arenaLevel + 2; QuerySnapshot snapshot = await _firestore.collection('players').where('arenaLevel', isGreaterThanOrEqualTo: minLevel).where('arenaLevel', isLessThanOrEqualTo: maxLevel).limit(10).get(); List<Map<String, dynamic>> opponents = []; for (var doc in snapshot.docs) { if (doc.id != _uid) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; opponents.add(data); } } return opponents; } catch (e) { return []; } }
   Future<List<Map<String, dynamic>>> fetchLeaderboard() async { try { QuerySnapshot snapshot = await _firestore.collection('players').orderBy('arenaLevel', descending: true).limit(10).get(); List<Map<String, dynamic>> topPlayers = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; topPlayers.add(data); } return topPlayers; } catch (e) { return []; } }

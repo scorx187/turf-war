@@ -22,7 +22,6 @@ import '../views/chop_shop_view.dart';
 import '../views/laboratory_view.dart';
 import '../views/workshop_view.dart';
 import '../views/prison_view.dart';
-// [تعديل] استدعاء بروفايل اللاعب الجديد
 import '../views/player_profile_view.dart';
 import 'dart:async';
 
@@ -35,6 +34,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   int _selectedIndex = 2;
+  int _profileTabIndex = 0; // [الدايموند 💎] لحفظ مكانك في أزرار البروفايل السفلية
   String _activeArea = 'الخريطة';
   StreamSubscription? _notificationSubscription;
 
@@ -81,32 +81,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final audio = Provider.of<AudioProvider>(context, listen: false);
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      audio.pauseBGM();
-    } else if (state == AppLifecycleState.resumed) {
-      audio.resumeBGM();
-    }
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) { audio.pauseBGM(); }
+    else if (state == AppLifecycleState.resumed) { audio.resumeBGM(); }
   }
 
   void _showStylishNotification(String message) {
     bool isWarning = message.contains('⚠️') || message.contains('خطر') || message.contains('سجن') || message.contains('🎭') || message.contains('🏥');
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(message.contains('🎭') ? Icons.theater_comedy : (isWarning ? Icons.warning_amber_rounded : Icons.info_outline), color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message, style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 14))),
-          ],
-        ),
-        duration: const Duration(seconds: 3),
-        backgroundColor: message.contains('🎭') ? Colors.blueAccent.withValues(alpha:0.9) : (isWarning ? Colors.redAccent.withValues(alpha:0.9) : Colors.green.withValues(alpha:0.9)),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        margin: const EdgeInsets.all(15),
-        elevation: 10,
-      ),
+      SnackBar(content: Row(children: [Icon(message.contains('🎭') ? Icons.theater_comedy : (isWarning ? Icons.warning_amber_rounded : Icons.info_outline), color: Colors.white), const SizedBox(width: 12), Expanded(child: Text(message, style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 14)))]), duration: const Duration(seconds: 3), backgroundColor: message.contains('🎭') ? Colors.blueAccent.withValues(alpha:0.9) : (isWarning ? Colors.redAccent.withValues(alpha:0.9) : Colors.green.withValues(alpha:0.9)), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), margin: const EdgeInsets.all(15), elevation: 10),
     );
   }
 
@@ -115,43 +98,38 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     final player = Provider.of<PlayerProvider>(context);
 
     if (player.isLoading) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: Colors.redAccent),
-              SizedBox(height: 20),
-              Text('جاري الاتصال بالعالم السفلي...', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
-      );
+      return const Scaffold(backgroundColor: Colors.black, body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(color: Colors.redAccent), SizedBox(height: 20), Text('جاري الاتصال بالعالم السفلي...', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold))])));
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: const Color(0xFF1A1A1D),
       body: SafeArea(
         child: Column(
           children: [
-            // البار العلوي ثابت دائماً
-            TopBar(
-              cash: player.cash,
-              gold: player.gold,
-              energy: player.energy,
-              courage: player.courage,
-              health: player.health,
-              playerName: player.playerName,
-              level: player.crimeLevel,
-              xpPercent: player.crimeXP / player.xpToNextLevel,
-              isVIP: player.isVIP,
-            ),
+            TopBar(cash: player.cash, gold: player.gold, energy: player.energy, courage: player.courage, health: player.health, playerName: player.playerName, level: player.crimeLevel, xpPercent: player.crimeXP / player.xpToNextLevel, isVIP: player.isVIP),
             Expanded(child: _buildConditionalContent(player)),
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      // [الدايموند 💎] تغيير الشريط السفلي إذا دخلت البروفايل
+      bottomNavigationBar: _selectedIndex == 5
+          ? BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.black,
+        selectedItemColor: Colors.amber,
+        unselectedItemColor: Colors.white54,
+        currentIndex: _profileTabIndex,
+        onTap: (index) {
+          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+          setState(() => _profileTabIndex = index);
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.group), label: 'الأصدقاء'),
+          BottomNavigationBarItem(icon: Icon(Icons.psychology), label: 'المهارات'),
+          BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
+        ],
+      )
+          : BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.black,
         selectedItemColor: Colors.amber,
@@ -175,12 +153,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildConditionalContent(PlayerProvider player) {
-    if (player.isInPrison) {
-      return PrisonView(prisonReleaseTime: player.prisonReleaseTime, cash: player.cash, onBailPaid: () { player.payBail(); });
-    }
-    if (player.isHospitalized) {
-      return HospitalView(onBack: () => setState(() => _activeArea = 'الخريطة'));
-    }
+    if (player.isInPrison) return PrisonView(prisonReleaseTime: player.prisonReleaseTime, cash: player.cash, onBailPaid: () { player.payBail(); });
+    if (player.isHospitalized) return HospitalView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     return _buildMainContent(player);
   }
 
@@ -189,32 +163,21 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_selectedIndex == 1) return const ChatView();
     if (_selectedIndex == 3) {
       return CrimeView(
-        courage: player.courage,
-        crimeSuccessCounts: player.crimeSuccessCounts,
+        courage: player.courage, crimeSuccessCounts: player.crimeSuccessCounts,
         onSuccess: (reward, index, energyUsed) {
-          final audio = Provider.of<AudioProvider>(context, listen: false);
-          audio.playEffect('click.mp3');
+          final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
           final List<String> crimeNames = ['سرقة محفظة', 'سطو على متجر', 'سرقة سيارة', 'سطو على فيلا', 'سطو على البنك'];
-          player.addCash(reward, reason: "نجاح: ${crimeNames[index]}");
-          player.incrementCrimeSuccess(index, crimeNames[index]);
-          if (index == 2) {
-            player.addInventoryItem('stolen_car', 1);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حصلت على سيارة مسروقة! أرسلها للتشليح 🚗🔧'), backgroundColor: Colors.green));
-          }
+          player.addCash(reward, reason: "نجاح: ${crimeNames[index]}"); player.incrementCrimeSuccess(index, crimeNames[index]);
+          if (index == 2) { player.addInventoryItem('stolen_car', 1); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حصلت على سيارة مسروقة! أرسلها للتشليح 🚗🔧'), backgroundColor: Colors.green)); }
           int courageCost = index == 0 ? 5 : index == 1 ? 15 : index == 2 ? 30 : index == 3 ? 40 : 60;
-          player.setCourage(player.courage - courageCost);
-          if (energyUsed > 0) player.setEnergy(player.energy - energyUsed);
+          player.setCourage(player.courage - courageCost); if (energyUsed > 0) player.setEnergy(player.energy - energyUsed);
         },
-        onFailure: () {
-          final audio = Provider.of<AudioProvider>(context, listen: false);
-          audio.playEffect('click.mp3');
-          player.handleCrimeFailure(2);
-        },
+        onFailure: () { final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3'); player.handleCrimeFailure(2); },
       );
     }
 
-    // [الدايموند 💎] استدعاء شاشة البروفايل الفخمة لحسابك مع إخفاء زر الرجوع لأننا بالـ Bottom Nav
-    if (_selectedIndex == 5) return PlayerProfileView(targetUid: player.uid!, showBackButton: false);
+    // تمرير profileTabIndex للبروفايل، وزر الرجوع يرجعك للخريطة
+    if (_selectedIndex == 5) return PlayerProfileView(targetUid: player.uid!, profileTabIndex: _profileTabIndex, onBack: () => setState(() => _selectedIndex = 2));
 
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
 
@@ -235,20 +198,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_activeArea == 'الورشة') return WorkshopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
 
     return GridView.builder(
-      padding: const EdgeInsets.all(15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.8),
-      itemCount: locations.length,
+      padding: const EdgeInsets.all(15), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.8), itemCount: locations.length,
       itemBuilder: (context, index) {
         final loc = locations[index];
         return GestureDetector(
-          onTap: () {
-            Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-            setState(() => _activeArea = loc['name']);
-          },
-          child: Container(
-            decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: loc['color'], width: 1.5)),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(loc['icon'], size: 40, color: loc['color']), const SizedBox(height: 10), Text(loc['name'], style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))]),
-          ),
+          onTap: () { Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); setState(() => _activeArea = loc['name']); },
+          child: Container(decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: loc['color'], width: 1.5)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(loc['icon'], size: 40, color: loc['color']), const SizedBox(height: 10), Text(loc['name'], style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))])),
         );
       },
     );
