@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/player_provider.dart';
-// [تعديل] استدعاء شاشة البروفايل الجديدة
+import '../widgets/top_bar.dart';
 import 'player_profile_view.dart';
 
 class ChatView extends StatefulWidget {
@@ -31,12 +31,32 @@ class _ChatViewState extends State<ChatView> {
     _controller.clear();
   }
 
-  // [الدايموند 💎] تحويل اللاعب لشاشة البروفايل الكاملة
+  // فتح البروفايل مع تثبيت البار العلوي
   void _openPlayerProfile(BuildContext context, String uid) {
-    // استخدمنا push لفتح شاشة كاملة تغطي الـ Bottom Navigation Bar
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => PlayerProfileView(targetUid: uid)),
+      MaterialPageRoute(builder: (context) {
+        return Scaffold(
+          backgroundColor: Colors.grey[900],
+          body: SafeArea(
+            child: Consumer<PlayerProvider>(
+                builder: (context, player, child) {
+                  return Column(
+                    children: [
+                      TopBar(
+                        cash: player.cash, gold: player.gold, energy: player.energy,
+                        courage: player.courage, health: player.health,
+                        playerName: player.playerName, level: player.crimeLevel,
+                        xpPercent: player.crimeXP / player.xpToNextLevel, isVIP: player.isVIP,
+                      ),
+                      Expanded(child: PlayerProfileView(targetUid: uid, showBackButton: true)),
+                    ],
+                  );
+                }
+            ),
+          ),
+        );
+      }),
     );
   }
 
@@ -44,19 +64,14 @@ class _ChatViewState extends State<ChatView> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          width: double.infinity,
-          decoration: const BoxDecoration(color: Colors.black26, border: Border(bottom: BorderSide(color: Colors.white10))),
-          child: const Text('شات المدينة أونلاين 🌐', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-        ),
+        Container(padding: const EdgeInsets.all(16), width: double.infinity, decoration: const BoxDecoration(color: Colors.black26, border: Border(bottom: BorderSide(color: Colors.white10))), child: const Text('شات المدينة أونلاين 🌐', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _firestore.collection('chat').orderBy('timestamp', descending: true).limit(50).snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.hasError) return Center(child: Text('خطأ في الاتصال: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
+              if (snapshot.hasError) return Center(child: Text('خطأ في الاتصال', style: const TextStyle(color: Colors.redAccent)));
               if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('لا توجد رسائل بعد...', style: TextStyle(color: Colors.white54)));
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('لا توجد رسائل...', style: TextStyle(color: Colors.white54)));
 
               final messages = snapshot.data!.docs;
               final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid;
@@ -80,7 +95,7 @@ class _ChatViewState extends State<ChatView> {
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (!isMe) _buildAvatar(senderUid, isVIP),
+                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe),
                           if (!isMe) const SizedBox(width: 8),
 
                           Flexible(
@@ -90,21 +105,13 @@ class _ChatViewState extends State<ChatView> {
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 decoration: BoxDecoration(
                                   color: isMe ? const Color(0xFF1E3A2F) : const Color(0xFF2A2A2D),
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(15),
-                                    topRight: const Radius.circular(15),
-                                    bottomLeft: isMe ? const Radius.circular(15) : Radius.zero,
-                                    bottomRight: isMe ? Radius.zero : const Radius.circular(15),
-                                  ),
-                                  border: Border.all(color: isMe ? Colors.green.withValues(alpha: 0.3) : Colors.white10),
+                                  borderRadius: BorderRadius.only(topLeft: const Radius.circular(15), topRight: const Radius.circular(15), bottomLeft: isMe ? const Radius.circular(15) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(15)),
+                                  border: Border.all(color: isMe ? Colors.green.withValues(alpha:0.3) : Colors.white10),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      isMe ? 'أنت' : senderName,
-                                      style: TextStyle(color: isMe ? Colors.greenAccent : (isVIP ? Colors.amber : Colors.white70), fontWeight: FontWeight.bold, fontSize: 13),
-                                    ),
+                                    Text(isMe ? 'أنت' : senderName, style: TextStyle(color: isMe ? Colors.greenAccent : (isVIP ? Colors.amber : Colors.white70), fontWeight: FontWeight.bold, fontSize: 13)),
                                     const SizedBox(height: 4),
                                     Text(msg['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.3)),
                                   ],
@@ -114,7 +121,7 @@ class _ChatViewState extends State<ChatView> {
                           ),
 
                           if (isMe) const SizedBox(width: 8),
-                          if (isMe) _buildAvatar(senderUid, isVIP),
+                          if (isMe) _buildAvatar(senderUid, isVIP, isMe),
                         ],
                       ),
                     ),
@@ -130,26 +137,9 @@ class _ChatViewState extends State<ChatView> {
           decoration: const BoxDecoration(color: Color(0xFF1A1A1D), border: Border(top: BorderSide(color: Colors.white10))),
           child: Row(
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  style: const TextStyle(color: Colors.white),
-                  onSubmitted: (_) => _sendMessage(),
-                  decoration: InputDecoration(
-                    hintText: 'اكتب رسالة للجميع...',
-                    hintStyle: const TextStyle(color: Colors.white24),
-                    filled: true,
-                    fillColor: Colors.black45,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                  ),
-                ),
-              ),
+              Expanded(child: TextField(controller: _controller, style: const TextStyle(color: Colors.white), onSubmitted: (_) => _sendMessage(), decoration: InputDecoration(hintText: 'اكتب رسالة للجميع...', hintStyle: const TextStyle(color: Colors.white24), filled: true, fillColor: Colors.black45, border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10)))),
               const SizedBox(width: 10),
-              GestureDetector(
-                onTap: _sendMessage,
-                child: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.send, color: Colors.black, size: 20)),
-              ),
+              GestureDetector(onTap: _sendMessage, child: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.send, color: Colors.black, size: 20))),
             ],
           ),
         ),
@@ -157,12 +147,12 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
-  Widget _buildAvatar(String uid, bool isVIP) {
+  // تمرير isMe هنا لتعطيل الضغط
+  Widget _buildAvatar(String uid, bool isVIP, bool isMe) {
     return GestureDetector(
-      onTap: () => _openPlayerProfile(context, uid),
+      onTap: isMe ? null : () => _openPlayerProfile(context, uid), // تم التعطيل إذا كان أنت
       child: Container(
-        width: 38,
-        height: 38,
+        width: 38, height: 38,
         decoration: BoxDecoration(color: isVIP ? Colors.amber : Colors.grey[800], shape: BoxShape.circle, border: Border.all(color: isVIP ? Colors.orange : Colors.transparent, width: 2)),
         child: Icon(isVIP ? Icons.workspace_premium : Icons.person, color: isVIP ? Colors.black : Colors.white54, size: 22),
       ),

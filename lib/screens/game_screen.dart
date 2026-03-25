@@ -6,7 +6,6 @@ import '../widgets/top_bar.dart';
 import '../views/lucky_wheel_view.dart';
 import '../views/crime_view.dart';
 import '../views/bank_view.dart';
-// [إصلاح التعارض هنا] تجاهلنا كلاس السجن المكرر في هذا الملف
 import '../views/airport_view.dart';
 import '../views/hospital_view.dart';
 import '../views/black_market_view.dart';
@@ -23,8 +22,9 @@ import '../views/chop_shop_view.dart';
 import '../views/laboratory_view.dart';
 import '../views/workshop_view.dart';
 import '../views/prison_view.dart';
+// [تعديل] استدعاء بروفايل اللاعب الجديد
+import '../views/player_profile_view.dart';
 import 'dart:async';
-import 'package:intl/intl.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -33,7 +33,6 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-// أضفنا WidgetsBindingObserver لمراقبة حالة الجوال (هوم، إغلاق، إلخ)
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   int _selectedIndex = 2;
   String _activeArea = 'الخريطة';
@@ -61,38 +60,31 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    // تسجيل المراقب
     WidgetsBinding.instance.addObserver(this);
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final player = Provider.of<PlayerProvider>(context, listen: false);
       final audio = Provider.of<AudioProvider>(context, listen: false);
       audio.playBGM();
-
       _notificationSubscription = player.notificationStream.listen((message) {
-        if (mounted) {
-          _showStylishNotification(message);
-        }
+        if (mounted) _showStylishNotification(message);
       });
     });
   }
 
   @override
   void dispose() {
-    // حذف المراقب عند الإغلاق
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     super.dispose();
   }
 
-  // التحكم في الموسيقى عند الخروج للهوم أو الرجوع
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final audio = Provider.of<AudioProvider>(context, listen: false);
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-       audio.pauseBGM();
+      audio.pauseBGM();
     } else if (state == AppLifecycleState.resumed) {
-       audio.resumeBGM();
+      audio.resumeBGM();
     }
   }
 
@@ -122,7 +114,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // [الدايموند 💎] شاشة تحميل لمنع التصفير!
     if (player.isLoading) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -144,6 +135,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       body: SafeArea(
         child: Column(
           children: [
+            // البار العلوي ثابت دائماً
             TopBar(
               cash: player.cash,
               gold: player.gold,
@@ -166,7 +158,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         unselectedItemColor: Colors.white54,
         currentIndex: _selectedIndex,
         onTap: (index) {
-          // منع التنقل إذا كان اللاعب في السجن أو المستشفى
           if (player.isInPrison || player.isHospitalized) return;
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
           setState(() { _selectedIndex = index; _activeArea = 'الخريطة'; });
@@ -184,17 +175,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildConditionalContent(PlayerProvider player) {
-    // السجن والمستشفى حالات إجبارية تظهر فوق كل شيء لضمان عدم الهروب
     if (player.isInPrison) {
-      return PrisonView(
-        prisonReleaseTime: player.prisonReleaseTime,
-        cash: player.cash,
-        onBailPaid: () {
-          player.payBail();
-          // تم مسح الكود اللي يرجعك للخريطة إجبارياً
-          // الآن اللعبة بتخليك في نفس المكان اللي كنت فيه (مثل صفحة الجرائم)
-        },
-      );
+      return PrisonView(prisonReleaseTime: player.prisonReleaseTime, cash: player.cash, onBailPaid: () { player.payBail(); });
     }
     if (player.isHospitalized) {
       return HospitalView(onBack: () => setState(() => _activeArea = 'الخريطة'));
@@ -215,12 +197,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           final List<String> crimeNames = ['سرقة محفظة', 'سطو على متجر', 'سرقة سيارة', 'سطو على فيلا', 'سطو على البنك'];
           player.addCash(reward, reason: "نجاح: ${crimeNames[index]}");
           player.incrementCrimeSuccess(index, crimeNames[index]);
-
           if (index == 2) {
             player.addInventoryItem('stolen_car', 1);
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حصلت على سيارة مسروقة! أرسلها للتشليح 🚗🔧'), backgroundColor: Colors.green));
           }
-
           int courageCost = index == 0 ? 5 : index == 1 ? 15 : index == 2 ? 30 : index == 3 ? 40 : 60;
           player.setCourage(player.courage - courageCost);
           if (energyUsed > 0) player.setEnergy(player.energy - energyUsed);
@@ -232,7 +212,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         },
       );
     }
-    if (_selectedIndex == 5) return _buildProfileView(player);
+
+    // [الدايموند 💎] استدعاء شاشة البروفايل الفخمة لحسابك مع إخفاء زر الرجوع لأننا بالـ Bottom Nav
+    if (_selectedIndex == 5) return PlayerProfileView(targetUid: player.uid!, showBackButton: false);
+
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
 
     if (_activeArea == 'المطار') return AirportView(gold: player.gold, onTravel: (cost) => player.removeGold(cost), onBack: () => setState(() => _activeArea = 'الخريطة'));
@@ -269,114 +252,5 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         );
       },
     );
-  }
-
-  String _getItemName(String id) {
-    switch (id) {
-      case 'dagger': return 'خنجر صدئ';
-      case 'revolver': return 'مسدس ريفولفر';
-      case 'katana': return 'كاتانا الساموراي';
-      case 'shotgun': return 'بندقية شوزن';
-      case 'sniper': return 'قناصة الصقر';
-      case 'riot_shield': return 'درع مكافحة الشغب';
-      case 'kevlar_vest': return 'سترة واقية';
-      case 'steel_armor': return 'درع فولاذي';
-      case 'ninja_suit': return 'زي النينجا الأسود';
-      case 'exoskeleton': return 'البدلة الخارقة';
-      case 'black_mask': return 'قناع أسود';
-      case 'silicon_mask': return 'قناع سيليكون';
-      case 'name_change_card': return 'بطاقة تغيير الاسم';
-      case 'master_key': return 'المفتاح الرئيسي';
-    // أدوات الجريمة الجديدة
-      case 'crowbar': return 'عتلة فولاذية';
-      case 'slim_jim': return 'مفتاح مسطرة';
-      case 'jammer': return 'جهاز تشويش';
-      case 'lockpick': return 'طقم مفاتيح';
-      case 'glass_cutter': return 'قاطع زجاج';
-      case 'laptop': return 'لابتوب تهكير';
-      case 'thermite': return 'ثيرميت حارق';
-      case 'stethoscope': return 'سماعة طبية';
-      case 'hydraulic': return 'قاطع هيدروليك';
-      case 'emp_device': return 'جهاز EMP';
-      default: return 'غير معروف';
-    }
-  }
-
-  Widget _buildProfileView(PlayerProvider player) {
-    final audio = Provider.of<AudioProvider>(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          CircleAvatar(radius: 50, backgroundColor: player.isVIP ? Colors.amber : Colors.grey[700], child: Icon(player.isVIP ? Icons.workspace_premium : Icons.person, size: 60, color: player.isVIP ? Colors.black : Colors.white54)),
-          const SizedBox(height: 20),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [if (player.isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 28), const SizedBox(width: 8), Text(player.playerName, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))]),
-
-          // [Diamond] عرض مستوى الملاحقة (Heat) في البروفايل
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 15),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha:0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent.withValues(alpha:0.3))),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(children: [Icon(Icons.local_police, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text("مستوى الملاحقة", style: TextStyle(color: Colors.white70))]),
-                Text("${player.heat.toInt()}%", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 10),
-          if (player.isVIP) _buildProfileItem(Icons.workspace_premium, "عضوية VIP", "تنتهي في: ${DateFormat('yyyy-MM-dd HH:mm').format(player.vipUntil!)}", Colors.amber),
-          if (player.isInGang) _buildProfileItem(Icons.security, "العصابة", player.gangName!, Colors.redAccent),
-          _buildProfileItem(Icons.settings, "قطع غيار للإصلاح", "${player.spareParts}", Colors.blueAccent), // [Diamond]
-          _buildProfileItem(Icons.sentiment_very_satisfied, "نسبة السعادة", "${player.happiness}%", Colors.yellow),
-          _buildProfileItem(Icons.star, "المستوى الإجرامي", player.crimeLevel.toString(), Colors.amber),
-          _buildProfileItem(Icons.credit_score, "السمعة الائتمانية", player.creditScore.toString(), Colors.blueAccent),
-          _buildProfileItem(Icons.account_balance_wallet, "الرصيد الكلي", (player.cash + player.bankBalance).toString(), Colors.green),
-
-          const SizedBox(height: 20),
-          const Text("إحصائيات القتال", style: TextStyle(color: Colors.white54, fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          _buildProfileItem(Icons.fitness_center, "القوة", player.strength.toStringAsFixed(1), Colors.redAccent),
-          _buildProfileItem(Icons.shield, "الدفاع", player.defense.toStringAsFixed(1), Colors.blueAccent),
-          _buildProfileItem(Icons.psychology, "المهارة", player.skill.toStringAsFixed(1), Colors.greenAccent),
-          _buildProfileItem(Icons.speed, "السرعة", player.speed.toStringAsFixed(1), Colors.orangeAccent),
-
-          const SizedBox(height: 20),
-          const Text("المعدات المجهزة", style: TextStyle(color: Colors.white54, fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          if (player.equippedWeaponId != null) _buildProfileItem(Icons.colorize, "السلاح القتالي", _getItemName(player.equippedWeaponId!), Colors.orange),
-          if (player.equippedArmorId != null) _buildProfileItem(Icons.shield, "الدرع القتالي", _getItemName(player.equippedArmorId!), Colors.blue),
-          if (player.equippedCrimeToolId != null) _buildProfileItem(Icons.engineering, "أداة الجريمة", _getItemName(player.equippedCrimeToolId!), Colors.teal), // [Diamond]
-          if (player.equippedMaskId != null) _buildProfileItem(Icons.theater_comedy, "القناع المجهز", _getItemName(player.equippedMaskId!), Colors.pink),
-
-          if (player.equippedWeaponId == null && player.equippedArmorId == null && player.equippedMaskId == null && player.equippedCrimeToolId == null)
-            const Text("لا توجد معدات مجهزة", style: TextStyle(color: Colors.white38)),
-
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: audio.isMuted ? Colors.redAccent.withValues(alpha:0.2) : Colors.green.withValues(alpha:0.2),
-              side: BorderSide(color: audio.isMuted ? Colors.redAccent : Colors.green),
-              minimumSize: const Size(double.infinity, 50),
-            ),
-            onPressed: () => audio.toggleMute(),
-            icon: Icon(audio.isMuted ? Icons.volume_off : Icons.volume_up, color: audio.isMuted ? Colors.redAccent : Colors.green),
-            label: Text(audio.isMuted ? "تشغيل الصوت" : "كتم الصوت", style: TextStyle(color: audio.isMuted ? Colors.redAccent : Colors.green)),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withValues(alpha:0.2), side: const BorderSide(color: Colors.red), minimumSize: const Size(double.infinity, 50)), onPressed: () { audio.playEffect('click.mp3'); _showResetConfirmation(player); }, icon: const Icon(Icons.delete_forever, color: Colors.red), label: const Text("مسح كافة البيانات والبدء من جديد", style: TextStyle(color: Colors.red))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileItem(IconData icon, String label, String value, Color color) {
-    return Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(10)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Row(children: [Icon(icon, color: color), const SizedBox(width: 10), Text(label, style: const TextStyle(color: Colors.white70))]), Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14))]));
-  }
-
-  void _showResetConfirmation(PlayerProvider player) {
-    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: Colors.grey[900], title: const Text("تحذير نهائي ⚠️", style: TextStyle(color: Colors.white)), content: const Text("هل أنت متأكد من مسح كافة بياناتك? لا يمكن التراجع عن هذا الإجراء.", style: TextStyle(color: Colors.white70)), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("إلغاء", style: TextStyle(color: Colors.blue))), TextButton(onPressed: () { player.resetPlayerData(); Navigator.pop(context); setState(() => _selectedIndex = 2); }, child: const Text("نعم، امسح كل شيء", style: TextStyle(color: Colors.red)))]));
   }
 }
