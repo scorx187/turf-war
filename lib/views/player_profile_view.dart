@@ -13,7 +13,6 @@ class PlayerProfileView extends StatefulWidget {
   final VoidCallback? onBack;
   final int profileTabIndex;
 
-  // [جديد] متغيرات لتسريع فتح الشاشة
   final String? previewName;
   final String? previewPicUrl;
   final bool? previewIsVIP;
@@ -34,35 +33,55 @@ class PlayerProfileView extends StatefulWidget {
 
 class _PlayerProfileViewState extends State<PlayerProfileView> {
   Map<String, dynamic>? playerData;
-  bool isLoading = false; // [تعديل] لا داعي للانتظار، الشاشة تفتح فوراً!
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
 
-    // [الحل السحري] وضع بيانات وهمية تظهر للمستخدم فوراً حتى يتم جلب البيانات الحقيقية
-    playerData = {
-      'playerName': widget.previewName ?? 'جاري التحميل...',
-      'profilePicUrl': widget.previewPicUrl,
-      'backgroundPicUrl': null,
-      'isVIP': widget.previewIsVIP ?? false,
-      'bio': 'جاري تحديث البيانات...',
-      'arenaLevel': 0,
-      'crimeLevel': 0,
-      'workLevel': 0,
-      'creditScore': 0,
-    };
+    final player = Provider.of<PlayerProvider>(context, listen: false);
+    bool isMe = widget.targetUid == player.uid;
 
-    _loadData(); // جلب البيانات الحقيقية في الخلفية بصمت
+    if (isMe) {
+      // [سرعة صاروخية 🔥] إذا كان هذا بروفايلك الخاص، سيأخذ بياناتك المباشرة بدون أي كاش أو إنترنت
+      playerData = {
+        'playerName': player.playerName,
+        'profilePicUrl': player.profilePicUrl,
+        'backgroundPicUrl': player.backgroundPicUrl,
+        'isVIP': player.isVIP,
+        'bio': player.bio,
+        'arenaLevel': player.arenaLevel,
+        'crimeLevel': player.crimeLevel,
+        'workLevel': player.workLevel,
+        'creditScore': player.creditScore,
+        'gangName': player.gangName,
+      };
+    } else {
+      // إذا كان بروفايل شخص آخر، تظهر الواجهة المتفائلة ثم تتحدث بهدوء
+      playerData = {
+        'playerName': widget.previewName ?? 'جاري التحميل...',
+        'profilePicUrl': widget.previewPicUrl,
+        'backgroundPicUrl': null,
+        'isVIP': widget.previewIsVIP ?? false,
+        'bio': 'جاري تحديث البيانات...',
+        'arenaLevel': 0,
+        'crimeLevel': 0,
+        'workLevel': 0,
+        'creditScore': 0,
+      };
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
     final player = Provider.of<PlayerProvider>(context, listen: false);
 
+    // [تعديل هام] أزلنا أمر "مسح الكاش" من هنا لكي نستفيد من الذاكرة السريعة
     final data = await player.getPlayerById(widget.targetUid);
+
     if (mounted && data != null) {
       setState(() {
-        playerData = data; // التحديث الصامت للواجهة
+        playerData = data;
       });
     }
   }
@@ -132,7 +151,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     final player = Provider.of<PlayerProvider>(context);
     final audio = Provider.of<AudioProvider>(context);
 
-    // [تعديل] لم نعد نحتاج الدائرة الصفراء بفضل الواجهة المتفائلة
     if (playerData == null) return const Center(child: CircularProgressIndicator(color: Colors.amber));
 
     bool isMe = widget.targetUid == player.uid;
@@ -333,7 +351,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               return FutureBuilder<Map<String, dynamic>?>(
                 future: Provider.of<PlayerProvider>(context, listen: false).getPlayerById(targetUid),
                 builder: (context, userSnap) {
-                  // [تعديل] عرض نص أثناء الجلب السريع بدلاً من تعليق القائمة
                   if (!userSnap.hasData) {
                     return const ListTile(
                       leading: CircleAvatar(backgroundColor: Colors.black26),

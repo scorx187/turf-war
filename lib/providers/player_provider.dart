@@ -112,23 +112,43 @@ class PlayerProvider with ChangeNotifier {
   List<int> crimeSuccessCounts = [0, 0, 0, 0, 0];
   List<Transaction> _transactions = [];
 
-  // [الذاكرة المركزية للصور لتسريع التحميل ومنع التشويش]
+  // 1. [الذاكرة المركزية للصور لمنع الوميض والتشويش]
   final Map<String, Uint8List> _decodedImagesCache = {};
 
   Uint8List? getDecodedImage(String? base64Str) {
     if (base64Str == null || base64Str.isEmpty) return null;
-
-    if (_decodedImagesCache.containsKey(base64Str)) {
-      return _decodedImagesCache[base64Str]!;
-    }
-
+    if (_decodedImagesCache.containsKey(base64Str)) return _decodedImagesCache[base64Str]!;
     try {
       final bytes = base64Decode(base64Str);
       _decodedImagesCache[base64Str] = bytes;
       return bytes;
-    } catch (e) {
-      return null;
+    } catch (e) { return null; }
+  }
+
+  // 2. [الذاكرة المركزية لبيانات اللاعبين لمنع التحميل المستمر] - (هذا الذي كان ينقصك)
+  final Map<String, Map<String, dynamic>> _playersCache = {};
+  final Map<String, DateTime> _playersCacheTime = {};
+
+  // دالة ذكية لجلب بيانات اللاعب بلمح البصر
+  Future<Map<String, dynamic>?> getPlayerById(String uid) async {
+    // التحقق من الذاكرة أولاً
+    if (_playersCache.containsKey(uid) && _playersCacheTime.containsKey(uid)) {
+      if (DateTime.now().difference(_playersCacheTime[uid]!).inMinutes < 2) {
+        return _playersCache[uid]; // إرجاع فوري للبيانات بدون إنترنت
+      }
     }
+    // إذا لم يكن بالذاكرة، نجلبها من السيرفر
+    try {
+      DocumentSnapshot doc = await _firestore.collection('players').doc(uid).get();
+      if (doc.exists) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['uid'] = doc.id;
+        _playersCache[uid] = data; // حفظها بالذاكرة
+        _playersCacheTime[uid] = DateTime.now();
+        return data;
+      }
+    } catch (e) { debugPrint("خطأ في جلب بيانات اللاعب: $e"); }
+    return null;
   }
 
   String? get uid => _uid;
@@ -486,7 +506,6 @@ class PlayerProvider with ChangeNotifier {
   Future<List<Map<String, dynamic>>> fetchLeaderboard() async { try { QuerySnapshot snapshot = await _firestore.collection('players').orderBy('arenaLevel', descending: true).limit(10).get(); List<Map<String, dynamic>> topPlayers = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; topPlayers.add(data); } return topPlayers; } catch (e) { return []; } }
   Future<void> recordPvpVictory(String enemyUid, String enemyName, int reward) async { addCash(reward, reason: "غنيمة من $enemyName"); try { await _firestore.collection('players').doc(enemyUid).update({ 'cash': FieldValue.increment(-reward) }); await _firestore.collection('players').doc(enemyUid).collection('attacks_log').add({ 'attackerId': _uid, 'attackerName': _playerName, 'stolenAmount': reward, 'date': FieldValue.serverTimestamp(), 'hasAvenged': false }); } catch (e) {} }
   Future<List<Map<String, dynamic>>> fetchAttacksLog() async { if (_uid == null) return []; try { QuerySnapshot snapshot = await _firestore.collection('players').doc(_uid).collection('attacks_log').orderBy('date', descending: true).limit(20).get(); List<Map<String, dynamic>> logs = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['logId'] = doc.id; logs.add(data); } return logs; } catch (e) { return []; } }
-  Future<Map<String, dynamic>?> getPlayerById(String uid) async { try { DocumentSnapshot doc = await _firestore.collection('players').doc(uid).get(); if (doc.exists) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; return data; } } catch (e) {} return null; }
   Future<void> markAsAvenged(String logId) async { if (_uid == null) return; try { await _firestore.collection('players').doc(_uid).collection('attacks_log').doc(logId).update({'hasAvenged': true}); } catch (e) {} }
   void buyCar(String carId, int price) { if (_cash >= price && !_ownedCars.contains(carId)) { _cash -= price; _ownedCars.add(carId); _activeCarId ??= carId; _syncWithFirestore(); notifyListeners(); } }
   void setActiveCar(String carId) { if (_ownedCars.contains(carId)) { _activeCarId = carId; _syncWithFirestore(); notifyListeners(); } }
