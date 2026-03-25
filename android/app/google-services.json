@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "834850251245",
+    "project_id": "ofoq-games",
+    "storage_bucket": "ofoq-games.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:834850251245:android:7b9e97486fca9fe569c7e4",
+        "android_client_info": {
+          "package_name": "com.example.first_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAc7oQliP4-PtKcPhYb5BLsmHByvuxBd-c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
