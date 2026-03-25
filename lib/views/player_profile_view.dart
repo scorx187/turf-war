@@ -33,7 +33,6 @@ class PlayerProfileView extends StatefulWidget {
 
 class _PlayerProfileViewState extends State<PlayerProfileView> {
   Map<String, dynamic>? playerData;
-  bool isLoading = false;
 
   @override
   void initState() {
@@ -43,7 +42,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     bool isMe = widget.targetUid == player.uid;
 
     if (isMe) {
-      // [سرعة صاروخية 🔥] إذا كان هذا بروفايلك الخاص، سيأخذ بياناتك المباشرة بدون أي كاش أو إنترنت
       playerData = {
         'playerName': player.playerName,
         'profilePicUrl': player.profilePicUrl,
@@ -57,7 +55,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'gangName': player.gangName,
       };
     } else {
-      // إذا كان بروفايل شخص آخر، تظهر الواجهة المتفائلة ثم تتحدث بهدوء
       playerData = {
         'playerName': widget.previewName ?? 'جاري التحميل...',
         'profilePicUrl': widget.previewPicUrl,
@@ -75,10 +72,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
   Future<void> _loadData() async {
     final player = Provider.of<PlayerProvider>(context, listen: false);
-
-    // [تعديل هام] أزلنا أمر "مسح الكاش" من هنا لكي نستفيد من الذاكرة السريعة
     final data = await player.getPlayerById(widget.targetUid);
-
     if (mounted && data != null) {
       setState(() {
         playerData = data;
@@ -261,7 +255,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
           ),
           const SizedBox(height: 30),
 
-          // 4. أزرار التفاعل (للاعبين الآخرين) أو التبويبات (لك)
+          // 4. الأزرار السفلية
           if (!isMe)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),

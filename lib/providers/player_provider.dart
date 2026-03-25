@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data';
-import 'dart:convert';
+import 'dart:typed_data'; // ضروري للصور
+import 'dart:convert'; // ضروري لفك التشفير
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Transaction {
@@ -112,7 +112,9 @@ class PlayerProvider with ChangeNotifier {
   List<int> crimeSuccessCounts = [0, 0, 0, 0, 0];
   List<Transaction> _transactions = [];
 
-  // 1. [الذاكرة المركزية للصور لمنع الوميض والتشويش]
+  // ==========================================
+  // [السر الأول: كاش الصور المركزي لمنع الرمش]
+  // ==========================================
   final Map<String, Uint8List> _decodedImagesCache = {};
 
   Uint8List? getDecodedImage(String? base64Str) {
@@ -122,34 +124,69 @@ class PlayerProvider with ChangeNotifier {
       final bytes = base64Decode(base64Str);
       _decodedImagesCache[base64Str] = bytes;
       return bytes;
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
   }
 
-  // 2. [الذاكرة المركزية لبيانات اللاعبين لمنع التحميل المستمر] - (هذا الذي كان ينقصك)
+  // ==========================================
+  // [السر الثاني: كاش البيانات الصلب لسرعة الصاروخ]
+  // ==========================================
   final Map<String, Map<String, dynamic>> _playersCache = {};
   final Map<String, DateTime> _playersCacheTime = {};
 
-  // دالة ذكية لجلب بيانات اللاعب بلمح البصر
   Future<Map<String, dynamic>?> getPlayerById(String uid) async {
-    // التحقق من الذاكرة أولاً
+    // 1. فحص الذاكرة العشوائية السريعة
     if (_playersCache.containsKey(uid) && _playersCacheTime.containsKey(uid)) {
-      if (DateTime.now().difference(_playersCacheTime[uid]!).inMinutes < 2) {
-        return _playersCache[uid]; // إرجاع فوري للبيانات بدون إنترنت
+      if (DateTime.now().difference(_playersCacheTime[uid]!).inMinutes < 5) {
+        return _playersCache[uid];
       }
     }
-    // إذا لم يكن بالذاكرة، نجلبها من السيرفر
+
     try {
-      DocumentSnapshot doc = await _firestore.collection('players').doc(uid).get();
-      if (doc.exists) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        data['uid'] = doc.id;
-        _playersCache[uid] = data; // حفظها بالذاكرة
+      // 2. القراءة من ذاكرة الهاتف الداخلية (تعمل بدون نت ولا تمسح عند الخروج)
+      DocumentSnapshot cacheDoc = await _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.cache));
+
+      if (cacheDoc.exists) {
+        Map<String, dynamic> data = cacheDoc.data() as Map<String, dynamic>;
+        data['uid'] = cacheDoc.id;
+
+        _playersCache[uid] = data;
+        _playersCacheTime[uid] = DateTime.now();
+
+        // 3. التحديث الصامت من السيرفر في الخلفية
+        _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.server)).then((serverDoc) {
+          if (serverDoc.exists) {
+            Map<String, dynamic> serverData = serverDoc.data() as Map<String, dynamic>;
+            serverData['uid'] = serverDoc.id;
+            _playersCache[uid] = serverData;
+            _playersCacheTime[uid] = DateTime.now();
+          }
+        });
+
+        return data; // نرجع البيانات الفورية من الجوال
+      }
+    } catch (e) {
+      debugPrint("اللاعب ليس في الكاش، سيتم جلبه من السيرفر...");
+    }
+
+    // 4. إذا كانت أول مرة نفتح بروفايله
+    try {
+      DocumentSnapshot serverDoc = await _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.server));
+      if (serverDoc.exists) {
+        Map<String, dynamic> data = serverDoc.data() as Map<String, dynamic>;
+        data['uid'] = serverDoc.id;
+        _playersCache[uid] = data;
         _playersCacheTime[uid] = DateTime.now();
         return data;
       }
-    } catch (e) { debugPrint("خطأ في جلب بيانات اللاعب: $e"); }
+    } catch (e) {
+      debugPrint("خطأ في السيرفر: $e");
+    }
+
     return null;
   }
+  // ==========================================
 
   String? get uid => _uid;
   int get cash => _cash;

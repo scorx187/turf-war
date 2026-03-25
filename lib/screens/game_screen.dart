@@ -207,7 +207,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       );
     }
 
-    // [السر السحري] تمرير بياناتك لفتح بروفايلك الشخصي فوراً بدون تحميل!
     if (_selectedIndex == 5) return PlayerProfileView(
         targetUid: player.uid!,
         profileTabIndex: _profileTabIndex,

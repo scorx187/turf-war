@@ -30,7 +30,6 @@ class _ChatViewState extends State<ChatView> {
     _controller.clear();
   }
 
-  // [تعديل هام] استقبال الاسم والصورة لفتح البروفايل فوراً
   void _openPlayerProfile(BuildContext context, String uid, String name, String? picUrl, bool isVIP) {
     Navigator.push(
       context,
@@ -52,9 +51,9 @@ class _ChatViewState extends State<ChatView> {
                         ),
                         Expanded(child: PlayerProfileView(
                             targetUid: uid,
-                            previewName: name, // تمرير الاسم
-                            previewPicUrl: picUrl, // تمرير الصورة
-                            previewIsVIP: isVIP, // تمرير حالة الفيب
+                            previewName: name,
+                            previewPicUrl: picUrl,
+                            previewIsVIP: isVIP,
                             onBack: () => Navigator.pop(context)
                         )),
                       ],
@@ -157,7 +156,6 @@ class _ChatViewState extends State<ChatView> {
     final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(picUrl);
 
     return GestureDetector(
-      // [تعديل هام] نمرر الاسم والصورة للبروفايل
       onTap: isMe ? null : () => _openPlayerProfile(context, uid, name, picUrl, isVIP),
       child: Container(
           width: 42, height: 42,

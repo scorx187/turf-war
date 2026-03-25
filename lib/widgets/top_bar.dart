@@ -62,7 +62,7 @@ class TopBar extends StatelessWidget {
                       }
                     }
 
-                    // [تعديل] جلب الصورة الجاهزة من الكاش لمنع الرمش
+                    // استخدم الكاش المركزي للصور
                     final imageBytes = player.getDecodedImage(player.profilePicUrl);
 
                     return Stack(
