@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:834850251245:android:7b9e97486fca9fe569c7e4",
+        "mobilesdk_app_id": "1:834850251245:android:4a8a783d6d10ff7a69c7e4",
         "android_client_info": {
-          "package_name": "com.example.first_app"
+          "package_name": "com.ofoqgames.turfwar"
         }
       },
       "oauth_client": [],

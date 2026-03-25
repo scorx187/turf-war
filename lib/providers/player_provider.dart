@@ -41,8 +41,8 @@ class PlayerProvider with ChangeNotifier {
   int get bailPrice => _bailPrice;
 
   // البيانات الأساسية
-  int _cash = 5000000000;
-  int _gold = 5000000;
+  int _cash = 5000;
+  int _gold = 0;
   int _bankBalance = 0;
   int _energy = 100;
   int _courage = 100;
@@ -892,8 +892,8 @@ class PlayerProvider with ChangeNotifier {
   }
 
   Future<void> resetPlayerData() async {
-    _cash = 5000000000;
-    _gold = 5000000;
+    _cash = 5000;
+    _gold = 0;
     _bankBalance = 0;
     _energy = 100;
     _courage = 100;
