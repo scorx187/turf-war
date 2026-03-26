@@ -18,7 +18,7 @@ class RealEstateView extends StatelessWidget {
         'description': 'بداية متواضعة جداً لأي طموح.',
         'price': 5000,
         'happiness': 2,
-        'icon': Icons.meeting_room, 
+        'icon': Icons.meeting_room,
         'color': Colors.grey,
       },
       {
@@ -27,7 +27,7 @@ class RealEstateView extends StatelessWidget {
         'description': 'بداية متواضعة، توفر لك الحد الأدنى من السعادة.',
         'price': 50000,
         'happiness': 5,
-        'icon': Icons.holiday_village_outlined, 
+        'icon': Icons.holiday_village_outlined,
         'color': Colors.brown,
       },
       {
@@ -111,6 +111,16 @@ class RealEstateView extends StatelessWidget {
         'icon': Icons.rocket_launch,
         'color': Colors.deepPurple,
       },
+      // 👇 العقار الجديد اللي طلبته
+      {
+        'id': 'mafia_empire',
+        'name': 'إمبراطورية الزعيم',
+        'description': 'المقر الرئيسي لأعظم زعيم في السيرفر. قوة، سيطرة، وسعادة لا نهائية!',
+        'price': 5000000000, // 5 مليار كاش
+        'happiness': 4000,
+        'icon': Icons.account_balance,
+        'color': Colors.redAccent,
+      },
     ];
 
     return Column(
@@ -159,7 +169,7 @@ class RealEstateView extends StatelessWidget {
                             Row(
                               children: [
                                 const Icon(Icons.sentiment_very_satisfied, color: Colors.yellow, size: 14),
-                                Text(' سعادة: ${prop['happiness']}%', style: const TextStyle(color: Colors.yellow, fontSize: 11)),
+                                Text(' سعادة: ${prop['happiness']}', style: const TextStyle(color: Colors.yellow, fontSize: 11)),
                                 if (!isOwned) ...[
                                   const SizedBox(width: 10),
                                   const Icon(Icons.payments, color: Colors.green, size: 14),
@@ -187,7 +197,7 @@ class RealEstateView extends StatelessWidget {
     if (isActive) {
       return const Text('سكنك الحالي', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold));
     }
-    
+
     if (isOwned) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(60, 30)),
