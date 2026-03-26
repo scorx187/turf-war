@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart'; // إضافة
-import 'package:games_services/games_services.dart'; // إضافة
+import 'package:google_sign_in/google_sign_in.dart';
 import 'firebase_options.dart';
 import 'screens/game_screen.dart';
 import 'providers/player_provider.dart';
@@ -153,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nameController = TextEditingController();
   bool _isLoading = false;
 
-  // تسجيل الدخول المجهول (الكود القديم)
+  // تسجيل الدخول المجهول كزائر
   Future<void> _loginAnonymously() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال اسمك')));
@@ -171,16 +170,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // الميزة الجديدة: تسجيل الدخول عبر Google Play Games
-  Future<void> _loginWithGooglePlay() async {
+  // تسجيل الدخول بحساب Google العادي والمجاني
+  Future<void> _loginWithStandardGoogle() async {
     setState(() => _isLoading = true);
     try {
-      // 1. تسجيل الدخول لخدمات الألعاب
-      await GamesServices.signIn();
-
-      // 2. استخدام Google Sign In للحصول على الاعتمادات لـ Firebase
-      final GoogleSignIn googleSignIn = GoogleSignIn();
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
 
       if (googleUser != null) {
         final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
@@ -189,10 +183,8 @@ class _LoginScreenState extends State<LoginScreen> {
           idToken: googleAuth.idToken,
         );
 
-        // 3. ربط الحساب بـ Firebase
         final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
 
-        // 4. تحديث بيانات اللاعب
         final player = Provider.of<PlayerProvider>(context, listen: false);
         await player.initializePlayerOnServer(
             userCredential.user!.uid,
@@ -200,7 +192,8 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في Google Play: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في تسجيل الدخول: $e')));
+      print("Google Sign-In Error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -241,13 +234,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Text('دخول سريع (زائر)', style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 15),
-                // زر Google Play الجديد
+                // زر الدخول بحساب Google
                 ElevatedButton.icon(
-                  onPressed: _loginWithGooglePlay,
-                  icon: const Icon(Icons.play_arrow, color: Colors.white),
-                  label: const Text('تسجيل بواسطة Google Play', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  onPressed: _loginWithStandardGoogle,
+                  icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 35),
+                  label: const Text('تسجيل الدخول بحساب Google', style: TextStyle(color: Colors.white, fontSize: 16)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[700],
+                    backgroundColor: Colors.blue[700],
                     minimumSize: const Size(double.infinity, 50),
                   ),
                 ),
