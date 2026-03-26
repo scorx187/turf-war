@@ -5,29 +5,84 @@ import '../providers/player_provider.dart';
 class InventoryView extends StatelessWidget {
   const InventoryView({super.key});
 
+  // --- 🧠 مولد العتاد الذكي (يصنع نفس الـ 60 قطعة لعرضها في المخزن) ---
+  List<Map<String, dynamic>> _generateEquipment() {
+    List<Map<String, dynamic>> equipment = [];
+    final rarities = [
+      {'id': 'silver', 'name': 'فضي', 'color': Colors.blueGrey},
+      {'id': 'green', 'name': 'أخضر', 'color': Colors.green},
+      {'id': 'blue', 'name': 'أزرق', 'color': Colors.blue},
+      {'id': 'purple', 'name': 'بنفسجي', 'color': Colors.deepPurple},
+      {'id': 'gold', 'name': 'ذهبي', 'color': Colors.amber},
+      {'id': 'red', 'name': 'أحمر', 'color': Colors.redAccent},
+    ];
+
+    final weaponTypes = [
+      {'id': 'heavy', 'name': 'مدفع', 'desc': 'قوة هائلة / سرعة بطيئة', 'icon': Icons.hardware},
+      {'id': 'assault', 'name': 'رشاش', 'desc': 'قوة عالية / سرعة متوسطة', 'icon': Icons.security},
+      {'id': 'balanced', 'name': 'بندقية', 'desc': 'قوة وسرعة متساوية', 'icon': Icons.sync_alt},
+      {'id': 'tactical', 'name': 'قناصة', 'desc': 'قوة متوسطة / سرعة عالية', 'icon': Icons.track_changes},
+      {'id': 'agile', 'name': 'خنجر', 'desc': 'قوة ضعيفة / سرعة خارقة', 'icon': Icons.flash_on},
+    ];
+
+    final armorTypes = [
+      {'id': 'heavy', 'name': 'درع طليعة', 'desc': 'دفاع هائل / مهارة منخفضة', 'icon': Icons.shield},
+      {'id': 'assault', 'name': 'سترة هجومية', 'desc': 'دفاع عالي / مهارة متوسطة', 'icon': Icons.security_update_good},
+      {'id': 'balanced', 'name': 'بدلة قتال', 'desc': 'دفاع ومهارة متساوية', 'icon': Icons.accessibility_new},
+      {'id': 'tactical', 'name': 'عتاد تكتيكي', 'desc': 'دفاع متوسط / مهارة عالية', 'icon': Icons.directions_run},
+      {'id': 'agile', 'name': 'زي تسلل', 'desc': 'دفاع ضعيف / مهارة خارقة', 'icon': Icons.speed},
+    ];
+
+    for (var r in rarities) {
+      for (var w in weaponTypes) {
+        equipment.add({
+          'id': 'w_${r['id']}_${w['id']}',
+          'name': '${w['name']} ${r['name']}',
+          'description': w['desc'],
+          'icon': w['icon'],
+          'color': r['color'],
+          'type': 'weapon',
+        });
+      }
+      for (var a in armorTypes) {
+        equipment.add({
+          'id': 'a_${r['id']}_${a['id']}',
+          'name': '${a['name']} ${r['name']}',
+          'description': a['desc'],
+          'icon': a['icon'],
+          'color': r['color'],
+          'type': 'armor',
+        });
+      }
+    }
+    return equipment;
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // --- قاعدة بيانات الأدوات الماسية المدمجة الشاملة ---
+    // --- قاعدة بيانات الأدوات الشاملة ---
     final List<Map<String, dynamic>> allPossibleItems = [
-      // --- أسلحة الـ PVP (أبدية - لا تظهر لها متانة) ---
-      {'id': 'dagger', 'name': 'خنجر صدئ', 'description': 'قوة (+5) سرعة (+2)', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon'},
-      {'id': 'revolver', 'name': 'مسدس ريفولفر', 'description': 'قوة (+20) سرعة (+5)', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon'},
-      {'id': 'katana', 'name': 'كاتانا الساموراي', 'description': 'تزيد القوة (+40) والسرعة (+30)', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon'},
-      {'id': 'shotgun', 'name': 'بندقية شوزن', 'description': 'تزيد القوة (+100) والسرعة (-10)', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon'},
-      {'id': 'sniper', 'name': 'قناصة الصقر', 'description': 'تزيد القوة (+300) والسرعة (+50)', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon'},
+      // 1. إضافة الـ 60 قطعة المدمجة
+      ..._generateEquipment(),
 
-      // --- دروع وأقنعة الـ PVP (أبدية) ---
-      {'id': 'riot_shield', 'name': 'درع مكافحة الشغب', 'description': 'دفاع (+15) مهارة (+5)', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor'},
-      {'id': 'kevlar_vest', 'name': 'سترة واقية', 'description': 'دفاع (+40) مهارة (+15)', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor'},
-      {'id': 'steel_armor', 'name': 'درع فولاذي', 'description': 'دفاع (+120) مهارة (-5)', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor'},
-      {'id': 'ninja_suit', 'name': 'زي النينجا الأسود', 'description': 'دفاع (+80) مهارة (+60)', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor'},
-      {'id': 'exoskeleton', 'name': 'البدلة الخارقة', 'description': 'دفاع (+400) مهارة (+100)', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor'},
+      // 2. الأسلحة والدروع القديمة
+      {'id': 'dagger', 'name': 'خنجر كلاسيكي', 'description': 'يعادل فضي رشيق', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon'},
+      {'id': 'revolver', 'name': 'مسدس كلاسيكي', 'description': 'يعادل أخضر متوازن', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon'},
+      {'id': 'katana', 'name': 'كاتانا كلاسيكي', 'description': 'يعادل أزرق هجومي', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon'},
+      {'id': 'shotgun', 'name': 'شوزن كلاسيكي', 'description': 'يعادل بنفسجي مدمر', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon'},
+      {'id': 'sniper', 'name': 'قناصة كلاسيكية', 'description': 'يعادل ذهبي مدمر', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon'},
+
+      {'id': 'riot_shield', 'name': 'درع شغب كلاسيكي', 'description': 'يعادل أخضر ثقيل', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor'},
+      {'id': 'kevlar_vest', 'name': 'سترة كلاسيكية', 'description': 'يعادل أزرق متوازن', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor'},
+      {'id': 'steel_armor', 'name': 'فولاذ كلاسيكي', 'description': 'يعادل بنفسجي ثقيل', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor'},
+      {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'يعادل بنفسجي رشيق', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor'},
+      {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'يعادل ذهبي متوازن', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor'},
+
+      // 3. عتاد الجرائم والمستهلكات (نفسها)
       {'id': 'black_mask', 'name': 'قناع أسود', 'description': '35% هرب من السجن', 'icon': Icons.theater_comedy, 'color': Colors.black, 'type': 'mask'},
       {'id': 'silicon_mask', 'name': 'قناع سيليكون', 'description': '55% هرب من السجن', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent, 'type': 'mask'},
-
-      // --- عتاد الجريمة الجديد (لها متانة وتستهلك وتصلح بالورشة) ---
       {'id': 'crowbar', 'name': 'عتلة فولاذية', 'description': 'تخفض فشل السطو 5%', 'icon': Icons.hardware, 'color': Colors.grey, 'type': 'crime_tool'},
       {'id': 'slim_jim', 'name': 'مفتاح مسطرة', 'description': 'تخفض فشل السيارات 10%', 'icon': Icons.horizontal_rule, 'color': Colors.blueGrey, 'type': 'crime_tool'},
       {'id': 'jammer', 'name': 'جهاز تشويش', 'description': 'يعطل الإنذار (فشل -12%)', 'icon': Icons.vibration, 'color': Colors.teal, 'type': 'crime_tool'},
@@ -39,7 +94,6 @@ class InventoryView extends StatelessWidget {
       {'id': 'hydraulic', 'name': 'قاطع هيدروليك', 'description': 'قص الأسوار (فشل -15%)', 'icon': Icons.content_cut, 'color': Colors.redAccent, 'type': 'crime_tool'},
       {'id': 'emp_device', 'name': 'جهاز EMP', 'description': 'يعطل الكاميرات (فشل عام -30%)', 'icon': Icons.electric_bolt, 'color': Colors.yellowAccent, 'type': 'crime_tool'},
 
-      // --- المستهلكات والبطاقات ورشاوي الحرارة ---
       {'id': 'bribe_small', 'name': 'رشوة محقق', 'description': 'تبريد الحرارة (20 درجة)', 'icon': Icons.handshake, 'color': Colors.teal, 'type': 'consumable'},
       {'id': 'fake_plates', 'name': 'لوحات مزورة', 'description': 'تبريد الحرارة (40 درجة)', 'icon': Icons.subtitles, 'color': Colors.lightBlue, 'type': 'consumable'},
       {'id': 'bribe_big', 'name': 'رشوة كبرى', 'description': 'تصفر الملاحقة فوراً', 'icon': Icons.account_balance_sharp, 'color': Colors.amber, 'type': 'consumable'},
@@ -63,9 +117,7 @@ class InventoryView extends StatelessWidget {
       length: 4,
       child: Column(
         children: [
-          // هيدر المخزن مع عرض قطع الغيار
           _buildInventoryHeader(player.spareParts),
-
           const TabBar(
             isScrollable: true,
             tabs: [
@@ -134,7 +186,6 @@ class InventoryView extends StatelessWidget {
         final type = item['type'];
         final durability = player.getItemDurability(id);
 
-        // التحقق من التجهيز بناءً على الصنف
         bool isEquipped = false;
         if (type == 'weapon') isEquipped = player.equippedWeaponId == id;
         else if (type == 'armor') isEquipped = player.equippedArmorId == id;
@@ -168,7 +219,6 @@ class InventoryView extends StatelessWidget {
                 children: [
                   Text(item['description'], style: const TextStyle(color: Colors.white70, fontSize: 11)),
                   const SizedBox(height: 8),
-                  // --- [نظام المتانة الماسي] يظهر فقط لعتاد الجريمة ---
                   if (type == 'crime_tool')
                     _buildDurabilityBar(durability),
                 ],
