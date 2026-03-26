@@ -20,10 +20,11 @@ class _ChatViewState extends State<ChatView> {
   @override
   void initState() {
     super.initState();
+    // ستريم واحد يجيب كل الرسايل، وبنفلترها داخل الكود عشان ما نحتاج Index معقد في فايربيس
     _chatStream = _firestore
         .collection('chat')
         .orderBy('timestamp', descending: true)
-        .limit(50)
+        .limit(100) // زدنا العدد عشان نضمن إن رسالة الإدارة تكون من ضمنهم
         .snapshots();
   }
 
@@ -121,44 +122,6 @@ class _ChatViewState extends State<ChatView> {
       children: [
         Container(padding: const EdgeInsets.all(16), width: double.infinity, decoration: const BoxDecoration(color: Colors.black26, border: Border(bottom: BorderSide(color: Colors.white10))), child: const Text('شات المدينة أونلاين 🌐', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
 
-        // --- [شريط الإعلانات الإدارية المثبت] ---
-        StreamBuilder<QuerySnapshot>(
-          stream: _firestore.collection('chat')
-              .where('type', isEqualTo: 'admin')
-              .orderBy('timestamp', descending: true)
-              .limit(1)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox();
-
-            final msg = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.15),
-                border: Border(bottom: BorderSide(color: Colors.amber.withOpacity(0.5), width: 1)),
-              ),
-              child: Directionality(
-                textDirection: TextDirection.rtl,
-                child: Row(
-                  children: [
-                    const Icon(Icons.campaign, color: Colors.amber, size: 24),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        msg['message'] ?? '',
-                        style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-        // ------------------------------------------
-
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _chatStream,
@@ -170,69 +133,116 @@ class _ChatViewState extends State<ChatView> {
               final messages = snapshot.data!.docs;
               final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid;
 
-              return ListView.builder(
-                reverse: true,
-                padding: const EdgeInsets.all(12),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final msg = messages[index].data() as Map<String, dynamic>;
-                  final String msgType = msg['type'] ?? 'player';
+              // --- البحث عن أحدث رسالة إدارة من ضمن الرسايل ---
+              Map<String, dynamic>? latestAdminMsg;
+              try {
+                final adminDoc = messages.firstWhere((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data['type'] == 'admin';
+                });
+                latestAdminMsg = adminDoc.data() as Map<String, dynamic>;
+              } catch (e) {
+                latestAdminMsg = null; // إذا مافيه رسالة إدارة
+              }
 
-                  // التعديل هنا: نخفي رسالة الإدارة تماماً من الشات العادي
-                  if (msgType == 'admin') {
-                    return const SizedBox.shrink();
-                  } else if (msgType == 'system') {
-                    return _buildSystemBroadcast('النظام', msg['message'] ?? '', Colors.redAccent, Icons.gavel);
-                  }
-
-                  final bool isVIP = msg['isVIP'] ?? false;
-                  final String senderUid = msg['uid'] ?? '';
-                  final bool isMe = senderUid == currentUserUid;
-                  final String senderName = msg['user'] ?? 'مجهول';
-                  final String? picUrl = msg['profilePicUrl'];
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Row(
-                        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
-                          if (!isMe) const SizedBox(width: 8),
-                          Flexible(
-                            child: Directionality(
-                              textDirection: TextDirection.rtl,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: isMe ? const Color(0xFF1E3A2F) : const Color(0xFF2A2A2D),
-                                  borderRadius: BorderRadius.only(topLeft: const Radius.circular(15), topRight: const Radius.circular(15), bottomLeft: isMe ? const Radius.circular(15) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(15)),
-                                  border: Border.all(color: isMe ? Colors.green.withOpacity(0.3) : Colors.white10),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(isMe ? 'أنت' : senderName, style: TextStyle(color: isMe ? Colors.greenAccent : (isVIP ? Colors.amber : Colors.white70), fontWeight: FontWeight.bold, fontSize: 13)),
-                                    const SizedBox(height: 4),
-                                    Text(msg['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.3)),
-                                  ],
-                                ),
+              return Column(
+                children: [
+                  // --- [شريط الإعلانات الإدارية المثبت] ---
+                  if (latestAdminMsg != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.15),
+                        border: Border(bottom: BorderSide(color: Colors.amber.withOpacity(0.5), width: 1)),
+                      ),
+                      child: Directionality(
+                        textDirection: TextDirection.rtl,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.campaign, color: Colors.amber, size: 24),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                latestAdminMsg['message'] ?? '',
+                                style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
                               ),
                             ),
-                          ),
-                          if (isMe) const SizedBox(width: 8),
-                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  );
-                },
+                  // ------------------------------------------
+
+                  // --- [قائمة الدردشة] ---
+                  Expanded(
+                    child: ListView.builder(
+                      reverse: true,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = messages[index].data() as Map<String, dynamic>;
+                        final String msgType = msg['type'] ?? 'player';
+
+                        // نخفي رسالة الإدارة من الشات العادي لأنها مثبتة فوق
+                        if (msgType == 'admin') {
+                          return const SizedBox.shrink();
+                        } else if (msgType == 'system') {
+                          return _buildSystemBroadcast('النظام', msg['message'] ?? '', Colors.redAccent, Icons.gavel);
+                        }
+
+                        final bool isVIP = msg['isVIP'] ?? false;
+                        final String senderUid = msg['uid'] ?? '';
+                        final bool isMe = senderUid == currentUserUid;
+                        final String senderName = msg['user'] ?? 'مجهول';
+                        final String? picUrl = msg['profilePicUrl'];
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Row(
+                              mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
+                                if (!isMe) const SizedBox(width: 8),
+                                Flexible(
+                                  child: Directionality(
+                                    textDirection: TextDirection.rtl,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: isMe ? const Color(0xFF1E3A2F) : const Color(0xFF2A2A2D),
+                                        borderRadius: BorderRadius.only(topLeft: const Radius.circular(15), topRight: const Radius.circular(15), bottomLeft: isMe ? const Radius.circular(15) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(15)),
+                                        border: Border.all(color: isMe ? Colors.green.withOpacity(0.3) : Colors.white10),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(isMe ? 'أنت' : senderName, style: TextStyle(color: isMe ? Colors.greenAccent : (isVIP ? Colors.amber : Colors.white70), fontWeight: FontWeight.bold, fontSize: 13)),
+                                          const SizedBox(height: 4),
+                                          Text(msg['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.3)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (isMe) const SizedBox(width: 8),
+                                if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               );
             },
           ),
         ),
+
+        // --- [صندوق الإرسال] ---
         Container(
           padding: const EdgeInsets.all(10),
           decoration: const BoxDecoration(color: Color(0xFF1A1A1D), border: Border(top: BorderSide(color: Colors.white10))),
