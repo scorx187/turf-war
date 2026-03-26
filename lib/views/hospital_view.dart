@@ -10,11 +10,16 @@ class HospitalView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
-    
+
     int left = player.hospitalReleaseTime != null
         ? player.hospitalReleaseTime!.difference(DateTime.now()).inSeconds
         : 0;
     if (left < 0) left = 0;
+
+    // حساب تكلفة العلاج بناءً على الصحة الناقصة وخصم الـ VIP
+    int missingHealth = player.maxHealth - player.health;
+    int healCost = player.isVIP ? (missingHealth * 0.8).toInt() : missingHealth;
+    if (healCost < 1) healCost = 1; // أقل تكلفة ممكنة 1 دولار
 
     return Center(
       child: Container(
@@ -41,9 +46,10 @@ class HospitalView extends StatelessWidget {
             const Icon(Icons.local_hospital, size: 80, color: Colors.red),
             const SizedBox(height: 20),
             Text(
-              player.isHospitalized 
-                ? 'أنت تتلقى العلاج الطارئ!' 
-                : 'صحتك الحالية: ${player.health}%',
+              player.isHospitalized
+                  ? 'أنت تتلقى العلاج الطارئ!'
+              // تم تعديل عرض الصحة لتظهر كرقم مقسوم بدل النسبة المئوية
+                  : 'صحتك الحالية: ${player.health} / ${player.maxHealth}',
               style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
             ),
             if (player.isHospitalized) ...[
@@ -53,30 +59,54 @@ class HospitalView extends StatelessWidget {
                 style: const TextStyle(color: Colors.amber, fontSize: 20),
               ),
               const SizedBox(height: 30),
-              const Text('يمكنك الانتظار أو استخدام حقيبة إسعاف للخروج فوراً', 
-                style: TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center),
+              const Text('يمكنك الانتظار لتتعافى تدريجياً، أو الدفع للخروج فوراً',
+                  style: TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center),
             ],
             const SizedBox(height: 20),
-            if (player.health < 100)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.medical_information),
-                  label: Text(player.inventory.containsKey('medkit') 
-                    ? 'استخدم حقيبة إسعاف (تملك ${player.inventory['medkit']})' 
-                    : 'اشترِ واستخدم حقيبة (2000 كاش)'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)),
-                  onPressed: () {
-                    if (player.inventory.containsKey('medkit')) {
-                      player.useItem('medkit');
-                    } else if (player.cash >= 2000) {
-                      player.buyItem('medkit', 2000, isConsumable: true);
-                      player.useItem('medkit');
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا تملك مالاً أو حقائب!')));
-                    }
-                  },
-                ),
+
+            // إظهار أزرار العلاج فقط إذا كانت الصحة ليست كاملة
+            if (player.health < player.maxHealth)
+              Column(
+                children: [
+                  // زر العلاج السريع بالكاش
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.attach_money),
+                      label: Text(player.isVIP
+                          ? 'علاج سريع: $healCost كاش (خصم VIP)'
+                          : 'علاج سريع: $healCost كاش'),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber[700],
+                          padding: const EdgeInsets.symmetric(vertical: 12)),
+                      onPressed: () {
+                        player.quickHealHospital();
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // زر استخدام الحقيبة الإسعافية
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.medical_information),
+                      label: Text(player.inventory.containsKey('medkit')
+                          ? 'استخدم حقيبة إسعاف (تملك ${player.inventory['medkit']})'
+                          : 'اشترِ حقيبة إسعاف (2000 كاش)'),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)),
+                      onPressed: () {
+                        if (player.inventory.containsKey('medkit')) {
+                          player.useItem('medkit');
+                        } else if (player.cash >= 2000) {
+                          player.buyItem('medkit', 2000, isConsumable: true);
+                          player.useItem('medkit');
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا تملك مالاً أو حقائب!')));
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
           ],
         ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data'; // ضروري للصور
-import 'dart:convert'; // ضروري لفك التشفير
+import 'dart:typed_data';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Transaction {
@@ -35,8 +35,11 @@ class PlayerProvider with ChangeNotifier {
   int _courage = 100;
   int _health = 100;
   int _maxHealth = 100;
-  String _playerName = "لاعب جديد";
 
+  // متغير سري لحفظ الكسور وقت زيادة الصحة عشان تصير الزيادة سلسة كل ثانية
+  double _fractionalHealth = 0.0;
+
+  String _playerName = "لاعب جديد";
   String _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال.";
   String get bio => _bio;
 
@@ -112,9 +115,6 @@ class PlayerProvider with ChangeNotifier {
   List<int> crimeSuccessCounts = [0, 0, 0, 0, 0];
   List<Transaction> _transactions = [];
 
-  // ==========================================
-  // [السر الأول: كاش الصور المركزي لمنع الرمش]
-  // ==========================================
   final Map<String, Uint8List> _decodedImagesCache = {};
 
   Uint8List? getDecodedImage(String? base64Str) {
@@ -129,14 +129,10 @@ class PlayerProvider with ChangeNotifier {
     }
   }
 
-  // ==========================================
-  // [السر الثاني: كاش البيانات الصلب لسرعة الصاروخ]
-  // ==========================================
   final Map<String, Map<String, dynamic>> _playersCache = {};
   final Map<String, DateTime> _playersCacheTime = {};
 
   Future<Map<String, dynamic>?> getPlayerById(String uid) async {
-    // 1. فحص الذاكرة العشوائية السريعة
     if (_playersCache.containsKey(uid) && _playersCacheTime.containsKey(uid)) {
       if (DateTime.now().difference(_playersCacheTime[uid]!).inMinutes < 5) {
         return _playersCache[uid];
@@ -144,17 +140,13 @@ class PlayerProvider with ChangeNotifier {
     }
 
     try {
-      // 2. القراءة من ذاكرة الهاتف الداخلية (تعمل بدون نت ولا تمسح عند الخروج)
       DocumentSnapshot cacheDoc = await _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.cache));
-
       if (cacheDoc.exists) {
         Map<String, dynamic> data = cacheDoc.data() as Map<String, dynamic>;
         data['uid'] = cacheDoc.id;
-
         _playersCache[uid] = data;
         _playersCacheTime[uid] = DateTime.now();
 
-        // 3. التحديث الصامت من السيرفر في الخلفية
         _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.server)).then((serverDoc) {
           if (serverDoc.exists) {
             Map<String, dynamic> serverData = serverDoc.data() as Map<String, dynamic>;
@@ -163,14 +155,12 @@ class PlayerProvider with ChangeNotifier {
             _playersCacheTime[uid] = DateTime.now();
           }
         });
-
-        return data; // نرجع البيانات الفورية من الجوال
+        return data;
       }
     } catch (e) {
       debugPrint("اللاعب ليس في الكاش، سيتم جلبه من السيرفر...");
     }
 
-    // 4. إذا كانت أول مرة نفتح بروفايله
     try {
       DocumentSnapshot serverDoc = await _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.server));
       if (serverDoc.exists) {
@@ -186,7 +176,6 @@ class PlayerProvider with ChangeNotifier {
 
     return null;
   }
-  // ==========================================
 
   String? get uid => _uid;
   int get cash => _cash;
@@ -453,13 +442,34 @@ class PlayerProvider with ChangeNotifier {
       if (_heat > 0) { _heat = max(0, _heat - 0.0278); localChanged = true; }
       if (timer.tick % 4 == 0 && _courage < maxCourage) { _courage++; localChanged = true; }
       if (timer.tick % 8 == 0 && _energy < maxEnergy) { _energy++; localChanged = true; }
-      if (timer.tick % 12 == 0 && _health < maxHealth) { _health++; localChanged = true; }
+
+      // نظام الاستشفاء اللحظي الجديد (30 دقيقة بالضبط للوصول للماكس)
+      if (_health < maxHealth) {
+        double regenPerSecond = maxHealth / 1800.0; // 1800 ثانية = 30 دقيقة
+        _fractionalHealth += regenPerSecond;
+        if (_fractionalHealth >= 1.0) {
+          int healAmount = _fractionalHealth.toInt();
+          _health = min(maxHealth, _health + healAmount);
+          _fractionalHealth -= healAmount;
+          localChanged = true;
+
+          if (_health >= maxHealth && _isHospitalized) {
+            _isHospitalized = false;
+            _hospitalReleaseTime = null;
+            _showNotification("تعافيت بالكامل وخرجت من المستشفى!");
+          }
+        }
+      } else {
+        _fractionalHealth = 0.0;
+      }
+
       if (timer.tick % 60 == 0) { for (var tool in _crimeToolsList) { if ((_durability[tool] ?? 100) < 100) { _durability[tool] = min(100.0, (_durability[tool] ?? 100) + 1.0); localChanged = true; } } }
       if (_loanAmount > 0 && _loanTime != null) { if (DateTime.now().difference(_loanTime!).inHours >= 2) { _loanAmount = (_loanAmount * 1.1).floor(); _loanTime = DateTime.now(); _showNotification("البنك 🏦: تمت إضافة فوائد 10% على قرضك لتأخرك في السداد!"); localChanged = true; } }
       if (_isInPrison && _prisonReleaseTime != null) { if (DateTime.now().isAfter(_prisonReleaseTime!)) { _isInPrison = false; _prisonReleaseTime = null; _showNotification("تم الإفراج عنك من السجن!"); localChanged = true; } }
       if (_isHospitalized && _hospitalReleaseTime != null) { if (DateTime.now().isAfter(_hospitalReleaseTime!)) { _isHospitalized = false; _hospitalReleaseTime = null; _health = (maxHealth * 0.25).toInt(); _showNotification("تم خروجك من المستشفى!"); localChanged = true; } }
       if (_lockedUntil != null && DateTime.now().isAfter(_lockedUntil!)) { int total = _lockedBalance + _lockedProfits; _bankBalance += total; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _showNotification("انتهى الاستثمار! استلمت $total كاش"); localChanged = true; }
       if (isUnderContract && _lastContractRewardTime != null && DateTime.now().difference(_lastContractRewardTime!).inMinutes >= 1) { _cash += _contractSalary; _lastContractRewardTime = DateTime.now(); _addTransaction("راتب عقد: $_activeContractName", _contractSalary, true); _workXP += 5; if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; } localChanged = true; }
+
       if (localChanged) notifyListeners();
       if (syncCounter >= 60) { _syncWithFirestore(); syncCounter = 0; }
     });
@@ -497,7 +507,32 @@ class PlayerProvider with ChangeNotifier {
   void removeCash(int amount, {String reason = "خصم"}) { _cash = max(0, _cash - amount); _addTransaction(reason, amount, false); _syncWithFirestore(); notifyListeners(); }
   void addGold(int amount) { _gold += amount; _syncWithFirestore(); notifyListeners(); }
   void removeGold(int amount) { _gold = max(0, _gold - amount); _syncWithFirestore(); notifyListeners(); }
-  void addCrimeXP(int amount) { _crimeXP += amount; if (_crimeXP >= xpToNextLevel) { _crimeXP -= xpToNextLevel; _crimeLevel++; _showNotification("🎉 لفل إجرامي جديد: $_crimeLevel"); } _syncWithFirestore(); notifyListeners(); }
+
+  // دالة زيادة المستوى والصحة التصاعدية
+  void addCrimeXP(int amount) {
+    if (_crimeLevel >= 450) return;
+    _crimeXP += amount;
+    bool leveledUp = false;
+
+    while (_crimeXP >= xpToNextLevel && _crimeLevel < 450) {
+      _crimeXP -= xpToNextLevel;
+
+      // نحسب الفرق بالصحة الأساسية بين اللفل القديم والجديد ونضيفه
+      int oldBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
+      _crimeLevel++;
+      int newBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
+
+      _maxHealth += (newBase - oldBase);
+      if (_maxHealth > 50000000) _maxHealth = 50000000;
+
+      leveledUp = true;
+    }
+
+    if (leveledUp) _showNotification("🎉 لفل إجرامي جديد: $_crimeLevel");
+    _syncWithFirestore();
+    notifyListeners();
+  }
+
   void addWorkXP(int amount) { _workXP += amount; if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; _showNotification("تمت ترقيتك للمستوى $_workLevel"); } _syncWithFirestore(); notifyListeners(); }
   void incrementCrimeSuccess(int index, String crimeName) { if (index < crimeSuccessCounts.length) { crimeSuccessCounts[index]++; _syncWithFirestore(); notifyListeners(); } }
 
@@ -525,6 +560,27 @@ class PlayerProvider with ChangeNotifier {
   void setEnergy(int value) { _energy = value.clamp(0, maxEnergy); _syncWithFirestore(); notifyListeners(); }
   void setCourage(int value) { _courage = value.clamp(0, maxCourage); _syncWithFirestore(); notifyListeners(); }
   void enterHospital(int minutes) { _isHospitalized = true; _health = 0; _hospitalReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
+
+  // دالة العلاج السريع في المستشفى
+  void quickHealHospital() {
+    int missing = maxHealth - _health;
+    if (missing <= 0) return;
+    int cost = isVIP ? max(1, (missing * 0.8).toInt()) : missing;
+
+    if (_cash >= cost) {
+      _cash -= cost;
+      _health = maxHealth;
+      _isHospitalized = false;
+      _hospitalReleaseTime = null;
+      _addTransaction("فاتورة المستشفى", cost, false);
+      _syncWithFirestore();
+      notifyListeners();
+      _showNotification("🏥 تم العلاج بالكامل مقابل $cost كاش!");
+    } else {
+      _showNotification("⚠️ كاش غير كافي! تحتاج $cost");
+    }
+  }
+
   void updateName(String newName) { if (_inventory.containsKey('name_change_card') && _inventory['name_change_card']! > 0) { _playerName = newName; _inventory['name_change_card'] = _inventory['name_change_card']! - 1; if (_inventory['name_change_card'] == 0) _inventory.remove('name_change_card'); _syncWithFirestore(); notifyListeners(); } }
   void startPrisonTimer(int minutes) { _isInPrison = true; _prisonReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
 
