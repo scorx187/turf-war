@@ -12,7 +12,20 @@
           "package_name": "com.ofoqgames.turfwar"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "834850251245-ugsmln5bllnni8g8oaf0uqrf15d9o05m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ofoqgames.turfwar",
+            "certificate_hash": "68c74ad16962c66389884e203a5af671fd76f1ec"
+          }
+        },
+        {
+          "client_id": "834850251245-tu4s26nu9bhd3367vk4cq37lgtbum6e9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAc7oQliP4-PtKcPhYb5BLsmHByvuxBd-c"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "834850251245-tu4s26nu9bhd3367vk4cq37lgtbum6e9.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "834850251245-bp15he1me95fctcuuas9s374p11ofhne.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.firstApp"
+              }
+            }
+          ]
         }
       }
     }

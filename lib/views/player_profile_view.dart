@@ -7,6 +7,7 @@ import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import 'private_chat_view.dart';
+import 'pvp_battle_view.dart'; // 👈 تم استيراد شاشة المعركة هنا
 
 class PlayerProfileView extends StatefulWidget {
   final String targetUid;
@@ -315,7 +316,31 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                   _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatView(targetUid: widget.targetUid, targetName: playerData!['playerName'] ?? 'مجهول', targetPicUrl: playerData!['profilePicUrl'])));
                   }),
-                  _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () {}),
+                  // 👇 هنا تفعيل زر الهجوم المباشر
+                  _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () {
+                    if (!playerData!.containsKey('uid') || playerData!['uid'] == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('جاري تحميل بيانات الخصم، يرجى الانتظار...')),
+                      );
+                      return;
+                    }
+
+                    // فتح شاشة القتال وتمرير بيانات الخصم
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          backgroundColor: Colors.black, // الحفاظ على الثيم المظلم
+                          body: SafeArea(
+                            child: PvpBattleView(
+                              enemyData: playerData!,
+                              onBack: () => Navigator.pop(context),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
                   _buildActionBtn(Icons.attach_money, 'تحويل', Colors.amber, () {}),
                   _buildActionBtn(Icons.group, 'العصابة', Colors.deepPurpleAccent, () {}),
                   _buildActionBtn(Icons.card_giftcard, 'هدية', Colors.pinkAccent, () {}),
@@ -511,7 +536,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
   Widget _buildActionBtn(IconData icon, String label, Color color, VoidCallback onTap) { return GestureDetector(onTap: onTap, child: SizedBox(width: 75, child: Column(children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withValues(alpha:0.15), shape: BoxShape.circle, border: Border.all(color: color.withValues(alpha:0.5))), child: Icon(icon, color: color, size: 24)), const SizedBox(height: 6), Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))]))); }
 
-  // دالة صغيرة لبناء الإحصائيات القتالية
   Widget _buildCombatStat(String label, double val, IconData icon, Color color) {
     return SizedBox(
         width: 130,
