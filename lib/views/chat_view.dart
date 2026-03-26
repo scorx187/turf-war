@@ -15,14 +15,11 @@ class ChatView extends StatefulWidget {
 class _ChatViewState extends State<ChatView> {
   final TextEditingController _controller = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  // عرفنا الستريم هنا عشان ما يتقفل مع كل تحديث للشاشة
   late Stream<QuerySnapshot> _chatStream;
 
   @override
   void initState() {
     super.initState();
-    // نفتح الاتصال مرة وحدة بس أول ما تفتح الشاشة
     _chatStream = _firestore
         .collection('chat')
         .orderBy('timestamp', descending: true)
@@ -33,7 +30,9 @@ class _ChatViewState extends State<ChatView> {
   void _sendMessage() {
     if (_controller.text.trim().isEmpty) return;
     final player = Provider.of<PlayerProvider>(context, listen: false);
+
     _firestore.collection('chat').add({
+      'type': 'player',
       'user': player.playerName,
       'uid': player.uid,
       'message': _controller.text.trim(),
@@ -81,14 +80,88 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
+  Widget _buildSystemBroadcast(String senderName, String message, Color color, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.6), width: 1.5),
+          boxShadow: [BoxShadow(color: color.withOpacity(0.15), blurRadius: 10, spreadRadius: 1)],
+        ),
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(text: '[$senderName] ', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+                      TextSpan(text: message, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Container(padding: const EdgeInsets.all(16), width: double.infinity, decoration: const BoxDecoration(color: Colors.black26, border: Border(bottom: BorderSide(color: Colors.white10))), child: const Text('شات المدينة أونلاين 🌐', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+
+        // --- [شريط الإعلانات الإدارية المثبت] ---
+        StreamBuilder<QuerySnapshot>(
+          stream: _firestore.collection('chat')
+              .where('type', isEqualTo: 'admin')
+              .orderBy('timestamp', descending: true)
+              .limit(1)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox();
+
+            final msg = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.15),
+                border: Border(bottom: BorderSide(color: Colors.amber.withOpacity(0.5), width: 1)),
+              ),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Row(
+                  children: [
+                    const Icon(Icons.campaign, color: Colors.amber, size: 24),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        msg['message'] ?? '',
+                        style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        // ------------------------------------------
+
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: _chatStream, // استخدمنا الستريم المحفوظ هنا
+            stream: _chatStream,
             builder: (context, snapshot) {
               if (snapshot.hasError) return const Center(child: Text('خطأ في الاتصال', style: TextStyle(color: Colors.redAccent)));
               if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
@@ -103,6 +176,15 @@ class _ChatViewState extends State<ChatView> {
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
                   final msg = messages[index].data() as Map<String, dynamic>;
+                  final String msgType = msg['type'] ?? 'player';
+
+                  // التعديل هنا: نخفي رسالة الإدارة تماماً من الشات العادي
+                  if (msgType == 'admin') {
+                    return const SizedBox.shrink();
+                  } else if (msgType == 'system') {
+                    return _buildSystemBroadcast('النظام', msg['message'] ?? '', Colors.redAccent, Icons.gavel);
+                  }
+
                   final bool isVIP = msg['isVIP'] ?? false;
                   final String senderUid = msg['uid'] ?? '';
                   final bool isMe = senderUid == currentUserUid;
