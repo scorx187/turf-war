@@ -44,7 +44,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     if (isMe) {
       playerData = {
         'playerName': player.playerName,
-        'gameId': player.gameId, // تحميل الـ ID هنا
+        'gameId': player.gameId,
         'profilePicUrl': player.profilePicUrl,
         'backgroundPicUrl': player.backgroundPicUrl,
         'isVIP': player.isVIP,
@@ -207,13 +207,11 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                         children: [
                           Row(children: [if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 24), if (isVIP) const SizedBox(width: 5), Flexible(child: Text(playerData!['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]), overflow: TextOverflow.ellipsis))]),
                           const SizedBox(height: 8),
-                          // عرض العصابة ورقم الـ ID المميز جنب بعض
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: [
                               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withValues(alpha: 0.5))), child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))),
-
                               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withValues(alpha: 0.4))), child: Text('ID: ${playerData!['gameId'] ?? '------'}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1))),
                             ],
                           ),
@@ -248,7 +246,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
           ),
           const SizedBox(height: 25),
 
-          // 3. الإحصائيات
+          // 3. الإحصائيات العامة
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Directionality(
@@ -264,7 +262,47 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               ),
             ),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 25),
+
+          // --- ⚔️ قسم الإحصائيات القتالية ⚔️ ---
+          if (isMe) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25),
+              child: const Align(
+                alignment: Alignment.centerRight,
+                child: Text("الإحصائيات القتالية ⚔️", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildCombatStat("القوة", player.strength, Icons.fitness_center, Colors.redAccent),
+                          _buildCombatStat("السرعة", player.speed, Icons.speed, Colors.orangeAccent),
+                        ],
+                      ),
+                      const SizedBox(height: 15),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildCombatStat("الدفاع", player.defense, Icons.shield, Colors.blueAccent),
+                          _buildCombatStat("المهارة", player.skill, Icons.psychology, Colors.greenAccent),
+                        ],
+                      ),
+                    ],
+                  ),
+                )
+            ),
+            const SizedBox(height: 25),
+          ],
 
           // 4. الأزرار السفلية
           if (!isMe)
@@ -309,44 +347,55 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               child: Container(
                 padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
+                  color: Colors.amber.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.amber.withOpacity(0.3), width: 1),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.3), width: 1),
                 ),
-                child: Column(
-                  children: [
-                    const Text("أدوات المطور (للاختبار فقط) 🛠️",
-                        style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-                            onPressed: () {
-                              player.addCrimeXP(100000);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("🚀 تم تفعيل السحر! زاد المستوى والـ Max Health"))
-                              );
-                            },
-                            icon: const Icon(Icons.bolt, color: Colors.white),
-                            label: const Text("زيادة XP", style: TextStyle(color: Colors.white, fontSize: 12)),
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Column(
+                    children: [
+                      const Text("أدوات المطور (للاختبار فقط) 🛠️",
+                          style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, padding: const EdgeInsets.symmetric(horizontal: 2)),
+                              onPressed: () {
+                                player.addCrimeXP(100000);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("🚀 زاد المستوى والـ Max Health"))
+                                );
+                              },
+                              child: const Text("XP +100k", style: TextStyle(color: Colors.white, fontSize: 11)),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green[700]),
-                            onPressed: () {
-                              player.addCash(10000000, reason: "هبة من الإدارة 💸");
-                            },
-                            icon: const Icon(Icons.monetization_on, color: Colors.white),
-                            label: const Text("10 مليون", style: TextStyle(color: Colors.white, fontSize: 12)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green[700], padding: const EdgeInsets.symmetric(horizontal: 2)),
+                              onPressed: () {
+                                player.addCash(10000000, reason: "هبة من الإدارة 💸");
+                              },
+                              child: const Text("10 مليون كاش", style: TextStyle(color: Colors.white, fontSize: 11)),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber[700], padding: const EdgeInsets.symmetric(horizontal: 2)),
+                              onPressed: () {
+                                player.addGold(50000);
+                              },
+                              child: const Text("50 ألف ذهب", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -459,5 +508,26 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
   }
 
   Widget _buildProfileStat(String label, String val, IconData icon, Color color) { return Column(children: [Icon(icon, color: color, size: 28), const SizedBox(height: 6), Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12))]); }
+
   Widget _buildActionBtn(IconData icon, String label, Color color, VoidCallback onTap) { return GestureDetector(onTap: onTap, child: SizedBox(width: 75, child: Column(children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withValues(alpha:0.15), shape: BoxShape.circle, border: Border.all(color: color.withValues(alpha:0.5))), child: Icon(icon, color: color, size: 24)), const SizedBox(height: 6), Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))]))); }
+
+  // دالة صغيرة لبناء الإحصائيات القتالية
+  Widget _buildCombatStat(String label, double val, IconData icon, Color color) {
+    return SizedBox(
+        width: 130,
+        child: Row(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                  Text(val.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              )
+            ]
+        )
+    );
+  }
 }

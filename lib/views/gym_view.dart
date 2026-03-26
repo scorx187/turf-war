@@ -40,14 +40,29 @@ class _GymViewState extends State<GymView> {
     final player = Provider.of<PlayerProvider>(context);
     final int currentEnergy = player.energy;
 
-    // تحديث المؤشر إذا كانت طاقة اللاعب أقل من الرقم المحدد سابقاً
-    if (_selectedEnergy > currentEnergy && currentEnergy > 0) {
-      _selectedEnergy = currentEnergy.toDouble();
-      _energyController.text = _selectedEnergy.toInt().toString();
-    } else if (currentEnergy == 0) {
-      _selectedEnergy = 0;
-      _energyController.text = '0';
+    // --- 🛠️ إصلاح مشكلة الكراش (الحماية من التجدد اللحظي للطاقة) ---
+    if (currentEnergy == 0) {
+      _selectedEnergy = 0.0;
+    } else {
+      // إذا كانت الطاقة أعلى من الصفر، تأكد أن المؤشر لا يقل عن 1
+      if (_selectedEnergy < 1.0) {
+        _selectedEnergy = 1.0;
+      }
+      // تأكد أن المؤشر لا يتجاوز الطاقة الحالية
+      if (_selectedEnergy > currentEnergy) {
+        _selectedEnergy = currentEnergy.toDouble();
+      }
     }
+
+    // تحديث مربع النص بصمت لتجنب أخطاء البناء في فلاتر
+    if (_energyController.text != _selectedEnergy.toInt().toString()) {
+      Future.microtask(() {
+        if (mounted) {
+          _energyController.text = _selectedEnergy.toInt().toString();
+        }
+      });
+    }
+    // -----------------------------------------------------------
 
     // حساب كم بيعطيك التدريب المختار بناءً على المعادلة الصعبة
     double gainPerEnergy = 0.01 + (player.happiness * 0.0002);
