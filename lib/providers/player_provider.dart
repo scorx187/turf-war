@@ -699,7 +699,52 @@ class PlayerProvider with ChangeNotifier {
   void repayLoan(int amount) { if (canRepayLoan() && amount <= _cash && amount <= _loanAmount) { _cash -= amount; _loanAmount -= amount; if (_loanAmount == 0) { _loanTime = null; _creditScore += 10; _showNotification("البنك 🏦: سددت قرضك بالكامل! زادت سمعتك."); } _syncWithFirestore(); notifyListeners(); } }
   void startLockedInvestment(int amount, int minutes, double rate) { if (_cash >= amount) { _cash -= amount; _lockedBalance = amount; _lockedProfits = (amount * rate).floor(); _lockedUntil = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); } }
   void startWorkContract(String name, int durationMinutes, int salaryPerMinute) { if (isUnderContract) return; _activeContractName = name; _contractSalary = salaryPerMinute; _lastContractRewardTime = DateTime.now(); _contractEndTime = DateTime.now().add(Duration(minutes: durationMinutes)); _syncWithFirestore(); notifyListeners(); }
-  void trainStat(String statType, int energyCost) { if (_energy >= energyCost) { _energy -= energyCost; double baseGain = 0.5 + (Random().nextDouble() * 0.5); if (statType == 'strength') _strength += baseGain; else if (statType == 'defense') { _defense += baseGain; } else if (statType == 'skill') _skill += baseGain; else if (statType == 'speed') _speed += baseGain; _syncWithFirestore(); notifyListeners(); } }
+
+  // --- 🏋️ دوال النادي (Gym) والسقف الذكي ---
+
+  // 1. حساب السقف الأقصى بناءً على اللفل (500 + اللفل*100 + اللفل^2 * 5)
+  double get maxGymStats {
+    return 500.0 + (_crimeLevel * 100.0) + (pow(_crimeLevel, 2) * 5.0);
+  }
+
+  // 2. حساب مجموع إحصائيات اللاعب الأساسية الحالية (بدون العتاد)
+  double get currentBaseStats {
+    return _strength + _defense + _skill + _speed;
+  }
+
+  // 3. دالة التدريب الاحترافية
+  void trainStat(String statType, int energySpent) {
+    if (_energy < energySpent || energySpent <= 0) return;
+
+    // التحقق من السقف
+    if (currentBaseStats >= maxGymStats) {
+      _showNotification("🚨 وصلت للحد الأقصى لجسمك في هذا المستوى! ارفع لفلك.");
+      return;
+    }
+
+    // المعادلة الصعبة (0.01 للطاقة الواحدة + تأثير السعادة)
+    double gainPerEnergy = 0.01 + (_happiness * 0.0002);
+    double totalGain = energySpent * gainPerEnergy;
+
+    // التأكد إن الزيادة ما تتخطى السقف المتبقي
+    double availableRoom = maxGymStats - currentBaseStats;
+    if (totalGain > availableRoom) {
+      totalGain = availableRoom; // يعطيه فقط اللي يوصله للسقف
+    }
+
+    _energy -= energySpent;
+
+    // توزيع الزيادة حسب نوع التمرين
+    if (statType == 'strength') _strength += totalGain;
+    else if (statType == 'defense') _defense += totalGain;
+    else if (statType == 'skill') _skill += totalGain;
+    else if (statType == 'speed') _speed += totalGain;
+
+    _syncWithFirestore();
+    notifyListeners();
+    _showNotification("💪 صرفت $energySpent طاقة وزدت ${totalGain.toStringAsFixed(2)} نقطة!");
+  }
+
   void incrementArenaLevel() { _arenaLevel++; _syncWithFirestore(); notifyListeners(); }
   void buyProperty(String id, int price, int happinessGain) { if (_cash >= price && !_ownedProperties.contains(id)) { _cash -= price; _ownedProperties.add(id); if (_activePropertyId == null) setActiveProperty(id, happinessGain); _syncWithFirestore(); notifyListeners(); } }
   void setActiveProperty(String id, int happinessGain) { if (_ownedProperties.contains(id)) { _activePropertyId = id; _happiness = happinessGain; _syncWithFirestore(); notifyListeners(); } }
