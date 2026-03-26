@@ -26,16 +26,30 @@ class _PrivateChatViewState extends State<PrivateChatView> {
   String? currentUserId;
   String? chatId;
 
+  // حفظنا الستريم الخاص بالرسايل
+  late Stream<QuerySnapshot> _messagesStream;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      currentUserId = Provider.of<PlayerProvider>(context, listen: false).uid;
-      if (currentUserId != null) {
-        chatId = getChatId(currentUserId!, widget.targetUid);
+
+    // نجهز الستريم من البداية بدون ما ننتظر الـ build
+    final player = Provider.of<PlayerProvider>(context, listen: false);
+    currentUserId = player.uid;
+
+    if (currentUserId != null) {
+      chatId = getChatId(currentUserId!, widget.targetUid);
+      _messagesStream = _firestore
+          .collection('private_chats')
+          .doc(chatId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .snapshots();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         _markAsRead();
-      }
-    });
+      });
+    }
   }
 
   String getChatId(String uid1, String uid2) {
@@ -75,10 +89,8 @@ class _PrivateChatViewState extends State<PrivateChatView> {
 
   @override
   Widget build(BuildContext context) {
+    // استخدمنا الـ Provider هنا عشان الواجهة (البار العلوي) فقط تتحدث
     final player = Provider.of<PlayerProvider>(context);
-    final cId = getChatId(player.uid ?? '', widget.targetUid);
-
-    // [تعديل] استخدام الكاش لفك تشفير صورة اللاعب في الخاص
     final targetImageBytes = player.getDecodedImage(widget.targetPicUrl);
 
     return Scaffold(
@@ -114,7 +126,7 @@ class _PrivateChatViewState extends State<PrivateChatView> {
 
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('private_chats').doc(cId).collection('messages').orderBy('timestamp', descending: true).snapshots(),
+                stream: _messagesStream, // استخدمنا الستريم المحفوظ الثابت
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
                   final messages = snapshot.data!.docs;
@@ -157,9 +169,9 @@ class _PrivateChatViewState extends State<PrivateChatView> {
               decoration: const BoxDecoration(color: Color(0xFF1A1A1D), border: Border(top: BorderSide(color: Colors.white10))),
               child: Row(
                 children: [
-                  Expanded(child: TextField(controller: _controller, style: const TextStyle(color: Colors.white), textDirection: TextDirection.rtl, onSubmitted: (_) => _sendMessage(player.uid!), decoration: InputDecoration(hintText: 'اكتب رسالتك...', hintStyle: const TextStyle(color: Colors.white24), filled: true, fillColor: Colors.black45, border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10)))),
+                  Expanded(child: TextField(controller: _controller, style: const TextStyle(color: Colors.white), textDirection: TextDirection.rtl, onSubmitted: (_) => _sendMessage(currentUserId!), decoration: InputDecoration(hintText: 'اكتب رسالتك...', hintStyle: const TextStyle(color: Colors.white24), filled: true, fillColor: Colors.black45, border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10)))),
                   const SizedBox(width: 10),
-                  GestureDetector(onTap: () => _sendMessage(player.uid!), child: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.send, color: Colors.black, size: 20))),
+                  GestureDetector(onTap: () => _sendMessage(currentUserId!), child: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.send, color: Colors.black, size: 20))),
                 ],
               ),
             ),

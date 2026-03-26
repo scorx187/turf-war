@@ -16,6 +16,20 @@ class _ChatViewState extends State<ChatView> {
   final TextEditingController _controller = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // عرفنا الستريم هنا عشان ما يتقفل مع كل تحديث للشاشة
+  late Stream<QuerySnapshot> _chatStream;
+
+  @override
+  void initState() {
+    super.initState();
+    // نفتح الاتصال مرة وحدة بس أول ما تفتح الشاشة
+    _chatStream = _firestore
+        .collection('chat')
+        .orderBy('timestamp', descending: true)
+        .limit(50)
+        .snapshots();
+  }
+
   void _sendMessage() {
     if (_controller.text.trim().isEmpty) return;
     final player = Provider.of<PlayerProvider>(context, listen: false);
@@ -74,9 +88,9 @@ class _ChatViewState extends State<ChatView> {
         Container(padding: const EdgeInsets.all(16), width: double.infinity, decoration: const BoxDecoration(color: Colors.black26, border: Border(bottom: BorderSide(color: Colors.white10))), child: const Text('شات المدينة أونلاين 🌐', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: _firestore.collection('chat').orderBy('timestamp', descending: true).limit(50).snapshots(),
+            stream: _chatStream, // استخدمنا الستريم المحفوظ هنا
             builder: (context, snapshot) {
-              if (snapshot.hasError) return Center(child: Text('خطأ في الاتصال', style: const TextStyle(color: Colors.redAccent)));
+              if (snapshot.hasError) return const Center(child: Text('خطأ في الاتصال', style: TextStyle(color: Colors.redAccent)));
               if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('لا توجد رسائل...', style: TextStyle(color: Colors.white54)));
 
@@ -158,20 +172,16 @@ class _ChatViewState extends State<ChatView> {
 
     return GestureDetector(
       onTap: isMe ? null : () async {
-        // 1. إظهار دائرة تحميل فوق الشات تمنع اللمس مؤقتاً
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.amber)),
         );
 
-        // 2. جلب بيانات اللاعب وتخزينها في الكاش (سريع جداً)
         await playerProv.getPlayerById(uid);
 
-        // 3. إخفاء دائرة التحميل بعد اكتمال جلب البيانات
         if (context.mounted) {
           Navigator.pop(context);
-          // 4. فتح البروفايل، الآن سيكون جاهزاً 100% بدون أي "جاري التحميل"
           _openPlayerProfile(context, uid, name, picUrl, isVIP);
         }
       },
