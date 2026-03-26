@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'firebase_options.dart'; 
+import 'package:google_sign_in/google_sign_in.dart'; // إضافة
+import 'package:games_services/games_services.dart'; // إضافة
+import 'firebase_options.dart';
 import 'screens/game_screen.dart';
 import 'providers/player_provider.dart';
 import 'providers/audio_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
   runApp(
     MultiProvider(
       providers: [
@@ -87,22 +88,13 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
               children: [
                 const Icon(Icons.wifi_off, size: 80, color: Colors.redAccent),
                 const SizedBox(height: 20),
-                const Text(
-                  "لا يوجد اتصال بالسيرفر!",
-                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  "تأكد من اتصالك بالإنترنت أو أن مشروع فيربيس مفعل بشكل صحيح.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, fontSize: 14),
-                ),
+                const Text("لا يوجد اتصال بالسيرفر!", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 30),
                 ElevatedButton.icon(
                   onPressed: _initializeFirebase,
                   icon: const Icon(Icons.refresh, color: Colors.black),
                   label: const Text("إعادة المحاولة", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
                 ),
               ],
             ),
@@ -115,14 +107,7 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: Colors.amber),
-              SizedBox(height: 20),
-              Text("جاري الاتصال بمدينة الإجرام...", style: TextStyle(color: Colors.amber, fontSize: 16)),
-            ],
-          ),
+          child: CircularProgressIndicator(color: Colors.amber),
         ),
       );
     }
@@ -142,12 +127,11 @@ class AuthWrapper extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator(color: Colors.amber)));
         }
-        
+
         if (snapshot.hasData) {
-          // تأكد من تهيئة اللاعب عند وجود جلسة نشطة
           final player = Provider.of<PlayerProvider>(context, listen: false);
           if (player.uid == null) {
-            player.initializePlayerOnServer(snapshot.data!.uid, "");
+            player.initializePlayerOnServer(snapshot.data!.uid, snapshot.data!.displayName ?? "");
           }
           return const GameScreen();
         }
@@ -169,12 +153,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nameController = TextEditingController();
   bool _isLoading = false;
 
+  // تسجيل الدخول المجهول (الكود القديم)
   Future<void> _loginAnonymously() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال اسمك')));
       return;
     }
-
     setState(() => _isLoading = true);
     try {
       final userCredential = await FirebaseAuth.instance.signInAnonymously();
@@ -182,6 +166,41 @@ class _LoginScreenState extends State<LoginScreen> {
       await player.initializePlayerOnServer(userCredential.user!.uid, _nameController.text.trim());
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الدخول: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // الميزة الجديدة: تسجيل الدخول عبر Google Play Games
+  Future<void> _loginWithGooglePlay() async {
+    setState(() => _isLoading = true);
+    try {
+      // 1. تسجيل الدخول لخدمات الألعاب
+      await GamesServices.signIn();
+
+      // 2. استخدام Google Sign In للحصول على الاعتمادات لـ Firebase
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser != null) {
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        // 3. ربط الحساب بـ Firebase
+        final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+
+        // 4. تحديث بيانات اللاعب
+        final player = Provider.of<PlayerProvider>(context, listen: false);
+        await player.initializePlayerOnServer(
+            userCredential.user!.uid,
+            googleUser.displayName ?? "لاعب جوجل"
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في Google Play: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -205,7 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _nameController,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  hintText: 'أدخل اسمك المستعار...',
+                  hintText: 'أدخل اسمك المستعار للدخول السريع...',
                   hintStyle: const TextStyle(color: Colors.white24),
                   filled: true,
                   fillColor: Colors.white10,
@@ -215,12 +234,24 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
               if (_isLoading)
                 const CircularProgressIndicator(color: Colors.amber)
-              else
+              else ...[
                 ElevatedButton(
                   onPressed: _loginAnonymously,
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, minimumSize: const Size(double.infinity, 50)),
-                  child: const Text('بدء اللعبة', style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: const Text('دخول سريع (زائر)', style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
+                const SizedBox(height: 15),
+                // زر Google Play الجديد
+                ElevatedButton.icon(
+                  onPressed: _loginWithGooglePlay,
+                  icon: const Icon(Icons.play_arrow, color: Colors.white),
+                  label: const Text('تسجيل بواسطة Google Play', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
