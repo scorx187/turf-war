@@ -5,8 +5,8 @@ import '../providers/player_provider.dart';
 class InventoryView extends StatelessWidget {
   const InventoryView({super.key});
 
-  // --- 🧠 مولد العتاد الذكي (يصنع نفس الـ 60 قطعة لعرضها في المخزن) ---
-  List<Map<String, dynamic>> _generateEquipment() {
+  // --- 🧠 مولد العتاد الذكي للمخزن (يسحب الأرقام الحقيقية) ---
+  List<Map<String, dynamic>> _generateEquipment(PlayerProvider player) {
     List<Map<String, dynamic>> equipment = [];
     final rarities = [
       {'id': 'silver', 'name': 'فضي', 'color': Colors.blueGrey},
@@ -18,37 +18,45 @@ class InventoryView extends StatelessWidget {
     ];
 
     final weaponTypes = [
-      {'id': 'heavy', 'name': 'مدفع', 'desc': 'قوة هائلة / سرعة بطيئة', 'icon': Icons.hardware},
-      {'id': 'assault', 'name': 'رشاش', 'desc': 'قوة عالية / سرعة متوسطة', 'icon': Icons.security},
-      {'id': 'balanced', 'name': 'بندقية', 'desc': 'قوة وسرعة متساوية', 'icon': Icons.sync_alt},
-      {'id': 'tactical', 'name': 'قناصة', 'desc': 'قوة متوسطة / سرعة عالية', 'icon': Icons.track_changes},
-      {'id': 'agile', 'name': 'خنجر', 'desc': 'قوة ضعيفة / سرعة خارقة', 'icon': Icons.flash_on},
+      {'id': 'heavy', 'name': 'مدفع', 'icon': Icons.hardware},
+      {'id': 'assault', 'name': 'رشاش', 'icon': Icons.security},
+      {'id': 'balanced', 'name': 'بندقية', 'icon': Icons.sync_alt},
+      {'id': 'tactical', 'name': 'قناصة', 'icon': Icons.track_changes},
+      {'id': 'agile', 'name': 'خنجر', 'icon': Icons.flash_on},
     ];
 
     final armorTypes = [
-      {'id': 'heavy', 'name': 'درع طليعة', 'desc': 'دفاع هائل / مهارة منخفضة', 'icon': Icons.shield},
-      {'id': 'assault', 'name': 'سترة هجومية', 'desc': 'دفاع عالي / مهارة متوسطة', 'icon': Icons.security_update_good},
-      {'id': 'balanced', 'name': 'بدلة قتال', 'desc': 'دفاع ومهارة متساوية', 'icon': Icons.accessibility_new},
-      {'id': 'tactical', 'name': 'عتاد تكتيكي', 'desc': 'دفاع متوسط / مهارة عالية', 'icon': Icons.directions_run},
-      {'id': 'agile', 'name': 'زي تسلل', 'desc': 'دفاع ضعيف / مهارة خارقة', 'icon': Icons.speed},
+      {'id': 'heavy', 'name': 'درع طليعة', 'icon': Icons.shield},
+      {'id': 'assault', 'name': 'سترة هجومية', 'icon': Icons.security_update_good},
+      {'id': 'balanced', 'name': 'بدلة قتال', 'icon': Icons.accessibility_new},
+      {'id': 'tactical', 'name': 'عتاد تكتيكي', 'icon': Icons.directions_run},
+      {'id': 'agile', 'name': 'زي تسلل', 'icon': Icons.speed},
     ];
 
     for (var r in rarities) {
       for (var w in weaponTypes) {
+        String itemId = 'w_${r['id']}_${w['id']}';
+        int strVal = ((player.weaponStats[itemId]?['str'] ?? 0.0) * 100).toInt();
+        int spdVal = ((player.weaponStats[itemId]?['spd'] ?? 0.0) * 100).toInt();
+
         equipment.add({
-          'id': 'w_${r['id']}_${w['id']}',
+          'id': itemId,
           'name': '${w['name']} ${r['name']}',
-          'description': w['desc'],
+          'description': 'قوة: +$strVal%\nسرعة: +$spdVal%', // سطرين للوصف
           'icon': w['icon'],
           'color': r['color'],
           'type': 'weapon',
         });
       }
       for (var a in armorTypes) {
+        String itemId = 'a_${r['id']}_${a['id']}';
+        int defVal = ((player.armorStats[itemId]?['def'] ?? 0.0) * 100).toInt();
+        int sklVal = ((player.armorStats[itemId]?['skl'] ?? 0.0) * 100).toInt();
+
         equipment.add({
-          'id': 'a_${r['id']}_${a['id']}',
+          'id': itemId,
           'name': '${a['name']} ${r['name']}',
-          'description': a['desc'],
+          'description': 'دفاع: +$defVal%\nمهارة: +$sklVal%', // سطرين للوصف
           'icon': a['icon'],
           'color': r['color'],
           'type': 'armor',
@@ -64,23 +72,23 @@ class InventoryView extends StatelessWidget {
 
     // --- قاعدة بيانات الأدوات الشاملة ---
     final List<Map<String, dynamic>> allPossibleItems = [
-      // 1. إضافة الـ 60 قطعة المدمجة
-      ..._generateEquipment(),
+      // 1. إضافة الـ 60 قطعة المدمجة مع الأرقام الحقيقية
+      ..._generateEquipment(player),
 
       // 2. الأسلحة والدروع القديمة
-      {'id': 'dagger', 'name': 'خنجر كلاسيكي', 'description': 'يعادل فضي رشيق', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon'},
-      {'id': 'revolver', 'name': 'مسدس كلاسيكي', 'description': 'يعادل أخضر متوازن', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon'},
-      {'id': 'katana', 'name': 'كاتانا كلاسيكي', 'description': 'يعادل أزرق هجومي', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon'},
-      {'id': 'shotgun', 'name': 'شوزن كلاسيكي', 'description': 'يعادل بنفسجي مدمر', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon'},
-      {'id': 'sniper', 'name': 'قناصة كلاسيكية', 'description': 'يعادل ذهبي مدمر', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon'},
+      {'id': 'dagger', 'name': 'خنجر كلاسيكي', 'description': 'قوة: +15%\nسرعة: +25%', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon'},
+      {'id': 'revolver', 'name': 'مسدس كلاسيكي', 'description': 'قوة: +40%\nسرعة: +40%', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon'},
+      {'id': 'katana', 'name': 'كاتانا كلاسيكي', 'description': 'قوة: +90%\nسرعة: +60%', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon'},
+      {'id': 'shotgun', 'name': 'شوزن كلاسيكي', 'description': 'قوة: +190%\nسرعة: +60%', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon'},
+      {'id': 'sniper', 'name': 'قناصة كلاسيكية', 'description': 'قوة: +270%\nسرعة: +80%', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon'},
 
-      {'id': 'riot_shield', 'name': 'درع شغب كلاسيكي', 'description': 'يعادل أخضر ثقيل', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor'},
-      {'id': 'kevlar_vest', 'name': 'سترة كلاسيكية', 'description': 'يعادل أزرق متوازن', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor'},
-      {'id': 'steel_armor', 'name': 'فولاذ كلاسيكي', 'description': 'يعادل بنفسجي ثقيل', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor'},
-      {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'يعادل بنفسجي رشيق', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor'},
-      {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'يعادل ذهبي متوازن', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor'},
+      {'id': 'riot_shield', 'name': 'درع شغب كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +20%', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor'},
+      {'id': 'kevlar_vest', 'name': 'سترة كلاسيكية', 'description': 'دفاع: +75%\nمهارة: +75%', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor'},
+      {'id': 'steel_armor', 'name': 'فولاذ كلاسيكي', 'description': 'دفاع: +190%\nمهارة: +60%', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor'},
+      {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +190%', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor'},
+      {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'دفاع: +175%\nمهارة: +175%', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor'},
 
-      // 3. عتاد الجرائم والمستهلكات (نفسها)
+      // 3. عتاد الجرائم والمستهلكات
       {'id': 'black_mask', 'name': 'قناع أسود', 'description': '35% هرب من السجن', 'icon': Icons.theater_comedy, 'color': Colors.black, 'type': 'mask'},
       {'id': 'silicon_mask', 'name': 'قناع سيليكون', 'description': '55% هرب من السجن', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent, 'type': 'mask'},
       {'id': 'crowbar', 'name': 'عتلة فولاذية', 'description': 'تخفض فشل السطو 5%', 'icon': Icons.hardware, 'color': Colors.grey, 'type': 'crime_tool'},
@@ -217,7 +225,7 @@ class InventoryView extends StatelessWidget {
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item['description'], style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  Text(item['description'], style: const TextStyle(color: Colors.white70, height: 1.5, fontSize: 11)),
                   const SizedBox(height: 8),
                   if (type == 'crime_tool')
                     _buildDurabilityBar(durability),

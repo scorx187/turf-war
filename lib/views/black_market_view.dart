@@ -8,8 +8,8 @@ class BlackMarketView extends StatelessWidget {
 
   const BlackMarketView({super.key, required this.onBack});
 
-  // --- 🧠 مولد العتاد الذكي (يصنع 60 قطعة عتاد برمجياً بدل كتابتها يدوياً) ---
-  List<Map<String, dynamic>> _generateEquipment() {
+  // --- 🧠 مولد العتاد الذكي (يسحب الأرقام مباشرة من الـ Provider) ---
+  List<Map<String, dynamic>> _generateEquipment(PlayerProvider player) {
     List<Map<String, dynamic>> equipment = [];
     final rarities = [
       {'id': 'silver', 'name': 'فضي', 'color': Colors.blueGrey, 'price': 5000, 'curr': 'cash'},
@@ -21,27 +21,32 @@ class BlackMarketView extends StatelessWidget {
     ];
 
     final weaponTypes = [
-      {'id': 'heavy', 'name': 'مدفع', 'desc': 'قوة هائلة / سرعة بطيئة', 'icon': Icons.hardware},
-      {'id': 'assault', 'name': 'رشاش', 'desc': 'قوة عالية / سرعة متوسطة', 'icon': Icons.security},
-      {'id': 'balanced', 'name': 'بندقية', 'desc': 'قوة وسرعة متساوية', 'icon': Icons.sync_alt},
-      {'id': 'tactical', 'name': 'قناصة', 'desc': 'قوة متوسطة / سرعة عالية', 'icon': Icons.track_changes},
-      {'id': 'agile', 'name': 'خنجر', 'desc': 'قوة ضعيفة / سرعة خارقة', 'icon': Icons.flash_on},
+      {'id': 'heavy', 'name': 'مدفع', 'icon': Icons.hardware},
+      {'id': 'assault', 'name': 'رشاش', 'icon': Icons.security},
+      {'id': 'balanced', 'name': 'بندقية', 'icon': Icons.sync_alt},
+      {'id': 'tactical', 'name': 'قناصة', 'icon': Icons.track_changes},
+      {'id': 'agile', 'name': 'خنجر', 'icon': Icons.flash_on},
     ];
 
     final armorTypes = [
-      {'id': 'heavy', 'name': 'درع طليعة', 'desc': 'دفاع هائل / مهارة منخفضة', 'icon': Icons.shield},
-      {'id': 'assault', 'name': 'سترة هجومية', 'desc': 'دفاع عالي / مهارة متوسطة', 'icon': Icons.security_update_good},
-      {'id': 'balanced', 'name': 'بدلة قتال', 'desc': 'دفاع ومهارة متساوية', 'icon': Icons.accessibility_new},
-      {'id': 'tactical', 'name': 'عتاد تكتيكي', 'desc': 'دفاع متوسط / مهارة عالية', 'icon': Icons.directions_run},
-      {'id': 'agile', 'name': 'زي تسلل', 'desc': 'دفاع ضعيف / مهارة خارقة', 'icon': Icons.speed},
+      {'id': 'heavy', 'name': 'درع طليعة', 'icon': Icons.shield},
+      {'id': 'assault', 'name': 'سترة هجومية', 'icon': Icons.security_update_good},
+      {'id': 'balanced', 'name': 'بدلة قتال', 'icon': Icons.accessibility_new},
+      {'id': 'tactical', 'name': 'عتاد تكتيكي', 'icon': Icons.directions_run},
+      {'id': 'agile', 'name': 'زي تسلل', 'icon': Icons.speed},
     ];
 
     for (var r in rarities) {
       for (var w in weaponTypes) {
+        String itemId = 'w_${r['id']}_${w['id']}';
+        // جلب الأرقام الحقيقية وتحويلها لنسبة مئوية
+        int strVal = ((player.weaponStats[itemId]?['str'] ?? 0.0) * 100).toInt();
+        int spdVal = ((player.weaponStats[itemId]?['spd'] ?? 0.0) * 100).toInt();
+
         equipment.add({
-          'id': 'w_${r['id']}_${w['id']}',
+          'id': itemId,
           'name': '${w['name']} ${r['name']}',
-          'description': w['desc'],
+          'description': 'قوة: +$strVal%\nسرعة: +$spdVal%', // سطرين للوصف
           'price': r['price'],
           'currency': r['curr'],
           'icon': w['icon'],
@@ -51,10 +56,15 @@ class BlackMarketView extends StatelessWidget {
         });
       }
       for (var a in armorTypes) {
+        String itemId = 'a_${r['id']}_${a['id']}';
+        // جلب الأرقام الحقيقية وتحويلها لنسبة مئوية
+        int defVal = ((player.armorStats[itemId]?['def'] ?? 0.0) * 100).toInt();
+        int sklVal = ((player.armorStats[itemId]?['skl'] ?? 0.0) * 100).toInt();
+
         equipment.add({
-          'id': 'a_${r['id']}_${a['id']}',
+          'id': itemId,
           'name': '${a['name']} ${r['name']}',
-          'description': a['desc'],
+          'description': 'دفاع: +$defVal%\nمهارة: +$sklVal%', // سطرين للوصف
           'price': r['price'],
           'currency': r['curr'],
           'icon': a['icon'],
@@ -73,24 +83,24 @@ class BlackMarketView extends StatelessWidget {
 
     // --- قائمة بضاعة المتجر الكاملة ---
     final List<Map<String, dynamic>> items = [
-      // 1. توليد العتاد الجديد تلقائياً ودمجه في القائمة
-      ..._generateEquipment(),
+      // 1. توليد العتاد الجديد تلقائياً مع تمرير player لجلب الأرقام
+      ..._generateEquipment(player),
 
       // 2. الأسلحة القديمة
-      {'id': 'dagger', 'name': 'خنجر كلاسيكي', 'description': 'سلاح قديم (يعادل فضي رشيق)', 'price': 1500, 'currency': 'cash', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon', 'isConsumable': false},
-      {'id': 'revolver', 'name': 'مسدس كلاسيكي', 'description': 'سلاح قديم (يعادل أخضر متوازن)', 'price': 15000, 'currency': 'cash', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon', 'isConsumable': false},
-      {'id': 'katana', 'name': 'كاتانا كلاسيكي', 'description': 'سلاح قديم (يعادل أزرق هجومي)', 'price': 85000, 'currency': 'cash', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon', 'isConsumable': false},
-      {'id': 'shotgun', 'name': 'شوزن كلاسيكي', 'description': 'سلاح قديم (يعادل بنفسجي مدمر)', 'price': 250000, 'currency': 'cash', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon', 'isConsumable': false},
-      {'id': 'sniper', 'name': 'قناصة كلاسيكية', 'description': 'سلاح قديم (يعادل ذهبي مدمر)', 'price': 1200, 'currency': 'gold', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'dagger', 'name': 'خنجر كلاسيكي', 'description': 'قوة: +15%\nسرعة: +25%', 'price': 1500, 'currency': 'cash', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'revolver', 'name': 'مسدس كلاسيكي', 'description': 'قوة: +40%\nسرعة: +40%', 'price': 15000, 'currency': 'cash', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'katana', 'name': 'كاتانا كلاسيكي', 'description': 'قوة: +90%\nسرعة: +60%', 'price': 85000, 'currency': 'cash', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'shotgun', 'name': 'شوزن كلاسيكي', 'description': 'قوة: +190%\nسرعة: +60%', 'price': 250000, 'currency': 'cash', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'sniper', 'name': 'قناصة كلاسيكية', 'description': 'قوة: +270%\nسرعة: +80%', 'price': 1200, 'currency': 'gold', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon', 'isConsumable': false},
 
       // 3. الدروع القديمة
-      {'id': 'riot_shield', 'name': 'درع شغب كلاسيكي', 'description': 'درع قديم (يعادل أخضر ثقيل)', 'price': 3000, 'currency': 'cash', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor', 'isConsumable': false},
-      {'id': 'kevlar_vest', 'name': 'سترة كلاسيكية', 'description': 'درع قديم (يعادل أزرق متوازن)', 'price': 25000, 'currency': 'cash', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor', 'isConsumable': false},
-      {'id': 'steel_armor', 'name': 'فولاذ كلاسيكي', 'description': 'درع قديم (يعادل بنفسجي ثقيل)', 'price': 120000, 'currency': 'cash', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor', 'isConsumable': false},
-      {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'درع قديم (يعادل بنفسجي رشيق)', 'price': 500000, 'currency': 'cash', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor', 'isConsumable': false},
-      {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'درع قديم (يعادل ذهبي متوازن)', 'price': 2500, 'currency': 'gold', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor', 'isConsumable': false},
+      {'id': 'riot_shield', 'name': 'درع شغب كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +20%', 'price': 3000, 'currency': 'cash', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor', 'isConsumable': false},
+      {'id': 'kevlar_vest', 'name': 'سترة كلاسيكية', 'description': 'دفاع: +75%\nمهارة: +75%', 'price': 25000, 'currency': 'cash', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor', 'isConsumable': false},
+      {'id': 'steel_armor', 'name': 'فولاذ كلاسيكي', 'description': 'دفاع: +190%\nمهارة: +60%', 'price': 120000, 'currency': 'cash', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor', 'isConsumable': false},
+      {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +190%', 'price': 500000, 'currency': 'cash', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor', 'isConsumable': false},
+      {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'دفاع: +175%\nمهارة: +175%', 'price': 2500, 'currency': 'gold', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor', 'isConsumable': false},
 
-      // 4. الأقنعة وعتاد الجرائم والمستهلكات (نفسها بدون تغيير)
+      // 4. الأقنعة وعتاد الجرائم والمستهلكات
       {'id': 'black_mask', 'name': 'قناع أسود', 'description': 'مطلوب لسرقة السيارات ويهربك 35%', 'price': 15000, 'currency': 'cash', 'icon': Icons.theater_comedy, 'color': Colors.black, 'type': 'mask', 'isConsumable': false},
       {'id': 'silicon_mask', 'name': 'قناع سيليكون', 'description': 'مطلوب لسطو البنك ويهربك 55%', 'price': 120000, 'currency': 'cash', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent, 'type': 'mask', 'isConsumable': false},
       {'id': 'crowbar', 'name': 'عتلة فولاذية', 'description': 'تخفض فشل السطو 5%', 'price': 2500, 'currency': 'cash', 'icon': Icons.hardware, 'color': Colors.grey, 'type': 'crime_tool', 'isConsumable': false},
@@ -192,7 +202,7 @@ class BlackMarketView extends StatelessWidget {
               child: Icon(item['icon'] as IconData, color: item['color'], size: 20),
             ),
             title: Text(item['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-            subtitle: Text(item['description'], style: const TextStyle(color: Colors.white54, fontSize: 10)),
+            subtitle: Text(item['description'], style: const TextStyle(color: Colors.white54, height: 1.5, fontSize: 11)),
             trailing: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
