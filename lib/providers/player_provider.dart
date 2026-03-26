@@ -700,49 +700,64 @@ class PlayerProvider with ChangeNotifier {
   void startLockedInvestment(int amount, int minutes, double rate) { if (_cash >= amount) { _cash -= amount; _lockedBalance = amount; _lockedProfits = (amount * rate).floor(); _lockedUntil = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); } }
   void startWorkContract(String name, int durationMinutes, int salaryPerMinute) { if (isUnderContract) return; _activeContractName = name; _contractSalary = salaryPerMinute; _lastContractRewardTime = DateTime.now(); _contractEndTime = DateTime.now().add(Duration(minutes: durationMinutes)); _syncWithFirestore(); notifyListeners(); }
 
-  // --- 🏋️ دوال النادي (Gym) والسقف الذكي ---
+// --- 🏋️ دوال النادي (Gym) المرنة ---
 
-  // 1. حساب السقف الأقصى بناءً على اللفل (500 + اللفل*100 + اللفل^2 * 5)
   double get maxGymStats {
-    return 500.0 + (_crimeLevel * 100.0) + (pow(_crimeLevel, 2) * 5.0);
+    return 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0); // سقف موزون للبدايات
   }
 
-  // 2. حساب مجموع إحصائيات اللاعب الأساسية الحالية (بدون العتاد)
   double get currentBaseStats {
     return _strength + _defense + _skill + _speed;
   }
 
-  // 3. دالة التدريب الاحترافية
-  void trainStat(String statType, int energySpent) {
-    if (_energy < energySpent || energySpent <= 0) return;
+  // التدريب الشامل (يسحب التقسيمة من الشاشة وينفذها بضغطة)
+  void trainMultipleStats(int strE, int defE, int skillE, int spdE) {
+    int totalEnergy = strE + defE + skillE + spdE;
+    if (_energy < totalEnergy || totalEnergy <= 0) return;
 
-    // التحقق من السقف
     if (currentBaseStats >= maxGymStats) {
       _showNotification("🚨 وصلت للحد الأقصى لجسمك في هذا المستوى! ارفع لفلك.");
       return;
     }
 
-    // المعادلة الصعبة (0.01 للطاقة الواحدة + تأثير السعادة)
     double gainPerEnergy = 0.01 + (_happiness * 0.0002);
-    double totalGain = energySpent * gainPerEnergy;
 
-    // التأكد إن الزيادة ما تتخطى السقف المتبقي
+    double strGain = strE * gainPerEnergy;
+    double defGain = defE * gainPerEnergy;
+    double skillGain = skillE * gainPerEnergy;
+    double spdGain = spdE * gainPerEnergy;
+
+    double totalGain = strGain + defGain + skillGain + spdGain;
     double availableRoom = maxGymStats - currentBaseStats;
+
+    // إذا كانت الزيادة تتخطى السقف، نقللها بنسبة وتناسب
     if (totalGain > availableRoom) {
-      totalGain = availableRoom; // يعطيه فقط اللي يوصله للسقف
+      double scale = availableRoom / totalGain;
+      strGain *= scale;
+      defGain *= scale;
+      skillGain *= scale;
+      spdGain *= scale;
     }
 
-    _energy -= energySpent;
+    _energy -= totalEnergy;
+    _strength += strGain;
+    _defense += defGain;
+    _skill += skillGain;
+    _speed += spdGain;
 
-    // توزيع الزيادة حسب نوع التمرين
-    if (statType == 'strength') _strength += totalGain;
-    else if (statType == 'defense') _defense += totalGain;
-    else if (statType == 'skill') _skill += totalGain;
-    else if (statType == 'speed') _speed += totalGain;
+    // 🛡️ زيادة الصحة القصوى العشوائية عند تمرين الدفاع
+    if (defGain > 0) {
+      // عشوائية: كل نقطة دفاع تعطي بين 8 إلى 15 صحة
+      double randomMultiplier = 8.0 + Random().nextDouble() * 7.0;
+      int hpBoost = (defGain * randomMultiplier).toInt();
+      if (hpBoost > 0) {
+        _maxHealth = min(50000000, _maxHealth + hpBoost);
+        _showNotification("🛡️ تمرين الدفاع زاد صحتك القصوى بمقدار +$hpBoost نقطة!");
+      }
+    }
 
     _syncWithFirestore();
     notifyListeners();
-    _showNotification("💪 صرفت $energySpent طاقة وزدت ${totalGain.toStringAsFixed(2)} نقطة!");
   }
 
   void incrementArenaLevel() { _arenaLevel++; _syncWithFirestore(); notifyListeners(); }
@@ -781,6 +796,7 @@ class PlayerProvider with ChangeNotifier {
 
   void buyItem(String itemId, int price, {bool isConsumable = false, String currency = 'cash'}) { bool canBuy = currency == 'cash' ? _cash >= price : _gold >= price; if (canBuy) { if (currency == 'cash') _cash -= price; else _gold -= price; _inventory[itemId] = (_inventory[itemId] ?? 0) + 1; _syncWithFirestore(); notifyListeners(); } }
 
+  // --- 🎒 إصلاح ثغرة المستهلكات والذهب ---
   void useItem(String itemId) {
     if ((_inventory[itemId] ?? 0) > 0) {
       if (_crimeToolsList.contains(itemId)) {
@@ -792,19 +808,35 @@ class PlayerProvider with ChangeNotifier {
       } else if (['black_mask', 'silicon_mask'].contains(itemId)) {
         _equippedMaskId = (_equippedMaskId == itemId) ? null : itemId;
       } else {
-        if (itemId == 'medkit') _health = maxHealth;
-        else if (itemId == 'steroids') _energy = maxEnergy;
-        else if (itemId == 'coffee') _courage = maxCourage;
-        else if (itemId == 'bribe_small') reduceHeat(20.0);
-        else if (itemId == 'fake_plates') reduceHeat(40.0);
-        else if (itemId == 'bribe_big') _heat = 0.0;
+        // قسم المستهلكات (ينقص بعد الاستخدام مباشرة)
+        bool isConsumed = false;
 
-        if (['medkit', 'bandage', 'painkillers'].contains(itemId) && _isHospitalized) {
+        if (itemId == 'medkit') { _health = maxHealth; isConsumed = true; }
+        else if (itemId == 'bandage') { _health = min(maxHealth, _health + (maxHealth * 0.25).toInt()); isConsumed = true; }
+        else if (itemId == 'steroids') { _energy = maxEnergy; isConsumed = true; }
+        else if (itemId == 'coffee') { _courage = maxCourage; isConsumed = true; }
+        else if (itemId == 'bribe_small') { reduceHeat(20.0); isConsumed = true; }
+        else if (itemId == 'fake_plates') { reduceHeat(40.0); isConsumed = true; }
+        else if (itemId == 'bribe_big') { _heat = 0.0; isConsumed = true; }
+        else if (itemId == 'smoke_bomb') {
+          if (_isInPrison) {
+            _isInPrison = false; _prisonReleaseTime = null;
+            _showNotification("💨 استخدمت القنبلة الدخانية وهربت من السجن!");
+            isConsumed = true;
+          } else {
+            _showNotification("لا يمكنك استخدام هذا إلا في السجن!");
+          }
+        }
+
+        // إخراج اللاعب من المستشفى إذا استخدم علاج
+        if (['medkit', 'bandage'].contains(itemId) && _isHospitalized) {
           _isHospitalized = false;
           _hospitalReleaseTime = null;
-          _showNotification("🏥 تم استخدام العلاج وخرجت من المستشفى فوراً!");
+          _showNotification("🏥 تعافيت وخرجت من المستشفى!");
         }
-        if (['medkit', 'bandage', 'painkillers', 'steroids', 'coffee', 'energy_bar', 'fast_food', 'tea', 'juice', 'happiness_booster', 'smoke_bomb', 'bribe_small', 'bribe_big', 'fake_plates'].contains(itemId)) {
+
+        // الخصم من المخزن
+        if (isConsumed) {
           _inventory[itemId] = _inventory[itemId]! - 1;
           if (_inventory[itemId] == 0) _inventory.remove(itemId);
         }

@@ -6,7 +6,7 @@ import '../widgets/quick_recovery_dialog.dart';
 import 'dart:math';
 
 class PvpBattleView extends StatefulWidget {
-  final Map<String, dynamic> enemyData; // بيانات الخصم الحقيقي
+  final Map<String, dynamic> enemyData; // بيانات الخصم
   final VoidCallback onBack;
 
   const PvpBattleView({super.key, required this.enemyData, required this.onBack});
@@ -36,8 +36,8 @@ class _PvpBattleViewState extends State<PvpBattleView> {
     audio.lowerBGMVolume();
 
     int playerHP = player.health;
-    // نأخذ صحة الخصم القصوى وإحصائياته من فايربيس
     int enemyHP = widget.enemyData['maxHealth'] ?? 100;
+
     double enemyStr = (widget.enemyData['strength'] ?? 10).toDouble();
     double enemyDef = (widget.enemyData['defense'] ?? 10).toDouble();
     double enemySkill = (widget.enemyData['skill'] ?? 10).toDouble();
@@ -46,30 +46,45 @@ class _PvpBattleViewState extends State<PvpBattleView> {
     StringBuffer log = StringBuffer(battleLog);
 
     int round = 1;
+    // حلقة القتال (حد أقصى 20 جولة)
     while (playerHP > 0 && enemyHP > 0 && round <= 20) {
       log.writeln("--- الجولة $round ---");
       audio.playEffect('attack.mp3');
 
-      // دورك في الهجوم
+      // ⚔️ [دور اللاعب في الهجوم]
       bool enemyDodged = checkDodge(player.speed, enemySkill);
       if (enemyDodged) {
-        log.writeln("💨 ${widget.enemyData['playerName']} تفادى ضربتك!");
+        log.writeln("💨 ${widget.enemyData['playerName']} تفادى ضربتك بمهارته!");
       } else {
         int damage = calculateDamage(player.strength, enemyDef);
+        bool isCrit = checkCritical(player.speed, enemySkill);
+
+        if (isCrit) {
+          damage = (damage * 1.5).toInt(); // الضربة الحرجة تضاعف الضرر 50%
+          log.writeln("💥 ضربة حرجة! سحقت الخصم بـ $damage ضرر.");
+        } else {
+          log.writeln("⚔️ ضربت الخصم بـ $damage ضرر.");
+        }
         enemyHP -= damage;
-        log.writeln("⚔️ ضربت الخصم بـ $damage ضرر.");
       }
 
       if (enemyHP <= 0) break;
 
-      // دور الخصم في الهجوم
+      // 🛡️ [دور الخصم في الهجوم]
       bool playerDodged = checkDodge(enemySpd, player.skill);
       if (playerDodged) {
-        log.writeln("🛡️ تفاديت ضربة الخصم!");
+        log.writeln("🛡️ تفاديت ضربة الخصم ببراعة!");
       } else {
         int damage = calculateDamage(enemyStr, player.defense);
+        bool isCrit = checkCritical(enemySpd, player.skill);
+
+        if (isCrit) {
+          damage = (damage * 1.5).toInt();
+          log.writeln("💥 الخصم سدد ضربة حرجة! انخصم منك $damage ضرر.");
+        } else {
+          log.writeln("🩸 الخصم ضربك بـ $damage ضرر.");
+        }
         playerHP -= damage;
-        log.writeln("💥 الخصم ضربك بـ $damage ضرر.");
       }
 
       round++;
@@ -82,20 +97,29 @@ class _PvpBattleViewState extends State<PvpBattleView> {
       }
     }
 
-// تحديد الفائز
-    if (enemyHP <= 0) {
-      // الغنيمة تعتمد على مستوى الخصم (عشان يكون اللعب منطقي)
+    // --- 📊 تحديد النتيجة النهائية ---
+    log.writeln("\n========================");
+
+    // 1. حفظ صحة اللاعب سواء فاز أو خسر أو تعادل (إصلاح الثغرة)
+    player.setHealth(max(0, playerHP));
+
+    if (enemyHP <= 0 && playerHP > 0) {
+      // حالة الفوز
       int arenaLvl = widget.enemyData['arenaLevel'] ?? 1;
       int reward = (500 * arenaLvl) + Random().nextInt(1000);
 
-      log.writeln("\n🏆 انتصار ساحق على ${widget.enemyData['playerName']}!");
-      log.writeln("💰 سرقت منه: $reward كاش.");
-
-      // هنا نستدعي الدالة الجديدة اللي تسحب الفلوس من الخصم الفعلي!
-      // تأكد أننا نمرر الـ uid الخاص بالخصم
+      log.writeln("🏆 انتصار ساحق! قمت بتدمير ${widget.enemyData['playerName']}.");
+      log.writeln("💰 غنيمة المعركة: $reward كاش.");
       player.recordPvpVictory(widget.enemyData['uid'], widget.enemyData['playerName'], reward);
 
-      player.setHealth(playerHP);
+    } else if (playerHP <= 0 && enemyHP > 0) {
+      // حالة الخسارة
+      log.writeln("💀 لقد سقطت في المعركة... تحتاج إلى مستشفى فوراً.");
+
+    } else {
+      // حالة التعادل (مرت 20 جولة بدون موت أحد)
+      log.writeln("🤝 انتهت 20 جولة! كلاكما منهك جداً، النتيجة: تعادل.");
+      log.writeln("💡 نصيحة: ارفع قوتك لكسر دفاعات الخصم في المرات القادمة.");
     }
 
     audio.restoreBGMVolume();
@@ -108,15 +132,32 @@ class _PvpBattleViewState extends State<PvpBattleView> {
     }
   }
 
-  int calculateDamage(double attackerStr, double defenderDef) {
-    int baseDmg = (attackerStr * 2.5).toInt();
-    int reduction = (defenderDef / 1.5).toInt();
-    return max(10, baseDmg - reduction + Random().nextInt(15));
+  // --- 🧮 معادلات الـ RPG المعقدة ---
+
+  // 1. معادلة الضرر (الاختراق)
+  int calculateDamage(double atk, double def) {
+    if (atk <= 0) return 10;
+    // معادلة التناسب: القوة × (القوة ÷ (القوة + الدفاع))
+    // ضربناها في 5 كعامل تكبير عشان تناسب أرقام الصحة العالية (تقدر تعدله لو الضرر ضعيف)
+    double rawDamage = atk * (atk / (atk + def)) * 5.0;
+
+    // إضافة تذبذب عشوائي للضرر (±10%)
+    double variation = 0.9 + (Random().nextDouble() * 0.2);
+    return max(1, (rawDamage * variation).toInt());
   }
 
+  // 2. معادلة المراوغة (المهارة ضد السرعة) - بحد أقصى 50%
   bool checkDodge(double attackerSpd, double defenderSkill) {
-    double dodgeChance = (defenderSkill / (attackerSpd + defenderSkill + 1)) * 0.7;
+    if (defenderSkill <= 0) return false;
+    double dodgeChance = (defenderSkill / (defenderSkill + attackerSpd + 1)) * 0.5;
     return Random().nextDouble() < dodgeChance;
+  }
+
+  // 3. معادلة الضربة الحرجة (السرعة ضد المهارة) - بحد أقصى 50%
+  bool checkCritical(double attackerSpd, double defenderSkill) {
+    if (attackerSpd <= 0) return false;
+    double critChance = (attackerSpd / (attackerSpd + defenderSkill + 1)) * 0.5;
+    return Random().nextDouble() < critChance;
   }
 
   @override
@@ -150,14 +191,14 @@ class _PvpBattleViewState extends State<PvpBattleView> {
               children: [
                 _buildCombatHeader(player),
                 const SizedBox(height: 10),
-                const Text("كل هجوم PVP يستهلك 25 طاقة", style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+                const Text("كل هجوم يستنزف 25 طاقة", style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
                 const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
                   constraints: const BoxConstraints(minHeight: 200),
                   padding: const EdgeInsets.all(15),
                   decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
-                  child: Text(battleLog, style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontFamily: 'monospace')),
+                  child: Text(battleLog, style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontFamily: 'monospace', height: 1.5)),
                 ),
                 const SizedBox(height: 20),
                 if (!isFighting)
