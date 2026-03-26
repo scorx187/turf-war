@@ -238,9 +238,16 @@ class PlayerProvider with ChangeNotifier {
   int get oldGoldPrice => _oldGoldPrice;
   int get maxLoanLimit => 20000 + (_creditScore * 2000);
   bool get isInvestmentLocked => _lockedUntil != null && DateTime.now().isBefore(_lockedUntil!);
+
   int get crimeLevel => _crimeLevel;
   int get crimeXP => _crimeXP;
-  int get xpToNextLevel => max(100, _crimeLevel * 100);
+
+  // --- معادلة الخبرة الجديدة (الفائدة المركبة 5%) ---
+  int get xpToNextLevel {
+    // المستوى 1 يطلب 100 XP، وكل مستوى يزيد بنسبة 5%
+    return (100 * pow(1.05, _crimeLevel - 1)).toInt();
+  }
+
   int get workLevel => _workLevel;
   int get workXP => _workXP;
   int get workXPToNextLevel => max(150, _workLevel * 150);
@@ -301,7 +308,6 @@ class PlayerProvider with ChangeNotifier {
 
     if (initialDoc.exists) {
       _applyFirestoreData(initialDoc.data()!);
-      // توليد ID إذا كان اللاعب قديم ولا يملك واحد
       if (_gameId == null) {
         _gameId = await _generateUniqueGameId();
         await _syncWithFirestore();
@@ -469,7 +475,7 @@ class PlayerProvider with ChangeNotifier {
       if (timer.tick % 4 == 0 && _courage < maxCourage) { _courage++; localChanged = true; }
       if (timer.tick % 8 == 0 && _energy < maxEnergy) { _energy++; localChanged = true; }
 
-      // نظام الاستشفاء اللحظي الجديد (30 دقيقة للماكس، مع تحديث كل ثانية)
+      // نظام الاستشفاء اللحظي (30 دقيقة للماكس)
       if (_health < maxHealth) {
         double regenPerSecond = maxHealth / 1800.0;
         _fractionalHealth += regenPerSecond;
@@ -534,7 +540,7 @@ class PlayerProvider with ChangeNotifier {
   void addGold(int amount) { _gold += amount; _syncWithFirestore(); notifyListeners(); }
   void removeGold(int amount) { _gold = max(0, _gold - amount); _syncWithFirestore(); notifyListeners(); }
 
-  // --- دالة زيادة المستوى والصحة التصاعدية ---
+  // --- دالة زيادة المستوى والصحة التصاعدية (معدلة للحسبة الجديدة) ---
   void addCrimeXP(int amount) {
     if (_crimeLevel >= 450) return;
     _crimeXP += amount;
@@ -543,10 +549,14 @@ class PlayerProvider with ChangeNotifier {
     while (_crimeXP >= xpToNextLevel && _crimeLevel < 450) {
       _crimeXP -= xpToNextLevel;
 
+      // 1. حساب الصحة القديمة قبل الترقية (باستخدام معادلة 2.96% اللي ثبتناها للصحة)
       int oldBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
-      _crimeLevel++;
-      int newBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
 
+      // 2. ترقية المستوى
+      _crimeLevel++;
+
+      // 3. حساب الصحة الجديدة بعد الترقية وإضافة الفرق لـ _maxHealth
+      int newBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
       _maxHealth += (newBase - oldBase);
       if (_maxHealth > 50000000) _maxHealth = 50000000;
 
@@ -586,7 +596,6 @@ class PlayerProvider with ChangeNotifier {
   void setCourage(int value) { _courage = value.clamp(0, maxCourage); _syncWithFirestore(); notifyListeners(); }
   void enterHospital(int minutes) { _isHospitalized = true; _health = 0; _hospitalReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
 
-  // --- دالة العلاج السريع في المستشفى ---
   void quickHealHospital() {
     int missing = maxHealth - _health;
     if (missing <= 0) return;

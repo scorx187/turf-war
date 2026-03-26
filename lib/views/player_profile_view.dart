@@ -286,6 +286,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                 ],
               ),
             )
+
           else ...[
             if (widget.profileTabIndex == 0)
               _buildChatList(player.uid!)
@@ -299,6 +300,58 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
             const SizedBox(height: 20),
 
             if (player.heat > 0) Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha:0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent.withValues(alpha:0.3))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.local_police, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text("مستوى الملاحقة", style: TextStyle(color: Colors.white70))]), Text("${player.heat.toInt()}%", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))])),
+
+            // ==========================================
+            // 👑 [قسم المطور - الزر السحري للاختبار] 👑
+            // ==========================================
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.amber.withOpacity(0.3), width: 1),
+                ),
+                child: Column(
+                  children: [
+                    const Text("أدوات المطور (للاختبار فقط) 🛠️",
+                        style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+                            onPressed: () {
+                              player.addCrimeXP(100000);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("🚀 تم تفعيل السحر! زاد المستوى والـ Max Health"))
+                              );
+                            },
+                            icon: const Icon(Icons.bolt, color: Colors.white),
+                            label: const Text("زيادة XP", style: TextStyle(color: Colors.white, fontSize: 12)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green[700]),
+                            onPressed: () {
+                              player.addCash(10000000, reason: "هبة من الإدارة 💸");
+                            },
+                            icon: const Icon(Icons.monetization_on, color: Colors.white),
+                            label: const Text("10 مليون", style: TextStyle(color: Colors.white, fontSize: 12)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // ==========================================
+
             Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: [ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: audio.isMuted ? Colors.redAccent.withValues(alpha:0.2) : Colors.green.withValues(alpha:0.2), side: BorderSide(color: audio.isMuted ? Colors.redAccent : Colors.green), minimumSize: const Size(double.infinity, 50)), onPressed: () => audio.toggleMute(), icon: Icon(audio.isMuted ? Icons.volume_off : Icons.volume_up, color: audio.isMuted ? Colors.redAccent : Colors.green), label: Text(audio.isMuted ? "تشغيل الصوت" : "كتم الصوت", style: TextStyle(color: audio.isMuted ? Colors.redAccent : Colors.green))), const SizedBox(height: 15), ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withValues(alpha:0.2), side: const BorderSide(color: Colors.red), minimumSize: const Size(double.infinity, 50)), onPressed: () { audio.playEffect('click.mp3'); _showResetConfirmation(player); }, icon: const Icon(Icons.delete_forever, color: Colors.red), label: const Text("مسح البيانات", style: TextStyle(color: Colors.red)))])),
           ],
 
