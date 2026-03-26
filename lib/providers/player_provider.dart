@@ -28,6 +28,10 @@ class PlayerProvider with ChangeNotifier {
   int _bailPrice = 1500;
   int get bailPrice => _bailPrice;
 
+  // --- المتغير الجديد للـ ID القصير ---
+  String? _gameId;
+  String? get gameId => _gameId;
+
   int _cash = 5000;
   int _gold = 0;
   int _bankBalance = 0;
@@ -177,6 +181,20 @@ class PlayerProvider with ChangeNotifier {
     return null;
   }
 
+  // --- دالة توليد ID مميز من 6 أرقام ---
+  Future<String> _generateUniqueGameId() async {
+    String newId = '';
+    bool isUnique = false;
+    while (!isUnique) {
+      newId = (100000 + Random().nextInt(900000)).toString();
+      final check = await _firestore.collection('players').where('gameId', isEqualTo: newId).limit(1).get();
+      if (check.docs.isEmpty) {
+        isUnique = true;
+      }
+    }
+    return newId;
+  }
+
   String? get uid => _uid;
   int get cash => _cash;
   int get gold => _gold;
@@ -283,9 +301,15 @@ class PlayerProvider with ChangeNotifier {
 
     if (initialDoc.exists) {
       _applyFirestoreData(initialDoc.data()!);
+      // توليد ID إذا كان اللاعب قديم ولا يملك واحد
+      if (_gameId == null) {
+        _gameId = await _generateUniqueGameId();
+        await _syncWithFirestore();
+      }
     } else if (name.isNotEmpty) {
       _playerName = name;
       _inventory['name_change_card'] = 1;
+      _gameId = await _generateUniqueGameId();
       _isLoading = false;
       await _syncWithFirestore();
     }
@@ -303,6 +327,7 @@ class PlayerProvider with ChangeNotifier {
 
   void _applyFirestoreData(Map<String, dynamic> data) {
     _playerName = data['playerName'] ?? _playerName;
+    _gameId = data['gameId'] ?? _gameId;
     _bio = data['bio'] ?? _bio;
     _profilePicUrl = data['profilePicUrl'];
     _backgroundPicUrl = data['backgroundPicUrl'];
@@ -368,6 +393,7 @@ class PlayerProvider with ChangeNotifier {
     try {
       await _firestore.collection('players').doc(_uid).set({
         'playerName': _playerName,
+        'gameId': _gameId,
         'bio': _bio,
         'profilePicUrl': _profilePicUrl,
         'backgroundPicUrl': _backgroundPicUrl,
@@ -443,9 +469,9 @@ class PlayerProvider with ChangeNotifier {
       if (timer.tick % 4 == 0 && _courage < maxCourage) { _courage++; localChanged = true; }
       if (timer.tick % 8 == 0 && _energy < maxEnergy) { _energy++; localChanged = true; }
 
-      // نظام الاستشفاء اللحظي الجديد (30 دقيقة بالضبط للوصول للماكس)
+      // نظام الاستشفاء اللحظي الجديد (30 دقيقة للماكس، مع تحديث كل ثانية)
       if (_health < maxHealth) {
-        double regenPerSecond = maxHealth / 1800.0; // 1800 ثانية = 30 دقيقة
+        double regenPerSecond = maxHealth / 1800.0;
         _fractionalHealth += regenPerSecond;
         if (_fractionalHealth >= 1.0) {
           int healAmount = _fractionalHealth.toInt();
@@ -508,7 +534,7 @@ class PlayerProvider with ChangeNotifier {
   void addGold(int amount) { _gold += amount; _syncWithFirestore(); notifyListeners(); }
   void removeGold(int amount) { _gold = max(0, _gold - amount); _syncWithFirestore(); notifyListeners(); }
 
-  // دالة زيادة المستوى والصحة التصاعدية
+  // --- دالة زيادة المستوى والصحة التصاعدية ---
   void addCrimeXP(int amount) {
     if (_crimeLevel >= 450) return;
     _crimeXP += amount;
@@ -517,7 +543,6 @@ class PlayerProvider with ChangeNotifier {
     while (_crimeXP >= xpToNextLevel && _crimeLevel < 450) {
       _crimeXP -= xpToNextLevel;
 
-      // نحسب الفرق بالصحة الأساسية بين اللفل القديم والجديد ونضيفه
       int oldBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
       _crimeLevel++;
       int newBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
@@ -561,7 +586,7 @@ class PlayerProvider with ChangeNotifier {
   void setCourage(int value) { _courage = value.clamp(0, maxCourage); _syncWithFirestore(); notifyListeners(); }
   void enterHospital(int minutes) { _isHospitalized = true; _health = 0; _hospitalReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
 
-  // دالة العلاج السريع في المستشفى
+  // --- دالة العلاج السريع في المستشفى ---
   void quickHealHospital() {
     int missing = maxHealth - _health;
     if (missing <= 0) return;

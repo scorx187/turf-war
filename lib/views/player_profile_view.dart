@@ -44,6 +44,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     if (isMe) {
       playerData = {
         'playerName': player.playerName,
+        'gameId': player.gameId, // تحميل الـ ID هنا
         'profilePicUrl': player.profilePicUrl,
         'backgroundPicUrl': player.backgroundPicUrl,
         'isVIP': player.isVIP,
@@ -57,6 +58,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     } else {
       playerData = {
         'playerName': widget.previewName ?? 'جاري التحميل...',
+        'gameId': '---',
         'profilePicUrl': widget.previewPicUrl,
         'backgroundPicUrl': null,
         'isVIP': widget.previewIsVIP ?? false,
@@ -204,8 +206,17 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(children: [if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 24), if (isVIP) const SizedBox(width: 5), Flexible(child: Text(playerData!['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]), overflow: TextOverflow.ellipsis))]),
-                          const SizedBox(height: 5),
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withValues(alpha: 0.5))), child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))),
+                          const SizedBox(height: 8),
+                          // عرض العصابة ورقم الـ ID المميز جنب بعض
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withValues(alpha: 0.5))), child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))),
+
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withValues(alpha: 0.4))), child: Text('ID: ${playerData!['gameId'] ?? '------'}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1))),
+                            ],
+                          ),
                         ],
                       ),
                     ),
