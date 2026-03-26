@@ -152,7 +152,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nameController = TextEditingController();
   bool _isLoading = false;
 
-  // تسجيل الدخول المجهول كزائر
   Future<void> _loginAnonymously() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال اسمك')));
@@ -170,11 +169,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // تسجيل الدخول بحساب Google العادي والمجاني
+  // تسجيل الدخول بحساب Google
   Future<void> _loginWithStandardGoogle() async {
     setState(() => _isLoading = true);
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      // 🔥 تم إضافة الـ Client ID الخاص بك هنا ليعمل المتصفح بشكل صحيح 🔥
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: '834850251245-tu4s26nu9bhd3367vk4cq37lgtbum6e9.apps.googleusercontent.com',
+      );
+
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
       if (googleUser != null) {
         final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
@@ -234,7 +238,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Text('دخول سريع (زائر)', style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 15),
-                // زر الدخول بحساب Google
                 ElevatedButton.icon(
                   onPressed: _loginWithStandardGoogle,
                   icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 35),
