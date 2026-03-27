@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,8 +9,21 @@ import 'screens/game_screen.dart';
 import 'providers/player_provider.dart';
 import 'providers/audio_provider.dart';
 
+// 🔥 تعريف الألوان الخاصة باللعبة هنا لسهولة الوصول إليها
+class GameColors {
+  static const Color primary = Colors.amber; // لون الأزرار والعناوين الرئيسية
+  static const Color background = Colors.black; // لون الخلفية الأساسي
+  static const Color surface = Color(0xFF1E1E1E); // لون الحقول والقوائم
+  static const Color accent = Colors.blueAccent; // لون جانبي (مثل النيون)
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+
   runApp(
     MultiProvider(
       providers: [
@@ -30,11 +44,71 @@ class MyGame extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        fontFamily: 'Cairo',
+        primaryColor: GameColors.primary,
+        scaffoldBackgroundColor: GameColors.background,
+        fontFamily: 'Changa', // تأكد من إضافة الخط لـ pubspec
       ),
       home: const Directionality(
         textDirection: TextDirection.rtl,
         child: FirebaseInitWrapper(),
+      ),
+    );
+  }
+}
+
+// 🧱 ويدجت الخلفية المشتركة (لتسهيل الصيانة)
+class GameBackgroundScaffold extends StatelessWidget {
+  final Widget child;
+  final bool showOverlay;
+  final bool resizeToAvoidBottomInset;
+
+  const GameBackgroundScaffold({
+    super.key,
+    required this.child,
+    this.showOverlay = true,
+    this.resizeToAvoidBottomInset = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: GameColors.background,
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+      body: Stack(
+        children: [
+          // 1. الصورة الخلفية الأساسية (بدون سواد مع تركيز على التفاصيل)
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/turfwar_loading_screen.jpg',
+              fit: BoxFit.cover, // نعود لـ cover لملء الشاشة وإخفاء السواد
+              // 🔥 هنا السر: الأرقام من -1.0 إلى 1.0 (الصفر هو المنتصف).
+              // الرقم الأول للعرض، والثاني للطول. -0.2 ترفع التركيز قليلاً للأعلى لإظهار وجه الشخصية والمدينة.
+              alignment: const Alignment(0.0, -0.2),
+            ),
+          ),
+          // 2. طبقة تعتيم احترافية (تدرج لوني لدمج الصورة مع الواجهة)
+          if (showOverlay)
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black54, // شفافية خفيفة جداً بالأعلى
+                      Colors.black12, // شبه شفاف بالوسط لتلمع تفاصيل الصورة
+                      Colors.black87, // داكن بالأسفل لبروز الأزرار وحقل النص
+                    ],
+                    stops: [0.0, 0.3, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          // 3. المحتوى الفعلي
+          SafeArea(
+            child: child,
+          ),
+        ],
       ),
     );
   }
@@ -77,23 +151,22 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_error) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
+      return GameBackgroundScaffold(
+        showOverlay: true,
+        child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(30.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.wifi_off, size: 80, color: Colors.redAccent),
-                const SizedBox(height: 20),
-                const Text("لا يوجد اتصال بالسيرفر!", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 30),
-                ElevatedButton.icon(
+                const Icon(Icons.wifi_off, size: 100, color: Colors.redAccent),
+                const SizedBox(height: 25),
+                const Text("لا يوجد اتصال بالسيرفر!", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 40),
+                GameActionButton(
                   onPressed: _initializeFirebase,
-                  icon: const Icon(Icons.refresh, color: Colors.black),
-                  label: const Text("إعادة المحاولة", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                  icon: Icons.refresh,
+                  label: "إعادة المحاولة",
                 ),
               ],
             ),
@@ -103,10 +176,10 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
     }
 
     if (!_initialized) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.amber),
+      return GameBackgroundScaffold(
+        showOverlay: false, // لا نريد تعتيماً وقت التحميل
+        child: Center(
+          child: CircularProgressIndicator(color: GameColors.primary),
         ),
       );
     }
@@ -124,7 +197,10 @@ class AuthWrapper extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator(color: Colors.amber)));
+          return GameBackgroundScaffold(
+            showOverlay: false,
+            child: Center(child: CircularProgressIndicator(color: GameColors.primary)),
+          );
         }
 
         if (snapshot.hasData) {
@@ -154,7 +230,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loginAnonymously() async {
     if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال اسمك')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال اسمك أولاً')));
       return;
     }
     setState(() => _isLoading = true);
@@ -163,17 +239,15 @@ class _LoginScreenState extends State<LoginScreen> {
       final player = Provider.of<PlayerProvider>(context, listen: false);
       await player.initializePlayerOnServer(userCredential.user!.uid, _nameController.text.trim());
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الدخول: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الدخول كزائر: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // تسجيل الدخول بحساب Google
   Future<void> _loginWithStandardGoogle() async {
     setState(() => _isLoading = true);
     try {
-      // 🔥 تم إضافة الـ Client ID الخاص بك هنا ليعمل المتصفح بشكل صحيح 🔥
       final GoogleSignIn googleSignIn = GoogleSignIn(
         clientId: '834850251245-tu4s26nu9bhd3367vk4cq37lgtbum6e9.apps.googleusercontent.com',
       );
@@ -196,7 +270,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في تسجيل الدخول: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في تسجيل الدخول بحساب Google')));
       print("Google Sign-In Error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -205,52 +279,140 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[900],
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.security, size: 80, color: Colors.amber),
-              const SizedBox(height: 20),
-              const Text('مدينة الإجرام أونلاين', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 30),
-              TextField(
-                controller: _nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'أدخل اسمك المستعار للدخول السريع...',
-                  hintStyle: const TextStyle(color: Colors.white24),
-                  filled: true,
-                  fillColor: Colors.white10,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (_isLoading)
-                const CircularProgressIndicator(color: Colors.amber)
-              else ...[
-                ElevatedButton(
-                  onPressed: _loginAnonymously,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, minimumSize: const Size(double.infinity, 50)),
-                  child: const Text('دخول سريع (زائر)', style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(height: 15),
-                ElevatedButton.icon(
-                  onPressed: _loginWithStandardGoogle,
-                  icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 35),
-                  label: const Text('تسجيل الدخول بحساب Google', style: TextStyle(color: Colors.white, fontSize: 16)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[700],
-                    minimumSize: const Size(double.infinity, 50),
+    // 🔥 هنا نستخدم الـ Background Scaffold المحسن
+    return GameBackgroundScaffold(
+      // 🔥 لا نجعل الشاشة تعيد الحجم عند ظهور الكيبورد، لتظل الخلفية ثابتة
+      resizeToAvoidBottomInset: false,
+      child: Center(
+        child: SingleChildScrollView( // 🔥 نضيف هذا لنسمح للمحتوى بالتحرك للأعلى فوق الكيبورد
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 50),
+                // 1. عنوان اللعبة المحسن
+                Text(
+                  'TURF WAR', // 🔥 تغيير الاسم
+                  style: TextStyle(
+                    color: GameColors.primary,
+                    fontSize: 48,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 3.0, // تباعد احترافي بين الحروف
+                    shadows: [
+                      Shadow(blurRadius: 15, color: GameColors.accent.withOpacity(0.7), offset: const Offset(3, 3)),
+                      const Shadow(blurRadius: 5, color: Colors.black, offset: Offset(-1, -1)),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 10),
+                const Text(
+                  'أحكم السيطرة على المدينة...',
+                  style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.normal),
+                ),
+                const SizedBox(height: 60),
+
+                // 2. حقل اسم المستخدم المحسن
+                TextField(
+                  controller: _nameController,
+                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(Icons.person_outline, color: GameColors.primary),
+                    hintText: 'ادخل اسمك المستعار...',
+                    hintStyle: const TextStyle(color: Colors.white30),
+                    filled: true,
+                    fillColor: Colors.black45, // شبه شفاف ليندمج مع الخلفية
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: GameColors.primary, width: 2.0)),
+                    contentPadding: const EdgeInsets.all(20),
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // 3. الأزرار المحسنة
+                if (_isLoading)
+                  const CircularProgressIndicator(color: GameColors.primary)
+                else ...[
+                  // زر دخول زائر
+                  GameActionButton(
+                    onPressed: _loginAnonymously,
+                    label: 'دخول سريع (زائر)',
+                    isPrimary: true,
+                  ),
+                  const SizedBox(height: 20),
+                  // زر جوجل
+                  GameActionButton(
+                    onPressed: _loginWithStandardGoogle,
+                    icon: Icons.g_mobiledata,
+                    label: 'تسجيل الدخول بحساب Google',
+                    isGoogle: true,
+                  ),
+                ],
+                const SizedBox(height: 50), // مسافة في الأسفل
               ],
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// 🧱 ويدجت زر مخصص احترافي (لإعادة الاستخدام)
+class GameActionButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final String label;
+  final IconData? icon;
+  final bool isPrimary;
+  final bool isGoogle;
+
+  const GameActionButton({
+    super.key,
+    required this.onPressed,
+    required this.label,
+    this.icon,
+    this.isPrimary = false,
+    this.isGoogle = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Color btnColor = GameColors.surface;
+    Color textColor = Colors.white;
+
+    if (isPrimary) {
+      btnColor = GameColors.primary;
+      textColor = Colors.black;
+    } else if (isGoogle) {
+      btnColor = Colors.blue[800]!;
+    }
+
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: btnColor,
+        foregroundColor: textColor,
+        minimumSize: const Size(double.infinity, 60),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        elevation: isPrimary ? 10 : 2,
+        shadowColor: isPrimary ? GameColors.primary.withOpacity(0.5) : Colors.black54,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: isGoogle ? 40 : 28, color: textColor),
+            const SizedBox(width: 15),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isPrimary ? 20 : 18,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
     );
   }

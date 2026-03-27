@@ -28,4 +28,12 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/images/
     - assets/audio/
+
+fonts:
+  - family: Changa
+    fonts:
+      - asset: assets/fonts/Changa-Bold.ttf
+      - asset: assets/fonts/Changa-Regular.ttf
+        weight: 700

@@ -39,6 +39,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   String _activeArea = 'الخريطة';
   StreamSubscription? _notificationSubscription;
 
+  // 🔥 متغير جديد للتحكم بانتهاء أنميشن التحميل
+  bool _visualLoadingComplete = false;
+
   final List<Map<String, dynamic>> locations = [
     {'name': 'المطار', 'icon': Icons.airplanemode_active, 'color': Colors.blue},
     {'name': 'عجلة الحظ', 'icon': Icons.casino, 'color': Colors.orange},
@@ -98,8 +101,19 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    if (player.isLoading) {
-      return const Scaffold(backgroundColor: Colors.black, body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(color: Colors.redAccent), SizedBox(height: 20), Text('جاري الاتصال بالعالم السفلي...', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold))])));
+    // 🔥 شاشة التحميل الفخمة تظهر إذا كانت البيانات لسه تحمل، أو إذا الأنميشن ما خلص
+    if (player.isLoading || !_visualLoadingComplete) {
+      return GameLoadingView(
+        isDataLoaded: !player.isLoading, // نبلغ الشاشة إذا البيانات جاهزة
+        onVisualLoadingComplete: () {
+          // هذي الدالة تتنفذ لما يوصل الشريط 100% والبيانات تكون جاهزة
+          if (mounted) {
+            setState(() {
+              _visualLoadingComplete = true;
+            });
+          }
+        },
+      );
     }
 
     return Scaffold(
@@ -243,6 +257,163 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           child: Container(decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: loc['color'], width: 1.5)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(loc['icon'], size: 40, color: loc['color']), const SizedBox(height: 10), Text(loc['name'], style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))])),
         );
       },
+    );
+  }
+}
+
+// 🧱 ويدجت شاشة التحميل الذكية ذات شريط التحميل (نضعها في نهاية الملف)
+class GameLoadingView extends StatefulWidget {
+  final bool isDataLoaded;
+  final VoidCallback onVisualLoadingComplete;
+
+  const GameLoadingView({
+    super.key,
+    required this.isDataLoaded,
+    required this.onVisualLoadingComplete,
+  });
+
+  @override
+  State<GameLoadingView> createState() => _GameLoadingViewState();
+}
+
+class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    // أنميشن شريط التحميل يستغرق 3 ثواني
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 3));
+    _controller.forward();
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed && widget.isDataLoaded) {
+        widget.onVisualLoadingComplete();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(GameLoadingView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isDataLoaded && widget.isDataLoaded) {
+      if (_controller.isCompleted) {
+        widget.onVisualLoadingComplete();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/turfwar_loading_screen.jpg',
+              fit: BoxFit.cover,
+              alignment: const Alignment(0.0, -0.2),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  // 🔥 التعتيم أصبح أسود داكن جداً في الأسفل ليتناسب مع اللون الأحمر
+                  colors: [Colors.black54, Colors.black45, Colors.black],
+                  stops: [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Text(
+                  'TURF WAR',
+                  style: TextStyle(
+                    color: Color(0xFFB30000), // 🔥 لون أحمر دموي/قرمزي داكن
+                    fontSize: 52, // حجم أكبر للسيطرة
+                    fontWeight: FontWeight.w900, // أقصى درجات العرض
+                    fontStyle: FontStyle.italic, // ميلان لطابع الأكشن والخطورة
+                    letterSpacing: 6.0, // تباعد واسع بين الحروف
+                    shadows: [
+                      // 🔥 ظلال سوداء داكنة جداً تعطي بروزاً مخيفاً للكلمة
+                      Shadow(blurRadius: 20, color: Colors.black, offset: Offset(4, 4)),
+                      Shadow(blurRadius: 5, color: Color(0xFF4A0000), offset: Offset(-2, -2)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 15),
+                const Text(
+                  'جاري التحميل', // 🔥 تم التعديل كما طلبت
+                  style: TextStyle(
+                      color: Colors.white54, // لون رمادي باهت لا يسرق الانتباه من الاسم
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.0
+                  ),
+                ),
+                const SizedBox(height: 40),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 50.0),
+                  child: AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, child) {
+                      return Column(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                                boxShadow: [
+                                  // توهج خفيف أحمر تحت شريط التحميل
+                                  BoxShadow(
+                                    color: const Color(0xFFB30000).withOpacity(0.5),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(5), // حواف حادة أكثر (بدل 10)
+                              child: LinearProgressIndicator(
+                                value: _controller.value,
+                                backgroundColor: Colors.black45, // خلفية داكنة للشريط
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB30000)), // أحمر دموي
+                                minHeight: 10, // شريط أعرض ليعطي فخامة
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${(_controller.value * 100).toInt()}%',
+                            style: const TextStyle(
+                                color: Color(0xFFB30000),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 22, // رقم النسبة مئوية بارز ومائل
+                                fontStyle: FontStyle.italic
+                            ),
+                          )
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 50),
+              ],
+            ),
+          )
+        ],
+      ),
     );
   }
 }
