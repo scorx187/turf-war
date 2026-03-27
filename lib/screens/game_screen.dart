@@ -42,7 +42,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   // متغير للتحكم بانتهاء أنميشن التحميل
   bool _visualLoadingComplete = false;
 
-  // 🔥 متحكم الخريطة التفاعلية
+  // 🔥 متغير جديد عشان نعرف إذا الخريطة تحملت لأول مرة ولا لا (عشان نضبط الزووم الافتراضي)
+  bool _isMapInitialized = false;
+
+  // متحكم الخريطة التفاعلية
   final TransformationController _mapTransformationController = TransformationController();
 
   final List<Map<String, dynamic>> locations = [
@@ -82,7 +85,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
-    _mapTransformationController.dispose(); // إغلاق متحكم الخريطة
+    _mapTransformationController.dispose();
     super.dispose();
   }
 
@@ -234,7 +237,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
 
-    // فتح واجهات المباني بناءً على التحديد من الخريطة
     if (_activeArea == 'المطار') return AirportView(gold: player.gold, onTravel: (cost) => player.removeGold(cost), onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'البنك') return BankView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'عجلة الحظ') return LuckyWheelView(cash: player.cash, maxEnergy: player.maxEnergy, maxCourage: player.maxCourage, onCashChanged: (val) => val > 0 ? player.addCash(val, reason: "عجلة الحظ") : player.removeCash(val.abs(), reason: "خسارة عجلة حظ"), onGoldChanged: (val) => player.addGold(val), onEnergyChanged: (val) => player.setEnergy(val), onCourageChanged: (val) => player.setCourage(val), onBack: () => setState(() => _activeArea = 'الخريطة'));
@@ -251,48 +253,60 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_activeArea == 'المختبر السري') return LaboratoryView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'الورشة') return WorkshopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
 
-    // 🔥 الخريطة التفاعلية بدقة 4K مع الزووم المحكم
+    // 🔥 الخريطة التفاعلية مع الزووم الكامل والافتراضي
     return LayoutBuilder(
       builder: (context, constraints) {
 
-        // 🛑 أبعاد صورتك الحقيقية 4K
         final double imageWidth = 4096;
         final double imageHeight = 4096;
 
-        // 🧮 حساب الزووم لضمان تغطية الشاشة وعدم ظهور أي أطراف سوداء
+        // حساب الزووم الذي يضمن تغطية الشاشة بالكامل بدون أي أطراف سوداء
         double minScaleX = constraints.maxWidth / imageWidth;
         double minScaleY = constraints.maxHeight / imageHeight;
         double calculatedMinScale = minScaleX > minScaleY ? minScaleX : minScaleY;
 
-        // ⚖️ السحر هنا: وزنية الزووم
-        // ضربنا الرقم بـ 1.8 عشان الكاميرا ما ترجع للوراء بالكامل وتصير المباني صغيرة مرة
-        double balancedMinScale = calculatedMinScale * 1.8;
+        // 🎯 اللمسة السحرية: ضبط الكاميرا على زووم آوت كامل ومتمركزه عند أول تشغيل
+        if (!_isMapInitialized) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              // حساب التوسيط الدقيق عشان ما تبدأ الخريطة من الزاوية
+              double dx = (constraints.maxWidth - (imageWidth * calculatedMinScale)) / 2;
+              double dy = (constraints.maxHeight - (imageHeight * calculatedMinScale)) / 2;
+
+              _mapTransformationController.value = Matrix4.identity()
+                ..translate(dx, dy)
+                ..scale(calculatedMinScale);
+            }
+          });
+          // نغير القيمة عشان ما يعيد الزووم كل مرة اللاعب يضغط على مبنى
+          _isMapInitialized = true;
+        }
 
         return InteractiveViewer(
           transformationController: _mapTransformationController,
 
-          minScale: balancedMinScale, // 👈 يمنع الزووم للخارج بشكل مبالغ فيه
-          maxScale: 1.5, // 👈 يمنع الدخول العميق جداً (1.5 ممتاز للـ 4K)
+          // 👈 خلينا الزووم الأدنى هو الزووم الكامل بدون ضرب في أرقام إضافية
+          minScale: calculatedMinScale,
+          maxScale: 3.0, // يسمح بتقريب ممتاز للتفاصيل
 
           constrained: false,
-          boundaryMargin: EdgeInsets.zero, // منع خروج الكاميرا للخارج
+          boundaryMargin: EdgeInsets.zero,
 
           child: SizedBox(
             width: imageWidth,
             height: imageHeight,
             child: Stack(
               children: [
-                // 1. صورة الخريطة الأساسية
+                // 1. صورة الخريطة الأساسية 4K
                 Positioned.fill(
                   child: Image.asset(
                     'assets/images/city_map.jpg',
                     fit: BoxFit.fill,
-                    filterQuality: FilterQuality.high, // 🔥 دقة رندر عالية للاستفادة من الـ 4K
+                    filterQuality: FilterQuality.high,
                   ),
                 ),
 
                 // 2. أزرار المباني التفاعلية
-                // ⚠️ ابدأ الحين بتعديل إحداثيات (اليسار، الأعلى) لكل مبنى واضغط حفظ عشان تشوف النتيجة
                 _buildMapHotspot('المطار', 200, 200, 300, 300, Colors.blue),
                 _buildMapHotspot('عجلة الحظ', 600, 300, 300, 300, Colors.orange),
                 _buildMapHotspot('البنك', 1000, 400, 300, 300, Colors.green),
@@ -339,7 +353,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   backgroundColor: Colors.black54,
-                  fontSize: 24 // كبرت الخط عشان يناسب الدقة الجديدة
+                  fontSize: 24
               ),
               textAlign: TextAlign.center,
             ),
