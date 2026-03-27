@@ -39,8 +39,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   String _activeArea = 'الخريطة';
   StreamSubscription? _notificationSubscription;
 
-  // 🔥 متغير جديد للتحكم بانتهاء أنميشن التحميل
+  // متغير للتحكم بانتهاء أنميشن التحميل
   bool _visualLoadingComplete = false;
+
+  // 🔥 متحكم الخريطة التفاعلية
+  final TransformationController _mapTransformationController = TransformationController();
 
   final List<Map<String, dynamic>> locations = [
     {'name': 'المطار', 'icon': Icons.airplanemode_active, 'color': Colors.blue},
@@ -79,6 +82,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
+    _mapTransformationController.dispose(); // إغلاق متحكم الخريطة
     super.dispose();
   }
 
@@ -101,12 +105,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // 🔥 شاشة التحميل الفخمة تظهر إذا كانت البيانات لسه تحمل، أو إذا الأنميشن ما خلص
     if (player.isLoading || !_visualLoadingComplete) {
       return GameLoadingView(
-        isDataLoaded: !player.isLoading, // نبلغ الشاشة إذا البيانات جاهزة
+        isDataLoaded: !player.isLoading,
         onVisualLoadingComplete: () {
-          // هذي الدالة تتنفذ لما يوصل الشريط 100% والبيانات تكون جاهزة
           if (mounted) {
             setState(() {
               _visualLoadingComplete = true;
@@ -232,6 +234,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
 
+    // فتح واجهات المباني بناءً على التحديد من الخريطة
     if (_activeArea == 'المطار') return AirportView(gold: player.gold, onTravel: (cost) => player.removeGold(cost), onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'البنك') return BankView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'عجلة الحظ') return LuckyWheelView(cash: player.cash, maxEnergy: player.maxEnergy, maxCourage: player.maxCourage, onCashChanged: (val) => val > 0 ? player.addCash(val, reason: "عجلة الحظ") : player.removeCash(val.abs(), reason: "خسارة عجلة حظ"), onGoldChanged: (val) => player.addGold(val), onEnergyChanged: (val) => player.setEnergy(val), onCourageChanged: (val) => player.setCourage(val), onBack: () => setState(() => _activeArea = 'الخريطة'));
@@ -248,20 +251,106 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_activeArea == 'المختبر السري') return LaboratoryView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'الورشة') return WorkshopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(15), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.8), itemCount: locations.length,
-      itemBuilder: (context, index) {
-        final loc = locations[index];
-        return GestureDetector(
-          onTap: () { Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); setState(() => _activeArea = loc['name']); },
-          child: Container(decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: loc['color'], width: 1.5)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(loc['icon'], size: 40, color: loc['color']), const SizedBox(height: 10), Text(loc['name'], style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))])),
+    // 🔥 الخريطة التفاعلية بدقة 4K مع الزووم المحكم
+    return LayoutBuilder(
+      builder: (context, constraints) {
+
+        // 🛑 أبعاد صورتك الحقيقية 4K
+        final double imageWidth = 4096;
+        final double imageHeight = 4096;
+
+        // 🧮 حساب الزووم لضمان تغطية الشاشة وعدم ظهور أي أطراف سوداء
+        double minScaleX = constraints.maxWidth / imageWidth;
+        double minScaleY = constraints.maxHeight / imageHeight;
+        double calculatedMinScale = minScaleX > minScaleY ? minScaleX : minScaleY;
+
+        // ⚖️ السحر هنا: وزنية الزووم
+        // ضربنا الرقم بـ 1.8 عشان الكاميرا ما ترجع للوراء بالكامل وتصير المباني صغيرة مرة
+        double balancedMinScale = calculatedMinScale * 1.8;
+
+        return InteractiveViewer(
+          transformationController: _mapTransformationController,
+
+          minScale: balancedMinScale, // 👈 يمنع الزووم للخارج بشكل مبالغ فيه
+          maxScale: 1.5, // 👈 يمنع الدخول العميق جداً (1.5 ممتاز للـ 4K)
+
+          constrained: false,
+          boundaryMargin: EdgeInsets.zero, // منع خروج الكاميرا للخارج
+
+          child: SizedBox(
+            width: imageWidth,
+            height: imageHeight,
+            child: Stack(
+              children: [
+                // 1. صورة الخريطة الأساسية
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/city_map.jpg',
+                    fit: BoxFit.fill,
+                    filterQuality: FilterQuality.high, // 🔥 دقة رندر عالية للاستفادة من الـ 4K
+                  ),
+                ),
+
+                // 2. أزرار المباني التفاعلية
+                // ⚠️ ابدأ الحين بتعديل إحداثيات (اليسار، الأعلى) لكل مبنى واضغط حفظ عشان تشوف النتيجة
+                _buildMapHotspot('المطار', 200, 200, 300, 300, Colors.blue),
+                _buildMapHotspot('عجلة الحظ', 600, 300, 300, 300, Colors.orange),
+                _buildMapHotspot('البنك', 1000, 400, 300, 300, Colors.green),
+                _buildMapHotspot('المستشفى', 1400, 200, 300, 300, Colors.red),
+                _buildMapHotspot('السجن', 1800, 600, 300, 300, Colors.grey),
+                _buildMapHotspot('المصنع', 200, 800, 300, 300, Colors.brown),
+                _buildMapHotspot('سباق الشوارع', 600, 1000, 300, 300, Colors.pink),
+                _buildMapHotspot('المتجر الأسود', 1000, 1200, 300, 300, Colors.black),
+                _buildMapHotspot('صالة التدريب', 1400, 800, 300, 300, Colors.blueGrey),
+                _buildMapHotspot('ساحة القتال', 1800, 1000, 300, 300, Colors.redAccent),
+                _buildMapHotspot('ساحة اللاعبين', 2200, 400, 300, 300, Colors.orangeAccent),
+                _buildMapHotspot('العقارات', 2200, 1200, 300, 300, Colors.amber),
+                _buildMapHotspot('العصابات', 2600, 600, 300, 300, Colors.deepOrange),
+                _buildMapHotspot('التشليح', 2600, 1000, 300, 300, Colors.lime),
+                _buildMapHotspot('المختبر السري', 3000, 800, 300, 300, Colors.greenAccent),
+                _buildMapHotspot('الورشة', 3000, 1200, 300, 300, Colors.blueAccent),
+              ],
+            ),
+          ),
         );
       },
     );
   }
+
+  // 🔥 دالة إنشاء الأزرار الشفافة
+  Widget _buildMapHotspot(String areaName, double left, double top, double width, double height, Color debugColor) {
+    return Positioned(
+      left: left,
+      top: top,
+      width: width,
+      height: height,
+      child: GestureDetector(
+        onTap: () {
+          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+          setState(() => _activeArea = areaName);
+        },
+        child: Container(
+          // ⚠️ خله شفاف Colors.transparent بعد ما تضبط مقاسات المباني
+          color: debugColor.withOpacity(0.5),
+          child: Center(
+            child: Text(
+              areaName,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  backgroundColor: Colors.black54,
+                  fontSize: 24 // كبرت الخط عشان يناسب الدقة الجديدة
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-// 🧱 ويدجت شاشة التحميل الذكية ذات شريط التحميل (نضعها في نهاية الملف)
+// 🧱 ويدجت شاشة التحميل الذكية
 class GameLoadingView extends StatefulWidget {
   final bool isDataLoaded;
   final VoidCallback onVisualLoadingComplete;
@@ -282,7 +371,6 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    // أنميشن شريط التحميل يستغرق 3 ثواني
     _controller = AnimationController(vsync: this, duration: const Duration(seconds: 3));
     _controller.forward();
 
@@ -328,7 +416,6 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  // 🔥 التعتيم أصبح أسود داكن جداً في الأسفل ليتناسب مع اللون الأحمر
                   colors: [Colors.black54, Colors.black45, Colors.black],
                   stops: [0.0, 0.4, 1.0],
                 ),
@@ -342,13 +429,12 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
                 const Text(
                   'TURF WAR',
                   style: TextStyle(
-                    color: Color(0xFFB30000), // 🔥 لون أحمر دموي/قرمزي داكن
-                    fontSize: 52, // حجم أكبر للسيطرة
-                    fontWeight: FontWeight.w900, // أقصى درجات العرض
-                    fontStyle: FontStyle.italic, // ميلان لطابع الأكشن والخطورة
-                    letterSpacing: 6.0, // تباعد واسع بين الحروف
+                    color: Color(0xFFB30000),
+                    fontSize: 52,
+                    fontWeight: FontWeight.w900,
+                    fontStyle: FontStyle.italic,
+                    letterSpacing: 6.0,
                     shadows: [
-                      // 🔥 ظلال سوداء داكنة جداً تعطي بروزاً مخيفاً للكلمة
                       Shadow(blurRadius: 20, color: Colors.black, offset: Offset(4, 4)),
                       Shadow(blurRadius: 5, color: Color(0xFF4A0000), offset: Offset(-2, -2)),
                     ],
@@ -356,9 +442,9 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
                 ),
                 const SizedBox(height: 15),
                 const Text(
-                  'جاري التحميل', // 🔥 تم التعديل كما طلبت
+                  'جاري التحميل',
                   style: TextStyle(
-                      color: Colors.white54, // لون رمادي باهت لا يسرق الانتباه من الاسم
+                      color: Colors.white54,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 2.0
@@ -375,7 +461,6 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
                           Container(
                             decoration: BoxDecoration(
                                 boxShadow: [
-                                  // توهج خفيف أحمر تحت شريط التحميل
                                   BoxShadow(
                                     color: const Color(0xFFB30000).withOpacity(0.5),
                                     blurRadius: 10,
@@ -384,12 +469,12 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
                                 ]
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(5), // حواف حادة أكثر (بدل 10)
+                              borderRadius: BorderRadius.circular(5),
                               child: LinearProgressIndicator(
                                 value: _controller.value,
-                                backgroundColor: Colors.black45, // خلفية داكنة للشريط
-                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB30000)), // أحمر دموي
-                                minHeight: 10, // شريط أعرض ليعطي فخامة
+                                backgroundColor: Colors.black45,
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB30000)),
+                                minHeight: 10,
                               ),
                             ),
                           ),
@@ -399,7 +484,7 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
                             style: const TextStyle(
                                 color: Color(0xFFB30000),
                                 fontWeight: FontWeight.w900,
-                                fontSize: 22, // رقم النسبة مئوية بارز ومائل
+                                fontSize: 22,
                                 fontStyle: FontStyle.italic
                             ),
                           )
