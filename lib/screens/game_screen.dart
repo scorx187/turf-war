@@ -440,17 +440,21 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                // العنوان الجديد للعبة
                 const Text(
-                  'TURF WAR',
+                  'حرب النفوذ',
                   style: TextStyle(
-                    color: Color(0xFFB30000),
-                    fontSize: 52,
+                    fontFamily: 'Changa', // استخدام الخط العربي الموجود في مشروعك
+                    color: Colors.white, // لون أبيض ساطع
+                    fontSize: 56, // كبرت الخط شوي عشان يملى العين
                     fontWeight: FontWeight.w900,
-                    fontStyle: FontStyle.italic,
-                    letterSpacing: 6.0,
+                    // ⚠️ تم حذف الـ fontStyle: FontStyle.italic عشان تروح الإمالة
                     shadows: [
-                      Shadow(blurRadius: 20, color: Colors.black, offset: Offset(4, 4)),
-                      Shadow(blurRadius: 5, color: Color(0xFF4A0000), offset: Offset(-2, -2)),
+                      // إشعاع وحواف باللون الأصفر/الذهبي الهادئ
+                      Shadow(blurRadius: 15, color: Color(0xFFFFD700), offset: Offset(0, 0)),
+                      Shadow(blurRadius: 4, color: Color(0xFFB8860B), offset: Offset(2, 2)),
+                      // ظل أسود عميق لإبراز الكلمة عن الخلفية
+                      Shadow(blurRadius: 15, color: Colors.black, offset: Offset(4, 4)),
                     ],
                   ),
                 ),
