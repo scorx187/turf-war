@@ -34,7 +34,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
-  int _selectedIndex = 2;
+  int _selectedIndex = 2; // الخريطة هي الافتراضية
   int _profileTabIndex = 0;
   String _activeArea = 'الخريطة';
   StreamSubscription? _notificationSubscription;
@@ -42,7 +42,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   // متغير للتحكم بانتهاء أنميشن التحميل
   bool _visualLoadingComplete = false;
 
-  // 🔥 متغير جديد عشان نعرف إذا الخريطة تحملت لأول مرة ولا لا (عشان نضبط الزووم الافتراضي)
+  // متغير لمعرفة إذا الخريطة تحملت لأول مرة
   bool _isMapInitialized = false;
 
   // متحكم الخريطة التفاعلية
@@ -92,15 +92,30 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final audio = Provider.of<AudioProvider>(context, listen: false);
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) { audio.pauseBGM(); }
-    else if (state == AppLifecycleState.resumed) { audio.resumeBGM(); }
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      audio.pauseBGM();
+    } else if (state == AppLifecycleState.resumed) {
+      audio.resumeBGM();
+    }
   }
 
   void _showStylishNotification(String message) {
     bool isWarning = message.contains('⚠️') || message.contains('خطر') || message.contains('سجن') || message.contains('🎭') || message.contains('🏥');
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Row(children: [Icon(message.contains('🎭') ? Icons.theater_comedy : (isWarning ? Icons.warning_amber_rounded : Icons.info_outline), color: Colors.white), const SizedBox(width: 12), Expanded(child: Text(message, style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 14)))]), duration: const Duration(seconds: 3), backgroundColor: message.contains('🎭') ? Colors.blueAccent.withValues(alpha:0.9) : (isWarning ? Colors.redAccent.withValues(alpha:0.9) : Colors.green.withValues(alpha:0.9)), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), margin: const EdgeInsets.all(15), elevation: 10),
+      SnackBar(
+          content: Row(children: [
+            Icon(message.contains('🎭') ? Icons.theater_comedy : (isWarning ? Icons.warning_amber_rounded : Icons.info_outline), color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message, style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 14)))
+          ]),
+          duration: const Duration(seconds: 3),
+          backgroundColor: message.contains('🎭') ? Colors.blueAccent.withValues(alpha:0.9) : (isWarning ? Colors.redAccent.withValues(alpha:0.9) : Colors.green.withValues(alpha:0.9)),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          margin: const EdgeInsets.all(15),
+          elevation: 10
+      ),
     );
   }
 
@@ -126,7 +141,17 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       body: SafeArea(
         child: Column(
           children: [
-            TopBar(cash: player.cash, gold: player.gold, energy: player.energy, courage: player.courage, health: player.health, playerName: player.playerName, level: player.crimeLevel, xpPercent: player.crimeXP / player.xpToNextLevel, isVIP: player.isVIP),
+            TopBar(
+                cash: player.cash,
+                gold: player.gold,
+                energy: player.energy,
+                courage: player.courage,
+                health: player.health,
+                playerName: player.playerName,
+                level: player.crimeLevel,
+                xpPercent: player.crimeXP / player.xpToNextLevel,
+                isVIP: player.isVIP
+            ),
             Expanded(child: _buildConditionalContent(player)),
           ],
         ),
@@ -179,25 +204,87 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           const BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
         ],
       )
-          : BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.black,
-        selectedItemColor: Colors.amber,
-        unselectedItemColor: Colors.white54,
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          if (player.isInPrison || player.isHospitalized) return;
-          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-          setState(() { _selectedIndex = index; _activeArea = 'الخريطة'; });
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'المخزن'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'الشات'),
-          BottomNavigationBarItem(icon: Icon(Icons.location_city), label: 'الخريطة'),
-          BottomNavigationBarItem(icon: Icon(Icons.gavel), label: 'الجريمة'),
-          BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'الجريدة'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'البروفايل'),
+          : _buildCustomBottomNavBar(player),
+    );
+  }
+
+  Widget _buildCustomBottomNavBar(PlayerProvider player) {
+    return Container(
+      width: double.infinity, // 🔥 هذا السطر يضمن إن الشريط يغطي الشاشة من اليمين لليسار بدون فراغات
+      height: 85,
+      decoration: BoxDecoration(
+        image: const DecorationImage(
+          image: AssetImage('assets/images/nav_bg.png'),
+          fit: BoxFit.fill, // 🔥 التعديل هنا: يخلي الصورة تتمدد وتتطابق مع حجم الشريط بالضبط بدون زوم
+        ),
+        border: Border(
+          top: BorderSide(color: Colors.grey[800]!, width: 2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.8),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildSquareButton(imagePath: 'assets/images/chat_btn.png', index: 1, player: player),
+              _buildSquareButton(imagePath: 'assets/images/map_btn.png', index: 2, player: player),
+              _buildSquareButton(imagePath: 'assets/images/crime_btn.png', index: 3, player: player),
+              _buildSquareButton(imagePath: 'assets/images/news_btn.png', index: 4, player: player),
+              _buildSquareButton(imagePath: 'assets/images/profile_btn.png', index: 5, player: player),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🧱 دالة بناء الزر المربع الواحد مع تأثير التحديد
+  Widget _buildSquareButton({required String imagePath, required int index, required PlayerProvider player}) {
+    bool isSelected = _selectedIndex == index;
+
+    return GestureDetector(
+      onTap: () {
+        if (player.isInPrison || player.isHospitalized) return;
+        Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+        setState(() {
+          _selectedIndex = index;
+          _activeArea = 'الخريطة';
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          border: Border.all(
+            color: isSelected ? Colors.amber : Colors.grey[800]!,
+            width: isSelected ? 2.0 : 1.5,
+          ),
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: isSelected
+              ? [
+            BoxShadow(
+              color: Colors.amber.withOpacity(0.4),
+              blurRadius: 8,
+              spreadRadius: 1,
+            )
+          ]
+              : [],
+          image: DecorationImage(
+            image: AssetImage(imagePath),
+            fit: BoxFit.cover,
+          ),
+        ),
       ),
     );
   }
@@ -209,7 +296,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildMainContent(PlayerProvider player) {
-    if (_selectedIndex == 0) return const InventoryView();
+    if (_selectedIndex == 0) return const InventoryView(); // احتفظت به في حال أردنا الوصول له مستقبلاً
     if (_selectedIndex == 1) return ChatView();
     if (_selectedIndex == 3) {
       return CrimeView(
@@ -218,11 +305,19 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
           final List<String> crimeNames = ['سرقة محفظة', 'سطو على متجر', 'سرقة سيارة', 'سطو على فيلا', 'سطو على البنك'];
           player.addCash(reward, reason: "نجاح: ${crimeNames[index]}"); player.incrementCrimeSuccess(index, crimeNames[index]);
-          if (index == 2) { player.addInventoryItem('stolen_car', 1); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حصلت على سيارة مسروقة! أرسلها للتشليح 🚗🔧'), backgroundColor: Colors.green)); }
+          if (index == 2) {
+            player.addInventoryItem('stolen_car', 1);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حصلت على سيارة مسروقة! أرسلها للتشليح 🚗🔧'), backgroundColor: Colors.green));
+          }
           int courageCost = index == 0 ? 5 : index == 1 ? 15 : index == 2 ? 30 : index == 3 ? 40 : 60;
-          player.setCourage(player.courage - courageCost); if (energyUsed > 0) player.setEnergy(player.energy - energyUsed);
+          player.setCourage(player.courage - courageCost);
+          if (energyUsed > 0) player.setEnergy(player.energy - energyUsed);
         },
-        onFailure: () { final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3'); player.handleCrimeFailure(2); },
+        onFailure: () {
+          final audio = Provider.of<AudioProvider>(context, listen: false);
+          audio.playEffect('click.mp3');
+          player.handleCrimeFailure(2);
+        },
       );
     }
 
@@ -253,23 +348,19 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_activeArea == 'المختبر السري') return LaboratoryView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'الورشة') return WorkshopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
 
-    // 🔥 الخريطة التفاعلية مع الزووم الكامل والافتراضي
+    // 🔥 الخريطة التفاعلية
     return LayoutBuilder(
       builder: (context, constraints) {
-
         final double imageWidth = 4096;
         final double imageHeight = 4096;
 
-        // حساب الزووم الذي يضمن تغطية الشاشة بالكامل بدون أي أطراف سوداء
         double minScaleX = constraints.maxWidth / imageWidth;
         double minScaleY = constraints.maxHeight / imageHeight;
         double calculatedMinScale = minScaleX > minScaleY ? minScaleX : minScaleY;
 
-        // 🎯 اللمسة السحرية: ضبط الكاميرا على زووم آوت كامل ومتمركزه عند أول تشغيل
         if (!_isMapInitialized) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              // حساب التوسيط الدقيق عشان ما تبدأ الخريطة من الزاوية
               double dx = (constraints.maxWidth - (imageWidth * calculatedMinScale)) / 2;
               double dy = (constraints.maxHeight - (imageHeight * calculatedMinScale)) / 2;
 
@@ -278,26 +369,20 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 ..scale(calculatedMinScale);
             }
           });
-          // نغير القيمة عشان ما يعيد الزووم كل مرة اللاعب يضغط على مبنى
           _isMapInitialized = true;
         }
 
         return InteractiveViewer(
           transformationController: _mapTransformationController,
-
-          // 👈 خلينا الزووم الأدنى هو الزووم الكامل بدون ضرب في أرقام إضافية
           minScale: calculatedMinScale,
-          maxScale: 3.0, // يسمح بتقريب ممتاز للتفاصيل
-
+          maxScale: 3.0,
           constrained: false,
           boundaryMargin: EdgeInsets.zero,
-
           child: SizedBox(
             width: imageWidth,
             height: imageHeight,
             child: Stack(
               children: [
-                // 1. صورة الخريطة الأساسية 4K
                 Positioned.fill(
                   child: Image.asset(
                     'assets/images/city_map.jpg',
@@ -305,8 +390,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     filterQuality: FilterQuality.high,
                   ),
                 ),
-
-                // 2. أزرار المباني التفاعلية
                 _buildMapHotspot('المطار', 3500, 2600, 300, 300, Colors.blue),
                 _buildMapHotspot('عجلة الحظ', 1400, 300, 300, 300, Colors.orange),
                 _buildMapHotspot('البنك', 600, 600, 300, 300, Colors.green),
@@ -331,7 +414,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
-  // 🔥 دالة إنشاء الأزرار الشفافة
   Widget _buildMapHotspot(String areaName, double left, double top, double width, double height, Color debugColor) {
     return Positioned(
       left: left,
@@ -440,20 +522,16 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // العنوان الجديد للعبة
                 const Text(
                   'حرب النفوذ',
                   style: TextStyle(
-                    fontFamily: 'Changa', // استخدام الخط العربي الموجود في مشروعك
-                    color: Colors.white, // لون أبيض ساطع
-                    fontSize: 56, // كبرت الخط شوي عشان يملى العين
+                    fontFamily: 'Changa',
+                    color: Colors.white,
+                    fontSize: 56,
                     fontWeight: FontWeight.w900,
-                    // ⚠️ تم حذف الـ fontStyle: FontStyle.italic عشان تروح الإمالة
                     shadows: [
-                      // إشعاع وحواف باللون الأصفر/الذهبي الهادئ
                       Shadow(blurRadius: 15, color: Color(0xFFFFD700), offset: Offset(0, 0)),
                       Shadow(blurRadius: 4, color: Color(0xFFB8860B), offset: Offset(2, 2)),
-                      // ظل أسود عميق لإبراز الكلمة عن الخلفية
                       Shadow(blurRadius: 15, color: Colors.black, offset: Offset(4, 4)),
                     ],
                   ),
