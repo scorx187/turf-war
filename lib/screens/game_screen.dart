@@ -214,7 +214,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       height: 85,
       decoration: BoxDecoration(
         image: const DecorationImage(
-          image: AssetImage('assets/images/nav_bg.png'),
+          image: AssetImage('assets/images/nav_bg.jpg'),
           fit: BoxFit.fill, // 🔥 التعديل هنا: يخلي الصورة تتمدد وتتطابق مع حجم الشريط بالضبط بدون زوم
         ),
         border: Border(
