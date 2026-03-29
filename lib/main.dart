@@ -46,7 +46,7 @@ class MyGame extends StatelessWidget {
         brightness: Brightness.dark,
         primaryColor: GameColors.primary,
         scaffoldBackgroundColor: GameColors.background,
-        fontFamily: 'Changa', // تأكد من إضافة الخط لـ pubspec
+        fontFamily: 'Changa',
       ),
       home: const Directionality(
         textDirection: TextDirection.rtl,
@@ -76,17 +76,13 @@ class GameBackgroundScaffold extends StatelessWidget {
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       body: Stack(
         children: [
-          // 1. الصورة الخلفية الأساسية (بدون سواد مع تركيز على التفاصيل)
           Positioned.fill(
             child: Image.asset(
               'assets/images/turfwar_loading_screen.jpg',
-              fit: BoxFit.cover, // نعود لـ cover لملء الشاشة وإخفاء السواد
-              // 🔥 هنا السر: الأرقام من -1.0 إلى 1.0 (الصفر هو المنتصف).
-              // الرقم الأول للعرض، والثاني للطول. -0.2 ترفع التركيز قليلاً للأعلى لإظهار وجه الشخصية والمدينة.
+              fit: BoxFit.cover,
               alignment: const Alignment(0.0, -0.2),
             ),
           ),
-          // 2. طبقة تعتيم احترافية (تدرج لوني لدمج الصورة مع الواجهة)
           if (showOverlay)
             Positioned.fill(
               child: Container(
@@ -95,16 +91,15 @@ class GameBackgroundScaffold extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black54, // شفافية خفيفة جداً بالأعلى
-                      Colors.black12, // شبه شفاف بالوسط لتلمع تفاصيل الصورة
-                      Colors.black87, // داكن بالأسفل لبروز الأزرار وحقل النص
+                      Colors.black54,
+                      Colors.black12,
+                      Colors.black87,
                     ],
                     stops: [0.0, 0.3, 1.0],
                   ),
                 ),
               ),
             ),
-          // 3. المحتوى الفعلي
           SafeArea(
             child: child,
           ),
@@ -177,7 +172,7 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
 
     if (!_initialized) {
       return GameBackgroundScaffold(
-        showOverlay: false, // لا نريد تعتيماً وقت التحميل
+        showOverlay: false,
         child: Center(
           child: CircularProgressIndicator(color: GameColors.primary),
         ),
@@ -245,17 +240,19 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // 🔥 تم تعديل هذه الدالة لإصلاح أخطاء الإصدار 7.2.0 من google_sign_in
   Future<void> _loginWithStandardGoogle() async {
     setState(() => _isLoading = true);
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: '834850251245-tu4s26nu9bhd3367vk4cq37lgtbum6e9.apps.googleusercontent.com',
-      );
+      // تم التعديل: استدعاء GoogleSignIn بشكل صحيح
+      final GoogleSignIn googleSignIn = GoogleSignIn();
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
       if (googleUser != null) {
         final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+        // تم التعديل: الوصول إلى التوكنات بطريقة متوافقة
         final AuthCredential credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
@@ -270,8 +267,8 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في تسجيل الدخول بحساب Google')));
-      print("Google Sign-In Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('خطأ في تسجيل الدخول بحساب Google')));
+      debugPrint("Google Sign-In Error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -279,26 +276,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 هنا نستخدم الـ Background Scaffold المحسن
     return GameBackgroundScaffold(
-      // 🔥 لا نجعل الشاشة تعيد الحجم عند ظهور الكيبورد، لتظل الخلفية ثابتة
       resizeToAvoidBottomInset: false,
       child: Center(
-        child: SingleChildScrollView( // 🔥 نضيف هذا لنسمح للمحتوى بالتحرك للأعلى فوق الكيبورد
+        child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 30.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 50),
-                // 1. عنوان اللعبة المحسن
                 Text(
-                  'TURF WAR', // 🔥 تغيير الاسم
+                  'TURF WAR',
                   style: TextStyle(
                     color: GameColors.primary,
                     fontSize: 48,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 3.0, // تباعد احترافي بين الحروف
+                    letterSpacing: 3.0,
                     shadows: [
                       Shadow(blurRadius: 15, color: GameColors.accent.withOpacity(0.7), offset: const Offset(3, 3)),
                       const Shadow(blurRadius: 5, color: Colors.black, offset: Offset(-1, -1)),
@@ -312,16 +306,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 60),
 
-                // 2. حقل اسم المستخدم المحسن
                 TextField(
                   controller: _nameController,
                   style: const TextStyle(color: Colors.white, fontSize: 18),
                   decoration: InputDecoration(
-                    prefixIcon: Icon(Icons.person_outline, color: GameColors.primary),
+                    prefixIcon: const Icon(Icons.person_outline, color: GameColors.primary),
                     hintText: 'ادخل اسمك المستعار...',
                     hintStyle: const TextStyle(color: Colors.white30),
                     filled: true,
-                    fillColor: Colors.black45, // شبه شفاف ليندمج مع الخلفية
+                    fillColor: Colors.black45,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: GameColors.primary, width: 2.0)),
                     contentPadding: const EdgeInsets.all(20),
@@ -329,18 +322,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // 3. الأزرار المحسنة
                 if (_isLoading)
                   const CircularProgressIndicator(color: GameColors.primary)
                 else ...[
-                  // زر دخول زائر
                   GameActionButton(
                     onPressed: _loginAnonymously,
                     label: 'دخول سريع (زائر)',
                     isPrimary: true,
                   ),
                   const SizedBox(height: 20),
-                  // زر جوجل
                   GameActionButton(
                     onPressed: _loginWithStandardGoogle,
                     icon: Icons.g_mobiledata,
@@ -348,7 +338,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     isGoogle: true,
                   ),
                 ],
-                const SizedBox(height: 50), // مسافة في الأسفل
+                const SizedBox(height: 50),
               ],
             ),
           ),
@@ -358,7 +348,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// 🧱 ويدجت زر مخصص احترافي (لإعادة الاستخدام)
 class GameActionButton extends StatelessWidget {
   final VoidCallback onPressed;
   final String label;

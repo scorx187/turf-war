@@ -39,13 +39,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   String _activeArea = 'الخريطة';
   StreamSubscription? _notificationSubscription;
 
-  // متغير للتحكم بانتهاء أنميشن التحميل
   bool _visualLoadingComplete = false;
-
-  // متغير لمعرفة إذا الخريطة تحملت لأول مرة
   bool _isMapInitialized = false;
 
-  // متحكم الخريطة التفاعلية
   final TransformationController _mapTransformationController = TransformationController();
 
   final List<Map<String, dynamic>> locations = [
@@ -72,6 +68,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _precacheImages();
+
       final player = Provider.of<PlayerProvider>(context, listen: false);
       final audio = Provider.of<AudioProvider>(context, listen: false);
       audio.playBGM();
@@ -79,6 +77,24 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         if (mounted) _showStylishNotification(message);
       });
     });
+  }
+
+  void _precacheImages() {
+    final images = [
+      'assets/images/chat_btn.png',
+      'assets/images/chat_btn_active.png',
+      'assets/images/map_btn.png',
+      'assets/images/map_btn_active.png',
+      'assets/images/crime_btn.png',
+      'assets/images/crime_btn_active.png',
+      'assets/images/news_btn.png',
+      'assets/images/news_btn_active.png',
+      'assets/images/profile_btn.png',
+      'assets/images/profile_btn_active.png',
+    ];
+    for (var path in images) {
+      precacheImage(AssetImage(path), context);
+    }
   }
 
   @override
@@ -210,12 +226,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   Widget _buildCustomBottomNavBar(PlayerProvider player) {
     return Container(
-      width: double.infinity, // 🔥 هذا السطر يضمن إن الشريط يغطي الشاشة من اليمين لليسار بدون فراغات
+      width: double.infinity,
       height: 85,
       decoration: BoxDecoration(
         image: const DecorationImage(
           image: AssetImage('assets/images/nav_bg.jpg'),
-          fit: BoxFit.fill, // 🔥 التعديل هنا: يخلي الصورة تتمدد وتتطابق مع حجم الشريط بالضبط بدون زوم
+          fit: BoxFit.fill,
         ),
         border: Border(
           top: BorderSide(color: Colors.grey[800]!, width: 2),
@@ -247,9 +263,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
-  // 🧱 دالة بناء الزر المربع الواحد مع تأثير التحديد
+  // 🔥 تعديل الزر لإلغاء التشويش نهائياً باستخدام Stack والـ Opacity
   Widget _buildSquareButton({required String imagePath, required int index, required PlayerProvider player}) {
     bool isSelected = _selectedIndex == index;
+    String activeImagePath = imagePath.replaceFirst('.png', '_active.png');
 
     return GestureDetector(
       onTap: () {
@@ -268,21 +285,34 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           color: Colors.transparent,
           border: Border.all(
             color: isSelected ? Colors.amber : Colors.grey[800]!,
-            width: isSelected ? 2.0 : 1.5,
+            width: isSelected ? 2.5 : 1.5,
           ),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           boxShadow: isSelected
               ? [
             BoxShadow(
-              color: Colors.amber.withOpacity(0.4),
-              blurRadius: 8,
+              color: Colors.amber.withOpacity(0.5),
+              blurRadius: 10,
               spreadRadius: 1,
             )
           ]
               : [],
-          image: DecorationImage(
-            image: AssetImage(imagePath),
-            fit: BoxFit.cover,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Stack(
+            children: [
+              // 1. الصورة العادية (تختفي لما نختار الزر)
+              Opacity(
+                opacity: isSelected ? 0.0 : 1.0,
+                child: Image.asset(imagePath, fit: BoxFit.cover),
+              ),
+              // 2. الصورة المضيئة (تظهر لما نختار الزر)
+              Opacity(
+                opacity: isSelected ? 1.0 : 0.0,
+                child: Image.asset(activeImagePath, fit: BoxFit.cover),
+              ),
+            ],
           ),
         ),
       ),
@@ -296,14 +326,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildMainContent(PlayerProvider player) {
-    if (_selectedIndex == 0) return const InventoryView(); // احتفظت به في حال أردنا الوصول له مستقبلاً
+    if (_selectedIndex == 0) return const InventoryView();
     if (_selectedIndex == 1) return ChatView();
     if (_selectedIndex == 3) {
       return CrimeView(
         courage: player.courage, crimeSuccessCounts: player.crimeSuccessCounts,
         onSuccess: (reward, index, energyUsed) {
           final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
-          final List<String> crimeNames = ['سرقة محفظة', 'سطو على متجر', 'سرقة سيارة', 'سطو على فيلا', 'سطو على البنك'];
+          final List<String> crimeNames = ['سرقة محفظة', 'سطو على متجر', 'سرقة سيارة', 'سطو على فيلا', 'سطو على فيلا فخمة'];
           player.addCash(reward, reason: "نجاح: ${crimeNames[index]}"); player.incrementCrimeSuccess(index, crimeNames[index]);
           if (index == 2) {
             player.addInventoryItem('stolen_car', 1);
@@ -348,7 +378,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_activeArea == 'المختبر السري') return LaboratoryView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'الورشة') return WorkshopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
 
-    // 🔥 الخريطة التفاعلية
     return LayoutBuilder(
       builder: (context, constraints) {
         final double imageWidth = 4096;
@@ -426,7 +455,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           setState(() => _activeArea = areaName);
         },
         child: Container(
-          // ⚠️ خله شفاف Colors.transparent بعد ما تضبط مقاسات المباني
           color: debugColor.withOpacity(0.5),
           child: Center(
             child: Text(
@@ -446,7 +474,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 }
 
-// 🧱 ويدجت شاشة التحميل الذكية
 class GameLoadingView extends StatefulWidget {
   final bool isDataLoaded;
   final VoidCallback onVisualLoadingComplete;
