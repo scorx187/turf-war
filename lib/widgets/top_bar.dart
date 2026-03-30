@@ -1,185 +1,185 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../providers/player_provider.dart';
 
 class TopBar extends StatelessWidget {
-  final int cash;
-  final int gold;
-  final int energy;
-  final int courage;
-  final int health;
   final String playerName;
-  final int level;
-  final double xpPercent;
-  final bool isVIP;
+  final dynamic level;
+  final dynamic cash;
+  final dynamic gold;
+  final dynamic energy;
+  final dynamic courage;
+  final dynamic health;
+  final dynamic xpPercent; // ضفنا نسبة الخبرة
+  final dynamic isVIP;     // ضفنا حالة الـ VIP
 
   const TopBar({
-    super.key,
+    Key? key,
+    required this.playerName,
+    required this.level,
     required this.cash,
     required this.gold,
     required this.energy,
     required this.courage,
     required this.health,
-    required this.playerName,
-    required this.level,
-    required this.xpPercent,
-    required this.isVIP,
-  });
+    required this.xpPercent, // عرفناها هنا
+    required this.isVIP,     // وعرّفناها هنا
+  }) : super(key: key);
+
+  // دالة تأثير النص الذهبي المحفور
+  Widget _buildGoldText(String text, double fontSize, {bool isBold = false}) {
+    return ShaderMask(
+      shaderCallback: (bounds) => const LinearGradient(
+        colors: [Color(0xFFE2C275), Color(0xFF856024)],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(bounds),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: 'Cairo',
+          fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+          fontSize: fontSize,
+          color: Colors.white,
+          shadows: [
+            Shadow(
+              blurRadius: 2.0,
+              color: Colors.black.withOpacity(0.8),
+              offset: const Offset(1.0, 1.0),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final player = Provider.of<PlayerProvider>(context, listen: false);
-
     return Container(
       width: double.infinity,
-      height: 85, // الارتفاع المناسب ليظهر تصميمLeonardo كامل
-      decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage('assets/images/top_nav_bg.png'), // تأكد من وجود الصورة بهذا الاسم
-          fit: BoxFit.fill,
-        ),
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 10,
+        bottom: 15,
+        left: 10,
+        right: 10,
       ),
-      child: Stack(
+      decoration: BoxDecoration(
+        color: Colors.black87,
+         image: const DecorationImage(
+           image: AssetImage('assets/images/ui/header_wood_bg.png'),
+           fit: BoxFit.cover,
+         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.6),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // 1. صورة البروفايل (أقصى اليسار) مع تنبيه الرسائل غير المقروءة
-          Positioned(
-            left: 12,
-            top: 18,
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('private_chats')
-                  .where('participants', arrayContains: player.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                bool hasUnread = false;
-                if (snapshot.hasData) {
-                  for (var doc in snapshot.data!.docs) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    if ((data['unread_${player.uid}'] ?? 0) > 0) {
-                      hasUnread = true;
-                      break;
-                    }
-                  }
-                }
-
-                final imageBytes = player.getDecodedImage(player.profilePicUrl);
-
-                return Stack(
-                  clipBehavior: Clip.none,
+          Row(
+            children: [
+              // صورة اللاعب
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFC5A059), width: 2),
+                  color: Colors.grey[800],
+                ),
+                child: const Icon(Icons.person, color: Color(0xFFC5A059)),
+              ),
+              const SizedBox(width: 15),
+              // معلومات اللاعب وشريط الخبرة
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.purpleAccent.withOpacity(0.5), width: 2),
-                        image: DecorationImage(
-                          image: imageBytes != null
-                              ? MemoryImage(imageBytes) as ImageProvider
-                              : const AssetImage('assets/images/profile_btn.png'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    Row(
+                      children: [
+                        _buildGoldText(playerName, 18, isBold: true),
+                        const SizedBox(width: 8),
+                        // شارة الـ VIP تظهر فقط إذا كان اللاعب VIP
+                        if (isVIP == true)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFE2C275), Color(0xFF856024)],
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'VIP',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    if (hasUnread)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.black, width: 2),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        _buildGoldText('المستوى $level', 12),
+                        const SizedBox(width: 10),
+                        // شريط التقدم للخبرة (XP)
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: (xpPercent is num) ? xpPercent.toDouble() : 0.0,
+                              backgroundColor: Colors.grey[800],
+                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFC5A059)),
+                              minHeight: 6,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-
-          // 2. اسم اللاعب والمستوى (بجانب البروفايل)
-          Positioned(
-            left: 75,
-            top: 25,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 14),
-                    Text(
-                      playerName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Changa',
-                      ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                // شريط الـ XP الصغير
-                SizedBox(
-                  width: 60,
-                  height: 3,
-                  child: LinearProgressIndicator(
-                    value: xpPercent.clamp(0.0, 1.0),
-                    backgroundColor: Colors.white10,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          // 3. ترتيب الموارد (من اليمين لليسار حسب طلبك)
-          // [ الذهب | الكاش | الشهامة | الشجاعة | الطاقة | الصحة ]
-          Positioned(
-            right: 15,
-            top: 0,
-            bottom: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _buildValueText(gold.toString(), 60),    // الذهب
-                const SizedBox(width: 15),
-                _buildValueText(cash.toString(), 80),    // الكاش
-                const SizedBox(width: 15),
-                _buildValueText("100", 50),             // الشهامة (قيمة افتراضية حالياً)
-                const SizedBox(width: 15),
-                _buildValueText(courage.toString(), 50), // الشجاعة
-                const SizedBox(width: 15),
-                _buildValueText(energy.toString(), 50),  // الطاقة
-                const SizedBox(width: 15),
-                _buildValueText(health.toString(), 50),  // الصحة
-              ],
-            ),
+          const SizedBox(height: 15),
+          // الموارد
+          Wrap(
+            spacing: 8,
+            runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: [
+              _buildResourceItem(Icons.favorite, health.toString()),
+              _buildResourceItem(Icons.bolt, energy.toString()),
+              _buildResourceItem(Icons.shield, courage.toString()),
+              _buildResourceItem(Icons.attach_money, cash.toString()),
+              _buildResourceItem(Icons.monetization_on, gold.toString()),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildValueText(String value, double width) {
+  Widget _buildResourceItem(IconData icon, String value) {
     return Container(
-      width: width,
-      alignment: Alignment.center,
-      child: Text(
-        value,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          fontFamily: 'Changa',
-          shadows: [Shadow(blurRadius: 4, color: Colors.black)],
-        ),
-        overflow: TextOverflow.ellipsis,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF856024).withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: const Color(0xFFE2C275), size: 16),
+          const SizedBox(width: 4),
+          _buildGoldText(value, 14, isBold: true),
+        ],
       ),
     );
   }

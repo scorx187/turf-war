@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/top_bar.dart';
+import '../widgets/bottom_navbar.dart'; // تم استدعاء النافبار الجديد هنا
 import '../views/lucky_wheel_view.dart';
 import '../views/crime_view.dart';
 import '../views/bank_view.dart';
@@ -81,17 +82,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   void _precacheImages() {
     final images = [
-      'assets/images/chat_btn.png',
-      'assets/images/chat_btn_active.png',
-      'assets/images/map_btn.png',
-      'assets/images/map_btn_active.png',
-      'assets/images/crime_btn.png',
-      'assets/images/crime_btn_active.png',
-      'assets/images/news_btn.png',
-      'assets/images/news_btn_active.png',
-      'assets/images/profile_btn.png',
-      'assets/images/profile_btn_active.png',
-      'assets/images/top_nav_bg.png', // تم إضافة خلفية الشريط العلوي للتحميل المسبق
+      'assets/images/top_nav_bg.png',
     ];
     for (var path in images) {
       precacheImage(AssetImage(path), context);
@@ -173,6 +164,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           ],
         ),
       ),
+      // هنا استخدمنا النافبار الجديد، مع إبقاء نافبار البروفايل الخاص في حال كان مختار الزعيم
       bottomNavigationBar: _selectedIndex == 5
           ? BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -221,98 +213,17 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           const BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
         ],
       )
-          : _buildCustomBottomNavBar(player),
-    );
-  }
-
-  Widget _buildCustomBottomNavBar(PlayerProvider player) {
-    return Container(
-      width: double.infinity,
-      height: 85,
-      decoration: BoxDecoration(
-        image: const DecorationImage(
-          image: AssetImage('assets/images/nav_bg.jpg'),
-          fit: BoxFit.fill,
-        ),
-        border: Border(
-          top: BorderSide(color: Colors.grey[800]!, width: 2),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.8),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildSquareButton(imagePath: 'assets/images/chat_btn.png', index: 1, player: player),
-              _buildSquareButton(imagePath: 'assets/images/map_btn.png', index: 2, player: player),
-              _buildSquareButton(imagePath: 'assets/images/crime_btn.png', index: 3, player: player),
-              _buildSquareButton(imagePath: 'assets/images/news_btn.png', index: 4, player: player),
-              _buildSquareButton(imagePath: 'assets/images/profile_btn.png', index: 5, player: player),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSquareButton({required String imagePath, required int index, required PlayerProvider player}) {
-    bool isSelected = _selectedIndex == index;
-    String activeImagePath = imagePath.replaceFirst('.png', '_active.png');
-
-    return GestureDetector(
-      onTap: () {
-        if (player.isInPrison || player.isHospitalized) return;
-        Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-        setState(() {
-          _selectedIndex = index;
-          _activeArea = 'الخريطة';
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          border: Border.all(
-            color: isSelected ? Colors.amber : Colors.grey[800]!,
-            width: isSelected ? 2.5 : 1.5,
-          ),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected
-              ? [
-            BoxShadow(
-              color: Colors.amber.withOpacity(0.5),
-              blurRadius: 10,
-              spreadRadius: 1,
-            )
-          ]
-              : [],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: Stack(
-            children: [
-              Opacity(
-                opacity: isSelected ? 0.0 : 1.0,
-                child: Image.asset(imagePath, fit: BoxFit.cover),
-              ),
-              Opacity(
-                opacity: isSelected ? 1.0 : 0.0,
-                child: Image.asset(activeImagePath, fit: BoxFit.cover),
-              ),
-            ],
-          ),
-        ),
+          : BottomNavBar( // النافبار الفخم حقنا
+        selectedIndex: _selectedIndex,
+        onItemTapped: (index) {
+          // منع الانتقال إذا كان مسجون أو بالمستشفى
+          if (player.isInPrison || player.isHospitalized) return;
+          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+          setState(() {
+            _selectedIndex = index;
+            _activeArea = 'الخريطة'; // إعادة الضبط للخريطة
+          });
+        },
       ),
     );
   }
