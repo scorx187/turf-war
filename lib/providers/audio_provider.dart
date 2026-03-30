@@ -2,9 +2,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 class AudioProvider with ChangeNotifier {
-  final AudioPlayer _bgPlayer = AudioPlayer();
-  final AudioPlayer _clickPlayer = AudioPlayer();
-  final AudioPlayer _combatPlayer = AudioPlayer();
+  // استخدمنا late عشان ما ننشئهم إلا بعد ما نضبط إعدادات الدمج
+  late AudioPlayer _bgPlayer;
+  late AudioPlayer _clickPlayer;
+  late AudioPlayer _combatPlayer;
 
   bool _isMuted = false;
   bool _bgStarted = false;
@@ -20,25 +21,32 @@ class AudioProvider with ChangeNotifier {
 
   void _initAudio() {
     try {
-      // فقط نحدد تكرار موسيقى الخلفية
-      _bgPlayer.setReleaseMode(ReleaseMode.loop);
-
-      // إعدادات آمنة للصوت تمنع التقطيع وتمنع تعليق التطبيق
+      // 1. الأهم: إخبار الجوال بالسماح بدمج الأصوات (Mix) وعدم إيقاف الخلفية
+      // هذا الكود لازم يشتغل قبل إنشاء أي مشغل صوت
       AudioPlayer.global.setAudioContext(AudioContext(
         android: const AudioContextAndroid(
           isSpeakerphoneOn: false,
           stayAwake: false,
           contentType: AndroidContentType.music,
           usageType: AndroidUsageType.game,
-          audioFocus: AndroidAudioFocus.none,
+          audioFocus: AndroidAudioFocus.none, // السر هنا: يمنع سحب الصوت من الخلفية
         ),
         iOS: AudioContextIOS(
-          category: AVAudioSessionCategory.ambient,
+          category: AVAudioSessionCategory.ambient, // يسمح بتداخل الأصوات في الآيفون
           options: const {
             AVAudioSessionOptions.mixWithOthers,
           },
         ),
       ));
+
+      // 2. الآن ننشئ المشغلات عشان تاخذ الإعدادات الجديدة الصحيحة
+      _bgPlayer = AudioPlayer();
+      _clickPlayer = AudioPlayer();
+      _combatPlayer = AudioPlayer();
+
+      // تكرار موسيقى الخلفية
+      _bgPlayer.setReleaseMode(ReleaseMode.loop);
+
     } catch (e) {
       debugPrint("Audio Init Error: $e");
     }
@@ -76,11 +84,10 @@ class AudioProvider with ChangeNotifier {
       playBGM();
     }
 
-    // استخدمنا try-catch هنا عشان لو فشل الصوت مستحيل يوقف الأزرار أو يعلق اللعبة!
     try {
       AudioPlayer currentPlayer = (fileName == 'attack.mp3') ? _combatPlayer : _clickPlayer;
 
-      // إيقاف الصوت السابق وتشغيله من جديد فوراً بدون تحميل مسبق يعلق الذاكرة
+      // إيقاف الصوت لو كان شغال، وإعادة تشغيله بسرعة
       await currentPlayer.stop();
       await currentPlayer.setVolume(1.0);
       await currentPlayer.play(AssetSource('audio/$fileName'));
