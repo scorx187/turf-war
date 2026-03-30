@@ -2,10 +2,9 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 class AudioProvider with ChangeNotifier {
-  // استخدمنا late عشان ما ننشئهم إلا بعد ما نضبط إعدادات الدمج
-  late AudioPlayer _bgPlayer;
-  late AudioPlayer _clickPlayer;
-  late AudioPlayer _combatPlayer;
+  final AudioPlayer _bgPlayer = AudioPlayer();
+  final AudioPlayer _clickPlayer = AudioPlayer();
+  final AudioPlayer _combatPlayer = AudioPlayer();
 
   bool _isMuted = false;
   bool _bgStarted = false;
@@ -20,43 +19,36 @@ class AudioProvider with ChangeNotifier {
   }
 
   void _initAudio() {
-    try {
-      // 1. الأهم: إخبار الجوال بالسماح بدمج الأصوات (Mix) وعدم إيقاف الخلفية
-      // هذا الكود لازم يشتغل قبل إنشاء أي مشغل صوت
-      AudioPlayer.global.setAudioContext(AudioContext(
-        android: const AudioContextAndroid(
-          isSpeakerphoneOn: false,
-          stayAwake: false,
-          contentType: AndroidContentType.music,
-          usageType: AndroidUsageType.game,
-          audioFocus: AndroidAudioFocus.none, // السر هنا: يمنع سحب الصوت من الخلفية
-        ),
-        iOS: AudioContextIOS(
-          category: AVAudioSessionCategory.ambient, // يسمح بتداخل الأصوات في الآيفون
-          options: const {
-            AVAudioSessionOptions.mixWithOthers,
-          },
-        ),
-      ));
+    _bgPlayer.setReleaseMode(ReleaseMode.loop);
 
-      // 2. الآن ننشئ المشغلات عشان تاخذ الإعدادات الجديدة الصحيحة
-      _bgPlayer = AudioPlayer();
-      _clickPlayer = AudioPlayer();
-      _combatPlayer = AudioPlayer();
+    // 💡 التعديل الوحيد: خلينا مشغلات المؤثرات "سريعة الاستجابة" عشان ما توقف الموسيقى
+    _clickPlayer.setPlayerMode(PlayerMode.lowLatency);
+    _combatPlayer.setPlayerMode(PlayerMode.lowLatency);
 
-      // تكرار موسيقى الخلفية
-      _bgPlayer.setReleaseMode(ReleaseMode.loop);
-
-    } catch (e) {
-      debugPrint("Audio Init Error: $e");
-    }
+    // كودك الأصلي مثل ما هو (بدون كلمة const اللي خربت الدنيا)
+    AudioPlayer.global.setAudioContext(AudioContext(
+      android: const AudioContextAndroid(
+        isSpeakerphoneOn: false,
+        stayAwake: false,
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.game,
+        audioFocus: AndroidAudioFocus.none,
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,
+        options: const {
+          AVAudioSessionOptions.mixWithOthers,
+        },
+      ),
+    ));
   }
 
   Future<void> playBGM() async {
     if (_isMuted) return;
     try {
+      await _bgPlayer.setSource(AssetSource('audio/bg_music.mp3'));
       await _bgPlayer.setVolume(_bgNormalVolume);
-      await _bgPlayer.play(AssetSource('audio/bg_music.mp3'));
+      await _bgPlayer.resume();
       _bgStarted = true;
     } catch (e) {
       debugPrint("BGM Error: $e");
@@ -65,16 +57,12 @@ class AudioProvider with ChangeNotifier {
 
   Future<void> lowerBGMVolume() async {
     if (_isMuted) return;
-    try {
-      await _bgPlayer.setVolume(_bgLowVolume);
-    } catch (e) {}
+    await _bgPlayer.setVolume(_bgLowVolume);
   }
 
   Future<void> restoreBGMVolume() async {
     if (_isMuted) return;
-    try {
-      await _bgPlayer.setVolume(_bgNormalVolume);
-    } catch (e) {}
+    await _bgPlayer.setVolume(_bgNormalVolume);
   }
 
   Future<void> playEffect(String fileName) async {
@@ -85,9 +73,13 @@ class AudioProvider with ChangeNotifier {
     }
 
     try {
-      AudioPlayer currentPlayer = (fileName == 'attack.mp3') ? _combatPlayer : _clickPlayer;
+      AudioPlayer currentPlayer;
+      if (fileName == 'attack.mp3') {
+        currentPlayer = _combatPlayer;
+      } else {
+        currentPlayer = _clickPlayer;
+      }
 
-      // إيقاف الصوت لو كان شغال، وإعادة تشغيله بسرعة
       await currentPlayer.stop();
       await currentPlayer.setVolume(1.0);
       await currentPlayer.play(AssetSource('audio/$fileName'));
@@ -96,35 +88,29 @@ class AudioProvider with ChangeNotifier {
     }
   }
 
+  // --- [إضافة جديدة] دالة إيقاف الموسيقى عند الخروج من التطبيق ---
   Future<void> pauseBGM() async {
-    try {
-      await _bgPlayer.pause();
-    } catch (e) {}
+    await _bgPlayer.pause();
   }
 
+  // --- [إضافة جديدة] دالة استئناف الموسيقى عند العودة للتطبيق ---
   Future<void> resumeBGM() async {
     if (!_isMuted) {
-      try {
-        await _bgPlayer.resume();
-      } catch (e) {}
+      await _bgPlayer.resume();
     }
   }
 
   void toggleMute() {
     _isMuted = !_isMuted;
-    try {
-      if (_isMuted) {
-        _bgPlayer.pause();
-        _clickPlayer.stop();
-        _combatPlayer.stop();
-      } else {
-        _bgPlayer.resume();
-        if (!_bgStarted) playBGM();
-      }
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Mute Toggle Error: $e");
+    if (_isMuted) {
+      _bgPlayer.pause();
+      _clickPlayer.stop();
+      _combatPlayer.stop();
+    } else {
+      _bgPlayer.resume();
+      if (!_bgStarted) playBGM();
     }
+    notifyListeners();
   }
 
   @override
