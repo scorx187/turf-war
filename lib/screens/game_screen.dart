@@ -91,6 +91,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       'assets/images/news_btn_active.png',
       'assets/images/profile_btn.png',
       'assets/images/profile_btn_active.png',
+      'assets/images/top_nav_bg.png', // تم إضافة خلفية الشريط العلوي للتحميل المسبق
     ];
     for (var path in images) {
       precacheImage(AssetImage(path), context);
@@ -263,7 +264,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
-  // 🔥 تعديل الزر لإلغاء التشويش نهائياً باستخدام Stack والـ Opacity
   Widget _buildSquareButton({required String imagePath, required int index, required PlayerProvider player}) {
     bool isSelected = _selectedIndex == index;
     String activeImagePath = imagePath.replaceFirst('.png', '_active.png');
@@ -302,12 +302,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           borderRadius: BorderRadius.circular(6),
           child: Stack(
             children: [
-              // 1. الصورة العادية (تختفي لما نختار الزر)
               Opacity(
                 opacity: isSelected ? 0.0 : 1.0,
                 child: Image.asset(imagePath, fit: BoxFit.cover),
               ),
-              // 2. الصورة المضيئة (تظهر لما نختار الزر)
               Opacity(
                 opacity: isSelected ? 1.0 : 0.0,
                 child: Image.asset(activeImagePath, fit: BoxFit.cover),

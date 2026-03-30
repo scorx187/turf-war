@@ -33,107 +33,153 @@ class TopBar extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.9),
-        border: const Border(bottom: BorderSide(color: Colors.amber, width: 1.5)),
-      ),
-      child: Directionality(
-        textDirection: TextDirection.rtl,
-        child: Row(
-          children: [
-            if (player.uid != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 6),
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('private_chats')
-                      .where('participants', arrayContains: player.uid)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    bool hasUnread = false;
-                    if (snapshot.hasData) {
-                      for (var doc in snapshot.data!.docs) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        if ((data['unread_${player.uid}'] ?? 0) > 0) {
-                          hasUnread = true;
-                          break;
-                        }
-                      }
-                    }
-
-                    // استخدم الكاش المركزي للصور
-                    final imageBytes = player.getDecodedImage(player.profilePicUrl);
-
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.grey[800],
-                          backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
-                          child: imageBytes == null ? const Icon(Icons.person, color: Colors.white54, size: 20) : null,
-                        ),
-                        if (hasUnread)
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              width: 12, height: 12,
-                              decoration: BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 1.5)),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 14),
-                      if (isVIP) const SizedBox(width: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(4)),
-                        child: Text('Lvl $level', style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(child: Text(playerName, style: TextStyle(color: isVIP ? Colors.amber : Colors.white, fontSize: 10, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  SizedBox(width: 60, height: 3, child: LinearProgressIndicator(value: xpPercent.clamp(0.0, 1.0), backgroundColor: Colors.white10, valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber)))
-                ],
-              ),
-            ),
-
-            _buildTopStatItem(Icons.payments, cash.toString(), Colors.green),
-            _buildTopStatItem(Icons.monetization_on, gold.toString(), Colors.yellow),
-            _buildTopStatItem(Icons.bolt, energy.toString(), Colors.orange),
-            _buildTopStatItem(Icons.shield, courage.toString(), Colors.purple),
-            _buildTopStatItem(Icons.favorite, health.toString(), Colors.red),
-          ],
+      height: 85, // الارتفاع المناسب ليظهر تصميمLeonardo كامل
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/images/top_nav_bg.png'), // تأكد من وجود الصورة بهذا الاسم
+          fit: BoxFit.fill,
         ),
+      ),
+      child: Stack(
+        children: [
+          // 1. صورة البروفايل (أقصى اليسار) مع تنبيه الرسائل غير المقروءة
+          Positioned(
+            left: 12,
+            top: 18,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('private_chats')
+                  .where('participants', arrayContains: player.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                bool hasUnread = false;
+                if (snapshot.hasData) {
+                  for (var doc in snapshot.data!.docs) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    if ((data['unread_${player.uid}'] ?? 0) > 0) {
+                      hasUnread = true;
+                      break;
+                    }
+                  }
+                }
+
+                final imageBytes = player.getDecodedImage(player.profilePicUrl);
+
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.purpleAccent.withOpacity(0.5), width: 2),
+                        image: DecorationImage(
+                          image: imageBytes != null
+                              ? MemoryImage(imageBytes) as ImageProvider
+                              : const AssetImage('assets/images/profile_btn.png'),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    if (hasUnread)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.black, width: 2),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          // 2. اسم اللاعب والمستوى (بجانب البروفايل)
+          Positioned(
+            left: 75,
+            top: 25,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 14),
+                    Text(
+                      playerName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Changa',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                // شريط الـ XP الصغير
+                SizedBox(
+                  width: 60,
+                  height: 3,
+                  child: LinearProgressIndicator(
+                    value: xpPercent.clamp(0.0, 1.0),
+                    backgroundColor: Colors.white10,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 3. ترتيب الموارد (من اليمين لليسار حسب طلبك)
+          // [ الذهب | الكاش | الشهامة | الشجاعة | الطاقة | الصحة ]
+          Positioned(
+            right: 15,
+            top: 0,
+            bottom: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _buildValueText(gold.toString(), 60),    // الذهب
+                const SizedBox(width: 15),
+                _buildValueText(cash.toString(), 80),    // الكاش
+                const SizedBox(width: 15),
+                _buildValueText("100", 50),             // الشهامة (قيمة افتراضية حالياً)
+                const SizedBox(width: 15),
+                _buildValueText(courage.toString(), 50), // الشجاعة
+                const SizedBox(width: 15),
+                _buildValueText(energy.toString(), 50),  // الطاقة
+                const SizedBox(width: 15),
+                _buildValueText(health.toString(), 50),  // الصحة
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildTopStatItem(IconData icon, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(height: 1),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))
-        ],
+  Widget _buildValueText(String value, double width) {
+    return Container(
+      width: width,
+      alignment: Alignment.center,
+      child: Text(
+        value,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Changa',
+          shadows: [Shadow(blurRadius: 4, color: Colors.black)],
+        ),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
