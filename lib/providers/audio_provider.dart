@@ -19,32 +19,36 @@ class AudioProvider with ChangeNotifier {
   }
 
   void _initAudio() {
-    _bgPlayer.setReleaseMode(ReleaseMode.loop);
+    try {
+      // فقط نحدد تكرار موسيقى الخلفية
+      _bgPlayer.setReleaseMode(ReleaseMode.loop);
 
-    // إزالة كلمة const من السياقات لتجنب خطأ المترجم (Compiler Error)
-    AudioPlayer.global.setAudioContext(AudioContext(
-      android: const AudioContextAndroid(
-        isSpeakerphoneOn: false,
-        stayAwake: false,
-        contentType: AndroidContentType.music,
-        usageType: AndroidUsageType.game,
-        audioFocus: AndroidAudioFocus.none,
-      ),
-      iOS: AudioContextIOS(
-        category: AVAudioSessionCategory.playback,
-        options: const {
-          AVAudioSessionOptions.mixWithOthers,
-        },
-      ),
-    ));
+      // إعدادات آمنة للصوت تمنع التقطيع وتمنع تعليق التطبيق
+      AudioPlayer.global.setAudioContext(AudioContext(
+        android: const AudioContextAndroid(
+          isSpeakerphoneOn: false,
+          stayAwake: false,
+          contentType: AndroidContentType.music,
+          usageType: AndroidUsageType.game,
+          audioFocus: AndroidAudioFocus.none,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.ambient,
+          options: const {
+            AVAudioSessionOptions.mixWithOthers,
+          },
+        ),
+      ));
+    } catch (e) {
+      debugPrint("Audio Init Error: $e");
+    }
   }
 
   Future<void> playBGM() async {
     if (_isMuted) return;
     try {
-      await _bgPlayer.setSource(AssetSource('audio/bg_music.mp3'));
       await _bgPlayer.setVolume(_bgNormalVolume);
-      await _bgPlayer.resume();
+      await _bgPlayer.play(AssetSource('audio/bg_music.mp3'));
       _bgStarted = true;
     } catch (e) {
       debugPrint("BGM Error: $e");
@@ -53,12 +57,16 @@ class AudioProvider with ChangeNotifier {
 
   Future<void> lowerBGMVolume() async {
     if (_isMuted) return;
-    await _bgPlayer.setVolume(_bgLowVolume);
+    try {
+      await _bgPlayer.setVolume(_bgLowVolume);
+    } catch (e) {}
   }
 
   Future<void> restoreBGMVolume() async {
     if (_isMuted) return;
-    await _bgPlayer.setVolume(_bgNormalVolume);
+    try {
+      await _bgPlayer.setVolume(_bgNormalVolume);
+    } catch (e) {}
   }
 
   Future<void> playEffect(String fileName) async {
@@ -68,14 +76,11 @@ class AudioProvider with ChangeNotifier {
       playBGM();
     }
 
+    // استخدمنا try-catch هنا عشان لو فشل الصوت مستحيل يوقف الأزرار أو يعلق اللعبة!
     try {
-      AudioPlayer currentPlayer;
-      if (fileName == 'attack.mp3') {
-        currentPlayer = _combatPlayer;
-      } else {
-        currentPlayer = _clickPlayer;
-      }
+      AudioPlayer currentPlayer = (fileName == 'attack.mp3') ? _combatPlayer : _clickPlayer;
 
+      // إيقاف الصوت السابق وتشغيله من جديد فوراً بدون تحميل مسبق يعلق الذاكرة
       await currentPlayer.stop();
       await currentPlayer.setVolume(1.0);
       await currentPlayer.play(AssetSource('audio/$fileName'));
@@ -84,29 +89,35 @@ class AudioProvider with ChangeNotifier {
     }
   }
 
-  // --- [إضافة جديدة] دالة إيقاف الموسيقى عند الخروج من التطبيق ---
   Future<void> pauseBGM() async {
-    await _bgPlayer.pause();
+    try {
+      await _bgPlayer.pause();
+    } catch (e) {}
   }
 
-  // --- [إضافة جديدة] دالة استئناف الموسيقى عند العودة للتطبيق ---
   Future<void> resumeBGM() async {
     if (!_isMuted) {
-      await _bgPlayer.resume();
+      try {
+        await _bgPlayer.resume();
+      } catch (e) {}
     }
   }
 
   void toggleMute() {
     _isMuted = !_isMuted;
-    if (_isMuted) {
-      _bgPlayer.pause();
-      _clickPlayer.stop();
-      _combatPlayer.stop();
-    } else {
-      _bgPlayer.resume();
-      if (!_bgStarted) playBGM();
+    try {
+      if (_isMuted) {
+        _bgPlayer.pause();
+        _clickPlayer.stop();
+        _combatPlayer.stop();
+      } else {
+        _bgPlayer.resume();
+        if (!_bgStarted) playBGM();
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Mute Toggle Error: $e");
     }
-    notifyListeners();
   }
 
   @override
