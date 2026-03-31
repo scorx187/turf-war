@@ -260,7 +260,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       );
     }
 
-    if (_selectedIndex == 5) return PlayerProfileView(
+    if (_selectedIndex == 5) {
+      return PlayerProfileView(
         targetUid: player.uid!,
         profileTabIndex: _profileTabIndex,
         previewName: player.playerName,
@@ -268,6 +269,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         previewIsVIP: player.isVIP,
         onBack: () => setState(() => _selectedIndex = 2)
     );
+    }
 
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
 
