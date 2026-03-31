@@ -4,9 +4,12 @@ class TopBar extends StatelessWidget {
   final int cash;
   final int gold;
   final int energy;
+  final int maxEnergy;
   final int courage;
+  final int maxCourage;
   final int health;
-  final int prestige; // ضفت لك الهيبة هنا
+  final int maxHealth;
+  final int prestige;
   final String playerName;
   final int level;
   final double xpPercent;
@@ -17,9 +20,12 @@ class TopBar extends StatelessWidget {
     required this.cash,
     required this.gold,
     required this.energy,
+    required this.maxEnergy,
     required this.courage,
+    required this.maxCourage,
     required this.health,
-    this.prestige = 0, // عطيناها قيمة افتراضية عشان ما يخرب كودك في game_screen
+    required this.maxHealth,
+    this.prestige = 0,
     required this.playerName,
     required this.level,
     required this.xpPercent,
@@ -28,17 +34,22 @@ class TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // التأكد من أن نسبة الخبرة سليمة
     double safeXpPercent = (xpPercent.isNaN || xpPercent.isInfinite) ? 0.0 : xpPercent.clamp(0.0, 1.0);
 
+    // حساب نسب الامتلاء بشكل آمن
+    double hpProgress = (maxHealth > 0 && !health.isNaN) ? (health / maxHealth).clamp(0.0, 1.0) : 0.0;
+    double enProgress = (maxEnergy > 0 && !energy.isNaN) ? (energy / maxEnergy).clamp(0.0, 1.0) : 0.0;
+    double crProgress = (maxCourage > 0 && !courage.isNaN) ? (courage / maxCourage).clamp(0.0, 1.0) : 0.0;
+
     return Directionality(
-      textDirection: TextDirection.rtl, // لضمان الترتيب من اليمين لليسار
+      textDirection: TextDirection.rtl,
       child: Container(
         padding: const EdgeInsets.only(top: 10, bottom: 12, left: 10, right: 10),
         decoration: BoxDecoration(
           color: Colors.black87,
           image: const DecorationImage(
-            image: AssetImage('assets/images/ui/header_wood_bg.png'), // خلفيتك الفخمة
+            // 🟢 تم تغيير الخلفية هنا لتكون الخلفية الخشبية اللي طلبتها
+            image: AssetImage('assets/images/ui/header_wood_bg.png'),
             fit: BoxFit.cover,
             colorFilter: ColorFilter.mode(Colors.black45, BlendMode.darken),
           ),
@@ -56,9 +67,10 @@ class TopBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // --- الصف الأول: معلومات الزعيم ---
+            // --- الصف الأول: الزعيم، الكاش، والذهب ---
             Row(
               children: [
+                // شارة المستوى
                 Container(
                   width: 48,
                   height: 48,
@@ -89,41 +101,48 @@ class TopBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
 
+                // اسم اللاعب وصورة الـ VIP والكاش والذهب
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Text(
-                            playerName,
-                            style: const TextStyle(
-                              fontFamily: 'Changa',
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
+                          Flexible(
+                            child: Text(
+                              playerName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Changa',
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
+                              ),
                             ),
                           ),
                           if (isVIP) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFDAA520)]),
-                                borderRadius: BorderRadius.circular(4),
-                                boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.5), blurRadius: 4)],
-                              ),
-                              child: const Text(
-                                'VIP',
-                                style: TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.w900, color: Colors.black),
-                              ),
+                            const SizedBox(width: 6),
+                            Image.asset(
+                              'assets/images/icons/vip.png',
+                              height: 18,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(Icons.stars, color: Colors.amber, size: 18);
+                              },
                             ),
                           ],
+                          const Spacer(),
+
+                          _buildTopResource('assets/images/icons/cash.png', _formatWithCommas(cash), Colors.green),
+                          const SizedBox(width: 8),
+                          _buildTopResource('assets/images/icons/gold.png', _formatWithCommas(gold), Colors.amber),
                         ],
                       ),
                       const SizedBox(height: 6),
 
+                      // شريط الخبرة (XP)
                       Stack(
                         children: [
                           Container(
@@ -156,17 +175,14 @@ class TopBar extends StatelessWidget {
             ),
             const SizedBox(height: 15),
 
-            // --- الصف الثاني: الموارد بأيقوناتك الخاصة ---
+            // --- الصف الثاني: الموارد (الصحة، الطاقة، الشجاعة، الهيبة) ---
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly, // وزعناها بالتساوي عشان تكفي 6 عناصر
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // ⚠️ تأكد من أن مسارات الصور تطابق اللي عندك بالمشروع بالضبط
-                _buildResourceChip('assets/images/icons/cash.png', _formatNumber(cash)),
-                _buildResourceChip('assets/images/icons/gold.png', _formatNumber(gold)),
-                _buildResourceChip('assets/images/icons/health.png', health.toString()),
-                _buildResourceChip('assets/images/icons/energy.png', energy.toString()),
-                _buildResourceChip('assets/images/icons/courage.png', courage.toString()),
-                _buildResourceChip('assets/images/icons/prestige.png', _formatNumber(prestige)), // الهيبة
+                _buildResourceChip('assets/images/icons/health.png', '$health/$maxHealth', progress: hpProgress, barColor: Colors.redAccent),
+                _buildResourceChip('assets/images/icons/energy.png', '$energy/$maxEnergy', progress: enProgress, barColor: Colors.lightBlueAccent),
+                _buildResourceChip('assets/images/icons/courage.png', '$courage/$maxCourage', progress: crProgress, barColor: Colors.greenAccent),
+                _buildResourceChip('assets/images/icons/prestige.png', _formatWithCommas(prestige)),
               ],
             ),
           ],
@@ -175,55 +191,102 @@ class TopBar extends StatelessWidget {
     );
   }
 
-  // دالة جديدة تقبل "مسار الصورة" بدل الأيقونة الجاهزة
-  Widget _buildResourceChip(String imagePath, String value) {
+  // 🟢 دالة مخصصة للكاش والذهب في الأعلى
+  Widget _buildTopResource(String imagePath, String value, Color shadowColor) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(
+          imagePath,
+          width: 16,
+          height: 16,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 16),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: 'Changa',
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            shadows: [Shadow(color: shadowColor, blurRadius: 6)],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // دالة الموارد السفلية مع العدادات
+  Widget _buildResourceChip(String imagePath, String value, {double? progress, Color? barColor}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4), // صغرنا الهوامش شوي عشان تكفي 6 عناصر في الشاشة
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.55),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.white12, width: 1),
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // هنا نعرض صورتك الخاصة
-          Image.asset(
-            imagePath,
-            width: 16, // حجم الأيقونة
-            height: 16,
-            fit: BoxFit.contain,
-            // لو الصورة مو موجودة يحط لك علامة خطأ حمراء عشان تنتبه لها وتعدل الاسم
-            errorBuilder: (context, error, stackTrace) {
-              return const Icon(Icons.error_outline, color: Colors.red, size: 16);
-            },
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                imagePath,
+                width: 14,
+                height: 14,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(Icons.error_outline, color: Colors.red, size: 14);
+                },
+              ),
+              const SizedBox(width: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                    fontFamily: 'Changa',
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Text(
-            value,
-            style: const TextStyle(
-                fontFamily: 'Changa',
-                fontSize: 12, // الخط ناعم وواضح
-                fontWeight: FontWeight.bold,
-                color: Colors.white
+
+          if (progress != null && barColor != null) ...[
+            const SizedBox(height: 4),
+            Container(
+              width: 55,
+              height: 3,
+              alignment: Alignment.centerRight,
+              decoration: BoxDecoration(
+                color: Colors.white12,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Container(
+                width: 55 * progress,
+                height: 3,
+                decoration: BoxDecoration(
+                    color: barColor,
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(color: barColor.withOpacity(0.8), blurRadius: 4),
+                    ]
+                ),
+              ),
             ),
-          ),
+          ]
         ],
       ),
     );
   }
 
-  // الدالة الذكية بعد تطويرها لدعم المليار والتريليون
-  String _formatNumber(int number) {
-    if (number >= 1000000000000) {
-      return '${(number / 1000000000000).toStringAsFixed(1)}T'; // تريليون
-    } else if (number >= 1000000000) {
-      return '${(number / 1000000000).toStringAsFixed(1)}B'; // مليار
-    } else if (number >= 1000000) {
-      return '${(number / 1000000).toStringAsFixed(1)}M'; // مليون
-    } else if (number >= 10000) {
-      return '${(number / 1000).toStringAsFixed(1)}K'; // ألف
-    }
-    return number.toString();
+  // 🟢 دالة الفواصل اللي تخلي مليون ينكتب كذا: 1,000,000
+  String _formatWithCommas(int number) {
+    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return number.toString().replaceAllMapped(reg, (Match match) => '${match[1]},');
   }
 }

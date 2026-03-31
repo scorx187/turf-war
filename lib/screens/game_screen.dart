@@ -158,8 +158,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 cash: player.cash,
                 gold: player.gold,
                 energy: player.energy,
+                maxEnergy: player.maxEnergy, // 🟢 إرسال سقف الطاقة
                 courage: player.courage,
+                maxCourage: player.maxCourage, // 🟢 إرسال سقف الشجاعة
                 health: player.health,
+                maxHealth: player.maxHealth, // 🟢 إرسال سقف الصحة
                 playerName: player.playerName,
                 level: player.crimeLevel,
                 xpPercent: player.crimeXP / player.xpToNextLevel,
