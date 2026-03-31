@@ -67,6 +67,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 1024 * 1024 * 300;
+
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _precacheImages();
@@ -82,7 +84,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   void _precacheImages() {
     final images = [
-      'assets/images/top_nav_bg.png',
+      'assets/images/top_nav_bg.png', // التوب بار
+      'assets/images/ui/bottom_navbar_bg.png', // النافبار
+      'assets/images/city_map.jpg', // خريطة المدينة
+      'assets/images/ui/crime_bg.jpg', // خلفية الجرائم
     ];
     for (var path in images) {
       precacheImage(AssetImage(path), context);
@@ -328,6 +333,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     'assets/images/city_map.jpg',
                     fit: BoxFit.fill,
                     filterQuality: FilterQuality.high,
+                    gaplessPlayback: true, // 👇 ضفنا هذا السطر يمنع اختفاء الصورة وقت التحميل
                   ),
                 ),
                 _buildMapHotspot('المطار', 3500, 2600, 300, 300, Colors.blue),

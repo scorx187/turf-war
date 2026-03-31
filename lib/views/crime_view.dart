@@ -24,7 +24,7 @@ class CrimeView extends StatelessWidget {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // قائمة الجرائم بمنطقك البرمجي الكامل
+    // قائمة الجرائم بمنطقك البرمجي الكامل (تبقى مثل ما هي فوق في الكود عندك)
     final List<Map<String, dynamic>> crimes = [
       {'name': 'سرقة محفظة', 'courage': 5, 'energy': 0, 'minCash': 50, 'maxCash': 100, 'failChance': 0.1, 'xp': 10, 'icon': Icons.account_balance_wallet, 'color': const Color(0xFFC5A059), 'heat': 2.0},
       {'name': 'سطو على متجر', 'courage': 15, 'energy': 0, 'minCash': 300, 'maxCash': 500, 'failChance': 0.25, 'xp': 25, 'icon': Icons.store, 'color': Colors.blueAccent, 'heat': 5.0},
@@ -33,88 +33,92 @@ class CrimeView extends StatelessWidget {
       {'name': 'سطو على البنك', 'courage': 70, 'energy': 40, 'minCash': 18000, 'maxCash': 40000, 'failChance': 0.8, 'xp': 350, 'icon': Icons.account_balance, 'color': Colors.redAccent, 'requireCar': true, 'requireItem': 'silicon_mask', 'itemName': 'قناع سيليكون وسيارة', 'heat': 25.0},
     ];
 
-    return Container(
-      // 1. إضافة الخلفية السينمائية
-      decoration: BoxDecoration(
-        color: Colors.black,
-        image: const DecorationImage(
-          image: AssetImage('assets/images/ui/crime_bg.jpg'), // مسار الصورة حسب ملفاتك
-          fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken), // تغميق لبروز النصوص
+    return Stack(
+      children: [
+        // 1. الخلفية الثابتة والواضحة (بدل الـ BoxDecoration البطيء)
+        Positioned.fill(
+          child: Image.asset(
+            'assets/images/ui/crime_bg.jpg',
+            fit: BoxFit.cover,
+            gaplessPlayback: true, // يمنع الرمشة
+            color: Colors.black45, // تعتيم خفيف جداً يخلي الصورة واضحة بقوة
+            colorBlendMode: BlendMode.darken,
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          // عداد الملاحقة (Heat)
-          _buildHeatMeter(player.heat),
 
-          // العنوان الفخم
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
-              border: const Border(
-                top: BorderSide(color: Color(0xFF856024), width: 1),
-                bottom: BorderSide(color: Color(0xFF856024), width: 1),
+        // 2. المحتوى فوق الخلفية
+        Column(
+          children: [
+            // عداد الملاحقة (Heat)
+            _buildHeatMeter(player.heat),
+
+            // العنوان الفخم
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                border: const Border(
+                  top: BorderSide(color: Color(0xFF856024), width: 1),
+                  bottom: BorderSide(color: Color(0xFF856024), width: 1),
+                ),
+              ),
+              child: const Column(
+                children: [
+                  Text('السجل الإجرامي 🎭', style: TextStyle(fontFamily: 'Changa', color: Color(0xFFE2C275), fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text('احترافك للجرائم يزيد من أرباحك ويقلل المخاطر', style: TextStyle(fontFamily: 'Changa', color: Colors.white54, fontSize: 12)),
+                ],
               ),
             ),
-            child: const Column(
-              children: [
-                Text('السجل الإجرامي 🎭', style: TextStyle(fontFamily: 'Changa', color: Color(0xFFE2C275), fontSize: 22, fontWeight: FontWeight.bold)),
-                Text('احترافك للجرائم يزيد من أرباحك ويقلل المخاطر', style: TextStyle(fontFamily: 'Changa', color: Colors.white54, fontSize: 12)),
-              ],
-            ),
-          ),
 
-          // قائمة المهام
-          Expanded(
-            child: ListView.builder(
-              itemCount: crimes.length,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemBuilder: (context, index) {
-                final crime = crimes[index];
-                int successCount = index < crimeSuccessCounts.length ? (crimeSuccessCounts[index] as num).toInt() : 0;
+            // قائمة المهام
+            Expanded(
+              child: ListView.builder(
+                itemCount: crimes.length,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemBuilder: (context, index) {
+                  final crime = crimes[index];
+                  int successCount = index < crimeSuccessCounts.length ? (crimeSuccessCounts[index] as num).toInt() : 0;
 
-                int stars = successCount >= 50 ? 3 : successCount >= 25 ? 2 : successCount >= 10 ? 1 : 0;
-                double progress = stars == 3 ? 1.0 : (stars == 2 ? (successCount - 25) / 25 : stars == 1 ? (successCount - 10) / 15 : successCount / 10);
+                  int stars = successCount >= 50 ? 3 : successCount >= 25 ? 2 : successCount >= 10 ? 1 : 0;
+                  double progress = stars == 3 ? 1.0 : (stars == 2 ? (successCount - 25) / 25 : stars == 1 ? (successCount - 10) / 15 : successCount / 10);
 
-                bool isSequenceUnlocked = index == 0 || (index > 0 && crimeSuccessCounts[index - 1] >= 10);
-                bool hasItem = crime.containsKey('requireItem') ? player.inventory.containsKey(crime['requireItem']) : true;
-                bool hasCar = crime.containsKey('requireCar') ? player.activeCarId != null : true;
-                bool isUnlocked = isSequenceUnlocked && hasItem && hasCar;
+                  bool isSequenceUnlocked = index == 0 || (index > 0 && crimeSuccessCounts[index - 1] >= 10);
+                  bool hasItem = crime.containsKey('requireItem') ? player.inventory.containsKey(crime['requireItem']) : true;
+                  bool hasCar = crime.containsKey('requireCar') ? player.activeCarId != null : true;
+                  bool isUnlocked = isSequenceUnlocked && hasItem && hasCar;
 
-                double heatPenalty = (player.heat / 100) * 0.3;
-                double finalFailChance = (crime['failChance'] as double) + heatPenalty - (stars * 0.05);
+                  double heatPenalty = (player.heat / 100) * 0.3;
+                  double finalFailChance = (crime['failChance'] as double) + heatPenalty - (stars * 0.05);
 
-                if (player.equippedMaskId != null) finalFailChance -= 0.1;
+                  if (player.equippedMaskId != null) finalFailChance -= 0.1;
 
-                // نظام متانة الأدوات الخاص بك (Durability Logic)
-                if (player.equippedCrimeToolId != null) {
-                  double toolDurability = player.getItemDurability(player.equippedCrimeToolId!);
-                  double toolBonus = 0.0;
+                  if (player.equippedCrimeToolId != null) {
+                    double toolDurability = player.getItemDurability(player.equippedCrimeToolId!);
+                    double toolBonus = 0.0;
 
-                  if (player.equippedCrimeToolId == 'emp_device') toolBonus = 0.30;
-                  else if (player.equippedCrimeToolId == 'thermite' && crime['name'] == 'سطو على البنك') toolBonus = 0.25;
-                  else if (player.equippedCrimeToolId == 'slim_jim' && crime['name'] == 'سرقة سيارة') toolBonus = 0.15;
-                  else if (player.equippedCrimeToolId == 'lockpick' && crime['name'] == 'سطو على فيلا') toolBonus = 0.15;
-                  else toolBonus = 0.10;
+                    if (player.equippedCrimeToolId == 'emp_device') toolBonus = 0.30;
+                    else if (player.equippedCrimeToolId == 'thermite' && crime['name'] == 'سطو على البنك') toolBonus = 0.25;
+                    else if (player.equippedCrimeToolId == 'slim_jim' && crime['name'] == 'سرقة سيارة') toolBonus = 0.15;
+                    else if (player.equippedCrimeToolId == 'lockpick' && crime['name'] == 'سطو على فيلا') toolBonus = 0.15;
+                    else toolBonus = 0.10;
 
-                  if (toolDurability >= 10) {
-                    finalFailChance -= toolBonus;
-                  } else {
-                    finalFailChance -= (toolBonus / 2); // الأداة معطلة
+                    if (toolDurability >= 10) {
+                      finalFailChance -= toolBonus;
+                    } else {
+                      finalFailChance -= (toolBonus / 2);
+                    }
                   }
-                }
 
-                finalFailChance = finalFailChance.clamp(0.02, 0.98);
+                  finalFailChance = finalFailChance.clamp(0.02, 0.98);
 
-                return _buildGoldCrimeCard(context, player, index, crime, isUnlocked, stars, progress, finalFailChance, hasItem, hasCar);
-              },
-            ),
-          )
-        ],
-      ),
+                  return _buildGoldCrimeCard(context, player, index, crime, isUnlocked, stars, progress, finalFailChance, hasItem, hasCar);
+                },
+              ),
+            )
+          ],
+        ),
+      ],
     );
   }
 
