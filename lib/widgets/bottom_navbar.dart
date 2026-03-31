@@ -13,16 +13,15 @@ class BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 82, // كبرنا النافبار شوي عشان تاخذ الصور راحتها
+      height: 95,
       decoration: BoxDecoration(
         color: Colors.black87,
-        // تم تصحيح اسم صورة الخلفية بناءً على ملفاتك المرفوعة
         image: const DecorationImage(
           image: AssetImage('assets/images/ui/bottom_navbar_bg.png'),
           fit: BoxFit.cover,
         ),
         border: const Border(
-          top: BorderSide(color: Color(0xFF856024), width: 2), // الإطار النحاسي
+          top: BorderSide(color: Color(0xFF856024), width: 2),
         ),
         boxShadow: [
           BoxShadow(
@@ -32,8 +31,10 @@ class BottomNavBar extends StatelessWidget {
           ),
         ],
       ),
+      padding: const EdgeInsets.only(bottom: 20, top: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _buildNavItem(0, 'assets/images/icons/inventory.png', 'المخزن'),
           _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
@@ -55,8 +56,8 @@ class BottomNavBar extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
+          // 👇 غيرنا AnimatedContainer إلى Container عادي عشان يختفي فوراً بدون تأخير 👇
+          Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -72,30 +73,27 @@ class BottomNavBar extends StatelessWidget {
               border: isSelected ? Border.all(color: const Color(0xFFC5A059), width: 1.5) : null,
             ),
             child: Opacity(
-              // هنا خففنا التظليل! صارت الأيقونة واضحة حتى لو مو محددة
               opacity: isSelected ? 1.0 : 0.75,
               child: ClipOval(
                 child: Image.asset(
                   imagePath,
-                  // هنا كبرنا حجم الصور
-                  width: isSelected ? 48 : 44,
-                  height: isSelected ? 48 : 44,
+                  width: isSelected ? 39 : 35,
+                  height: isSelected ? 39 : 35,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.broken_image, color: Colors.red, size: 28);
+                    return const Icon(Icons.broken_image, color: Colors.red, size: 30);
                   },
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             label,
             style: TextStyle(
               fontFamily: 'Changa',
-              fontSize: 12, // كبرنا الخط نتفة عشان يتناسب مع حجم الأيقونة
+              fontSize: 12,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              // فتحنا لون النص للأيقونات الغير محددة عشان ينقري بسهولة
               color: isSelected ? const Color(0xFFE2C275) : Colors.grey[400],
             ),
           ),
