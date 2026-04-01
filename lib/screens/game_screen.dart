@@ -158,14 +158,16 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 cash: player.cash,
                 gold: player.gold,
                 energy: player.energy,
-                maxEnergy: player.maxEnergy, // 🟢 إرسال سقف الطاقة
+                maxEnergy: player.maxEnergy,
                 courage: player.courage,
-                maxCourage: player.maxCourage, // 🟢 إرسال سقف الشجاعة
+                maxCourage: player.maxCourage,
                 health: player.health,
-                maxHealth: player.maxHealth, // 🟢 إرسال سقف الصحة
+                maxHealth: player.maxHealth,
                 playerName: player.playerName,
+                profilePicUrl: player.profilePicUrl, // 🟢 إرسال الصورة هنا
                 level: player.crimeLevel,
-                xpPercent: player.crimeXP / player.xpToNextLevel,
+                currentXp: player.crimeXP,
+                maxXp: player.xpToNextLevel,
                 isVIP: player.isVIP
             ),
             Expanded(child: _buildConditionalContent(player)),

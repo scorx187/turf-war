@@ -99,11 +99,20 @@ class _PrivateChatViewState extends State<PrivateChatView> {
         child: Column(
           children: [
             TopBar(
-              cash: player.cash, gold: player.gold, energy: player.energy,
-              maxEnergy: player.maxEnergy, maxCourage: player.maxCourage,
-              courage: player.courage, health: player.health, maxHealth: player.maxHealth,
-              playerName: player.playerName, level: player.crimeLevel,
-              xpPercent: player.crimeXP / player.xpToNextLevel, isVIP: player.isVIP,
+                cash: player.cash,
+                gold: player.gold,
+                energy: player.energy,
+                maxEnergy: player.maxEnergy,
+                courage: player.courage,
+                maxCourage: player.maxCourage,
+                health: player.health,
+                maxHealth: player.maxHealth,
+                playerName: player.playerName,
+                profilePicUrl: player.profilePicUrl, // 🟢 إرسال الصورة هنا
+                level: player.crimeLevel,
+                currentXp: player.crimeXP,
+                maxXp: player.xpToNextLevel,
+                isVIP: player.isVIP
             ),
 
             Container(
