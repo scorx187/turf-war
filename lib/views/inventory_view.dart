@@ -310,8 +310,13 @@ class InventoryView extends StatelessWidget {
         title: const Text('تغيير اسم اللاعب 📛', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: TextField(
             controller: nameController,
+            maxLength: 14, // 🟢 حماية بطاقة تغيير الاسم
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(hintText: 'الاسم الجديد...', hintStyle: TextStyle(color: Colors.white24))
+            decoration: const InputDecoration(
+                counterText: "", // 🟢 إخفاء العداد
+                hintText: 'الاسم الجديد...',
+                hintStyle: TextStyle(color: Colors.white24)
+            )
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),

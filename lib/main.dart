@@ -308,8 +308,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 TextField(
                   controller: _nameController,
+                  maxLength: 14, // 🟢 وضعنا الحد الأقصى هنا
                   style: const TextStyle(color: Colors.white, fontSize: 18),
                   decoration: InputDecoration(
+                    counterText: "", // 🟢 أخفينا العداد المزعج
                     prefixIcon: const Icon(Icons.person_outline, color: GameColors.primary),
                     hintText: 'ادخل اسمك المستعار...',
                     hintStyle: const TextStyle(color: Colors.white30),

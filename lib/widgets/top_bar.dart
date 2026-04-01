@@ -45,7 +45,6 @@ class TopBar extends StatelessWidget {
     double enProgress = (maxEnergy > 0 && !energy.isNaN) ? (energy / maxEnergy).clamp(0.0, 1.0) : 0.0;
     double crProgress = (maxCourage > 0 && !courage.isNaN) ? (courage / maxCourage).clamp(0.0, 1.0) : 0.0;
 
-    // 🟢 السحر هنا: إذا الاسم أطول من 13 حرف، قصه وحط نقطتين بداله
     String displayName = playerName.length > 13 ? '${playerName.substring(0, 13)}..' : playerName;
 
     return Directionality(
@@ -111,18 +110,19 @@ class TopBar extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // 🟢 شلنا التصغير التلقائي، واعتمدنا على الاسم المقصوص عشان يظل الخط واضح ومقروء
                             Flexible(
-                              child: Text(
-                                displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontFamily: 'Changa',
-                                  fontSize: 15, // حجم ممتاز وثابت
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  playerName,
+                                  style: const TextStyle(
+                                    fontFamily: 'Changa',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
+                                  ),
                                 ),
                               ),
                             ),
@@ -139,7 +139,6 @@ class TopBar extends StatelessWidget {
                         ),
                       ),
 
-                      // 🟢 حاجز أمان (10 بكسل) يمنع الـ VIP من إنه يلصق بصندوق الكاش
                       const SizedBox(width: 10),
 
                       _buildTopUpResource(
@@ -181,10 +180,10 @@ class TopBar extends StatelessWidget {
               children: [
                 Image.asset(
                   'assets/images/icons/lv.png',
-                  width: 22,
-                  height: 22,
+                  width: 24, // 🟢 كبرنا أيقونة اللفل من 22 إلى 24
+                  height: 24,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.star, color: Colors.amber, size: 22),
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.star, color: Colors.amber, size: 24),
                 ),
                 const SizedBox(width: 4),
                 Padding(
@@ -269,7 +268,7 @@ class TopBar extends StatelessWidget {
       children: [
         Container(
           width: 95,
-          height: 26,
+          height: 28, // 🟢 كبرنا الارتفاع من 26 إلى 28 عشان يستوعب الأيقونة الكبيرة
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             image: DecorationImage(image: AssetImage(bgImagePath), fit: BoxFit.fill),
@@ -279,7 +278,8 @@ class TopBar extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Image.asset(iconPath, width: 14, height: 14, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 14)),
+              // 🟢 كبرنا الأيقونة الأساسية للكاش والذهب من 14 إلى 18
+              Image.asset(iconPath, width: 18, height: 18, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 18)),
               const SizedBox(width: 4),
               Expanded(
                 child: Padding(
@@ -322,8 +322,9 @@ class TopBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(imagePath, width: 12, height: 12, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 12)),
-              const SizedBox(width: 3),
+              // 🟢 كبرنا أيقونات الصحة والطاقة من 12 إلى 16
+              Image.asset(imagePath, width: 16, height: 16, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 16)),
+              const SizedBox(width: 4), // 🟢 زِدنا المسافة نتفة عشان ما تلصق بالرقم
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 2.0),
