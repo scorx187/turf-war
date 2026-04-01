@@ -180,7 +180,7 @@ class TopBar extends StatelessWidget {
               children: [
                 Image.asset(
                   'assets/images/icons/lv.png',
-                  width: 24, // 🟢 كبرنا أيقونة اللفل من 22 إلى 24
+                  width: 24,
                   height: 24,
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) => const Icon(Icons.star, color: Colors.amber, size: 24),
@@ -268,7 +268,7 @@ class TopBar extends StatelessWidget {
       children: [
         Container(
           width: 95,
-          height: 28, // 🟢 كبرنا الارتفاع من 26 إلى 28 عشان يستوعب الأيقونة الكبيرة
+          height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             image: DecorationImage(image: AssetImage(bgImagePath), fit: BoxFit.fill),
@@ -278,7 +278,6 @@ class TopBar extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 🟢 كبرنا الأيقونة الأساسية للكاش والذهب من 14 إلى 18
               Image.asset(iconPath, width: 18, height: 18, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 18)),
               const SizedBox(width: 4),
               Expanded(
@@ -305,7 +304,7 @@ class TopBar extends StatelessWidget {
     );
   }
 
-  // الموارد السفلية
+  // 🟢 الموارد السفلية (تم التكبير هنا)
   Widget _buildResourceChip(String imagePath, String value, {double? progress, Color? barColor}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
@@ -322,15 +321,16 @@ class TopBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 🟢 كبرنا أيقونات الصحة والطاقة من 12 إلى 16
-              Image.asset(imagePath, width: 16, height: 16, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 16)),
-              const SizedBox(width: 4), // 🟢 زِدنا المسافة نتفة عشان ما تلصق بالرقم
+              // 🟢 كبرنا الأيقونة لـ 20
+              Image.asset(imagePath, width: 20, height: 20, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 20)),
+              const SizedBox(width: 4),
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 2.0),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(value, style: const TextStyle(fontFamily: 'Changa', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
+                    // 🟢 كبرنا الخط من 11 لـ 12 عشان يناسب الحجم الجديد
+                    child: Text(value, style: const TextStyle(fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
                   ),
                 ),
               ),
