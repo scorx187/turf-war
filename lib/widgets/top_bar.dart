@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:convert'; // 🟢 ضروري عشان نفك تشفير الصورة
+import 'dart:convert';
 
 class TopBar extends StatelessWidget {
   final int cash;
@@ -12,7 +12,7 @@ class TopBar extends StatelessWidget {
   final int maxHealth;
   final int prestige;
   final String playerName;
-  final String? profilePicUrl; // 🟢 جديد: لاستقبال صورة اللاعب
+  final String? profilePicUrl;
   final int level;
   final int currentXp;
   final int maxXp;
@@ -30,7 +30,7 @@ class TopBar extends StatelessWidget {
     required this.maxHealth,
     this.prestige = 0,
     required this.playerName,
-    this.profilePicUrl, // 🟢 إضافتها هنا
+    this.profilePicUrl,
     required this.level,
     required this.currentXp,
     required this.maxXp,
@@ -45,10 +45,13 @@ class TopBar extends StatelessWidget {
     double enProgress = (maxEnergy > 0 && !energy.isNaN) ? (energy / maxEnergy).clamp(0.0, 1.0) : 0.0;
     double crProgress = (maxCourage > 0 && !courage.isNaN) ? (courage / maxCourage).clamp(0.0, 1.0) : 0.0;
 
+    // 🟢 السحر هنا: إذا الاسم أطول من 13 حرف، قصه وحط نقطتين بداله
+    String displayName = playerName.length > 13 ? '${playerName.substring(0, 13)}..' : playerName;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Container(
-        padding: const EdgeInsets.only(top: 10, bottom: 12, left: 10, right: 10),
+        padding: const EdgeInsets.only(top: 14, bottom: 8, left: 10, right: 10),
         decoration: BoxDecoration(
           color: Colors.black87,
           image: const DecorationImage(
@@ -60,11 +63,7 @@ class TopBar extends StatelessWidget {
             bottom: BorderSide(color: Color(0xFF856024), width: 2.5),
           ),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.9),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
+            BoxShadow(color: Colors.black.withOpacity(0.9), blurRadius: 12, offset: const Offset(0, 4)),
           ],
         ),
         child: Column(
@@ -72,21 +71,22 @@ class TopBar extends StatelessWidget {
           children: [
             // --- الصف الأول: صورة البروفايل، الاسم، الكاش، والذهب ---
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 🟢 دائرة البروفايل (تعرض الصورة إذا موجودة)
                 Container(
                   width: 50,
                   height: 50,
+                  margin: const EdgeInsets.only(top: 4.0),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFE2C275), width: 2),
+                    border: Border.all(color: const Color(0xFFE2C275), width: 2.5),
                     gradient: const RadialGradient(
                       colors: [Color(0xFF856024), Colors.black],
                       center: Alignment.topLeft,
                       radius: 1.2,
                     ),
                     boxShadow: [
-                      BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.5), blurRadius: 8, spreadRadius: 1),
+                      BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.6), blurRadius: 10, spreadRadius: 1),
                     ],
                   ),
                   child: ClipOval(
@@ -96,6 +96,7 @@ class TopBar extends StatelessWidget {
                       fit: BoxFit.cover,
                       width: 50,
                       height: 50,
+                      gaplessPlayback: true,
                       errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white70, size: 30),
                     )
                         : const Icon(Icons.person, color: Colors.white70, size: 30),
@@ -103,23 +104,22 @@ class TopBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
 
-                // الاسم والـ VIP (ينضغطون لو طال الاسم) والكاش والذهب
                 Expanded(
                   child: Row(
                     children: [
-                      // الاسم والـ VIP في مساحة مرنة عشان ما يصير فيه فراغ بشع بينهم
                       Expanded(
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            // 🟢 شلنا التصغير التلقائي، واعتمدنا على الاسم المقصوص عشان يظل الخط واضح ومقروء
                             Flexible(
                               child: Text(
-                                playerName,
+                                displayName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontFamily: 'Changa',
-                                  fontSize: 16,
+                                  fontSize: 15, // حجم ممتاز وثابت
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                   shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
@@ -127,7 +127,7 @@ class TopBar extends StatelessWidget {
                               ),
                             ),
                             if (isVIP) ...[
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 4),
                               Image.asset(
                                 'assets/images/icons/vip.png',
                                 height: 18,
@@ -139,14 +139,16 @@ class TopBar extends StatelessWidget {
                         ),
                       ),
 
-                      // الكاش والذهب ثابتين على اليسار
+                      // 🟢 حاجز أمان (10 بكسل) يمنع الـ VIP من إنه يلصق بصندوق الكاش
+                      const SizedBox(width: 10),
+
                       _buildTopUpResource(
                         iconPath: 'assets/images/icons/cash.png',
                         value: _formatWithCommas(cash),
                         bgImagePath: 'assets/images/ui/cash_bg.png',
                         plusImagePath: 'assets/images/icons/plus.png',
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       _buildTopUpResource(
                         iconPath: 'assets/images/icons/gold.png',
                         value: _formatWithCommas(gold),
@@ -158,24 +160,23 @@ class TopBar extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
 
-            // --- الصف الثاني: الموارد (الصحة، الطاقة، الشجاعة، الشهامة) ---
-            // 🟢 استخدام Expanded يوزع الموارد بالتساوي ويشيل الفراغات المزعجة
+            // --- الصف الثاني: الموارد ---
             Row(
               children: [
-                Expanded(child: _buildResourceChip('assets/images/icons/health.png', '$health/$maxHealth', progress: hpProgress, barColor: Colors.redAccent)),
+                Expanded(child: _buildResourceChip('assets/images/icons/health.png', '${_formatCompact(health)}/${_formatCompact(maxHealth)}', progress: hpProgress, barColor: Colors.redAccent)),
                 const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('assets/images/icons/energy.png', '$energy/$maxEnergy', progress: enProgress, barColor: Colors.lightBlueAccent)),
+                Expanded(child: _buildResourceChip('assets/images/icons/energy.png', '${_formatCompact(energy)}/${_formatCompact(maxEnergy)}', progress: enProgress, barColor: Colors.lightBlueAccent)),
                 const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('assets/images/icons/courage.png', '$courage/$maxCourage', progress: crProgress, barColor: Colors.greenAccent)),
+                Expanded(child: _buildResourceChip('assets/images/icons/courage.png', '${_formatCompact(courage)}/${_formatCompact(maxCourage)}', progress: crProgress, barColor: Colors.greenAccent)),
                 const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('assets/images/icons/prestige.png', _formatWithCommas(prestige))),
+                Expanded(child: _buildResourceChip('assets/images/icons/prestige.png', _formatCompact(prestige))),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 2),
 
-            // --- الصف الثالث: خط اللفل الأصفر ---
+            // --- الصف الثالث: خط اللفل ---
             Row(
               children: [
                 Image.asset(
@@ -186,25 +187,31 @@ class TopBar extends StatelessWidget {
                   errorBuilder: (context, error, stackTrace) => const Icon(Icons.star, color: Colors.amber, size: 22),
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  '$level',
-                  style: const TextStyle(
-                    fontFamily: 'Changa',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFFE2C275),
-                    shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                Padding(
+                  padding: const EdgeInsets.only(top: 2.0),
+                  child: Text(
+                    '$level',
+                    style: const TextStyle(
+                      fontFamily: 'Changa',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFE2C275),
+                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
 
                 Expanded(
                   child: Container(
-                    height: 16,
+                    height: 18,
                     decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white24, width: 1),
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF856024), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 4, offset: const Offset(0, 2)),
+                      ],
                     ),
                     child: Stack(
                       children: [
@@ -216,24 +223,30 @@ class TopBar extends StatelessWidget {
                             child: Container(
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                                  colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
                                 ),
                                 borderRadius: BorderRadius.circular(8),
-                                boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 4)],
+                                boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.8), blurRadius: 6)],
                               ),
                             ),
                           ),
                         ),
                         Center(
-                          child: Text(
-                            '$currentXp / $maxXp',
-                            style: const TextStyle(
-                              fontFamily: 'Changa',
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              height: 1.1,
-                              shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2.0),
+                            child: Text(
+                              '${_formatCompact(currentXp)} / ${_formatCompact(maxXp)}',
+                              style: const TextStyle(
+                                fontFamily: 'Changa',
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                height: 1.0,
+                                shadows: [
+                                  Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
+                                  Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1)),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -249,43 +262,53 @@ class TopBar extends StatelessWidget {
     );
   }
 
-  // 🟢 دوال الرسم المحسنة
+  // الكاش والذهب
   Widget _buildTopUpResource({required String iconPath, required String value, required String bgImagePath, required String plusImagePath}) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          width: 95,
+          height: 26,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             image: DecorationImage(image: AssetImage(bgImagePath), fit: BoxFit.fill),
             borderRadius: BorderRadius.circular(6),
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 4, offset: const Offset(0, 2))],
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Image.asset(iconPath, width: 14, height: 14, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 14)),
               const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Text(value, style: const TextStyle(fontFamily: 'Changa', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 3.0),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                        value,
+                        style: const TextStyle(fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 4)])
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(width: 4),
             ],
           ),
         ),
         Positioned(
-          left: -6, top: -5,
+          left: -5, top: -5,
           child: Image.asset(plusImagePath, width: 14, height: 14, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle), child: const Icon(Icons.add, size: 10, color: Colors.white))),
         ),
       ],
     );
   }
 
+  // الموارد السفلية
   Widget _buildResourceChip(String imagePath, String value, {double? progress, Color? barColor}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6), // بادينق ممتاز للتمدد
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.55),
         borderRadius: BorderRadius.circular(6),
@@ -297,17 +320,23 @@ class TopBar extends StatelessWidget {
         children: [
           Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(imagePath, width: 14, height: 14, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 14)),
-              const SizedBox(width: 4),
+              Image.asset(imagePath, width: 12, height: 12, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 12)),
+              const SizedBox(width: 3),
               Flexible(
-                child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Changa', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2.0),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(value, style: const TextStyle(fontFamily: 'Changa', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
+                  ),
+                ),
               ),
             ],
           ),
           if (progress != null && barColor != null) ...[
             const SizedBox(height: 5),
-            // 🟢 خليت شريط التعبئة يمتد تلقائياً على حسب مساحة المربع
             Container(
               width: double.infinity,
               height: 3,
@@ -334,5 +363,16 @@ class TopBar extends StatelessWidget {
   String _formatWithCommas(int number) {
     RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
     return number.toString().replaceAllMapped(reg, (Match match) => '${match[1]},');
+  }
+
+  String _formatCompact(int number) {
+    if (number >= 1000000000) {
+      return '${(number / 1000000000).toStringAsFixed(1).replaceAll('.0', '')}B';
+    } else if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
+    } else if (number >= 10000) {
+      return '${(number / 1000).toStringAsFixed(1).replaceAll('.0', '')}K';
+    }
+    return number.toString();
   }
 }
