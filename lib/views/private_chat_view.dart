@@ -107,6 +107,8 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                 maxCourage: player.maxCourage,
                 health: player.health,
                 maxHealth: player.maxHealth,
+                prestige: player.prestige,
+                maxPrestige: player.maxPrestige,
                 playerName: player.playerName,
                 profilePicUrl: player.profilePicUrl, // 🟢 إرسال الصورة هنا
                 level: player.crimeLevel,

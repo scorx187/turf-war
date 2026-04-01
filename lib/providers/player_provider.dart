@@ -39,6 +39,7 @@ class PlayerProvider with ChangeNotifier {
   int _courage = 100;
   int _health = 100;
   int _maxHealth = 100;
+  int _prestige = 100;
 
   double _fractionalHealth = 0.0;
 
@@ -398,6 +399,8 @@ class PlayerProvider with ChangeNotifier {
   bool get isVIP => _vipUntil != null && DateTime.now().isBefore(_vipUntil!);
   int get maxCourage => isVIP ? 200 : 100;
   int get maxEnergy => isVIP ? 200 : 100;
+  int get prestige => _prestige;
+  int get maxPrestige => isVIP ? 200 : 100;
 
   List<Transaction> get transactions => _transactions;
   final StreamController<String> _notificationStream = StreamController<String>.broadcast();
@@ -465,6 +468,7 @@ class PlayerProvider with ChangeNotifier {
     _bankBalance = data['bankBalance'] ?? _bankBalance;
     _energy = data['energy'] ?? _energy;
     _courage = data['courage'] ?? _courage;
+    _prestige = data['prestige'] ?? 100;
     _health = data['health'] ?? _health;
     _maxHealth = data['maxHealth'] ?? _maxHealth;
     _happiness = data['happiness'] ?? _happiness;
@@ -531,6 +535,7 @@ class PlayerProvider with ChangeNotifier {
         'bankBalance': _bankBalance,
         'energy': _energy,
         'courage': _courage,
+        'prestige': _prestige,
         'health': _health,
         'maxHealth': _maxHealth,
         'happiness': _happiness,
@@ -596,6 +601,7 @@ class PlayerProvider with ChangeNotifier {
 
       if (_heat > 0) { _heat = max(0, _heat - 0.0278); localChanged = true; }
       if (timer.tick % 4 == 0 && _courage < maxCourage) { _courage++; localChanged = true; }
+      if (timer.tick % 6 == 0 && _prestige < maxPrestige) { _prestige++; localChanged = true; }
       if (timer.tick % 8 == 0 && _energy < maxEnergy) { _energy++; localChanged = true; }
 
       if (_health < maxHealth) {
@@ -854,7 +860,7 @@ class PlayerProvider with ChangeNotifier {
   void _startGoldMarketTimer() { _goldMarketTimer = Timer.periodic(const Duration(hours: 2), (timer) { _oldGoldPrice = _goldPrice; _goldPrice = 15000 + Random().nextInt(2001); notifyListeners(); }); }
   void payBail() { if (_cash >= _bailPrice) { _cash -= _bailPrice; _isInPrison = false; _prisonReleaseTime = null; _syncWithFirestore(); notifyListeners(); } }
 
-  Future<void> resetPlayerData() async { _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 100; _strength = 5; _defense = 5; _skill = 5; _speed = 5; _ownedProperties = []; _activePropertyId = null; _happiness = 0; _inventory = {'name_change_card': 1}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {}; crimeSuccessCounts = [0, 0, 0, 0, 0]; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null; _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; await _syncWithFirestore(); notifyListeners(); }
+  Future<void> resetPlayerData() async { _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 100; _prestige = 100; _strength = 5; _defense = 5; _skill = 5; _speed = 5; _ownedProperties = []; _activePropertyId = null; _happiness = 0; _inventory = {'name_change_card': 1}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {}; crimeSuccessCounts = [0, 0, 0, 0, 0]; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null; _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; await _syncWithFirestore(); notifyListeners(); }
 
   Future<List<Map<String, dynamic>>> fetchRealOpponents() async { try { int minLevel = max(1, _arenaLevel - 2); int maxLevel = _arenaLevel + 2; QuerySnapshot snapshot = await _firestore.collection('players').where('arenaLevel', isGreaterThanOrEqualTo: minLevel).where('arenaLevel', isLessThanOrEqualTo: maxLevel).limit(10).get(); List<Map<String, dynamic>> opponents = []; for (var doc in snapshot.docs) { if (doc.id != _uid) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; opponents.add(data); } } return opponents; } catch (e) { return []; } }
   Future<List<Map<String, dynamic>>> fetchLeaderboard() async { try { QuerySnapshot snapshot = await _firestore.collection('players').orderBy('arenaLevel', descending: true).limit(10).get(); List<Map<String, dynamic>> topPlayers = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; topPlayers.add(data); } return topPlayers; } catch (e) { return []; } }
