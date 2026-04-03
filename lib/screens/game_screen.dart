@@ -1,10 +1,12 @@
+// المسار: lib/screens/game_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/top_bar.dart';
-import '../widgets/bottom_navbar.dart'; // تم استدعاء النافبار الجديد هنا
+import '../widgets/bottom_navbar.dart';
 import '../views/lucky_wheel_view.dart';
 import '../views/crime_view.dart';
 import '../views/bank_view.dart';
@@ -26,6 +28,7 @@ import '../views/workshop_view.dart';
 import '../views/prison_view.dart';
 import '../views/player_profile_view.dart';
 import 'dart:async';
+import 'dart:math';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -84,10 +87,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   void _precacheImages() {
     final images = [
-      'assets/images/top_nav_bg.png', // التوب بار
-      'assets/images/ui/bottom_navbar_bg.png', // النافبار
-      'assets/images/city_map.jpg', // خريطة المدينة
-      'assets/images/ui/crime_bg.jpg', // خلفية الجرائم
+      'assets/images/top_nav_bg.png',
+      'assets/images/ui/bottom_navbar_bg.png',
+      'assets/images/city_map.jpg',
+      'assets/images/ui/crime_bg.jpg',
     ];
     for (var path in images) {
       precacheImage(AssetImage(path), context);
@@ -166,7 +169,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 prestige: player.prestige,
                 maxPrestige: player.maxPrestige,
                 playerName: player.playerName,
-                profilePicUrl: player.profilePicUrl, // 🟢 إرسال الصورة هنا
+                profilePicUrl: player.profilePicUrl,
                 level: player.crimeLevel,
                 currentXp: player.crimeXP,
                 maxXp: player.xpToNextLevel,
@@ -176,7 +179,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           ],
         ),
       ),
-      // هنا استخدمنا النافبار الجديد، مع إبقاء نافبار البروفايل الخاص في حال كان مختار الزعيم
       bottomNavigationBar: _selectedIndex == 5
           ? BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -225,15 +227,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           const BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
         ],
       )
-          : BottomNavBar( // النافبار الفخم حقنا
+          : BottomNavBar(
         selectedIndex: _selectedIndex,
         onItemTapped: (index) {
-          // منع الانتقال إذا كان مسجون أو بالمستشفى
           if (player.isInPrison || player.isHospitalized) return;
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
           setState(() {
             _selectedIndex = index;
-            _activeArea = 'الخريطة'; // إعادة الضبط للخريطة
+            _activeArea = 'الخريطة';
           });
         },
       ),
@@ -249,38 +250,41 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   Widget _buildMainContent(PlayerProvider player) {
     if (_selectedIndex == 0) return const InventoryView();
     if (_selectedIndex == 1) return ChatView();
+
+    // 🟢 استدعاء واجهة الجرائم الجديدة
     if (_selectedIndex == 3) {
       return CrimeView(
-        courage: player.courage, crimeSuccessCounts: player.crimeSuccessCounts,
-        onSuccess: (reward, index, energyUsed) {
-          final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
-          final List<String> crimeNames = ['سرقة محفظة', 'سطو على متجر', 'سرقة سيارة', 'سطو على فيلا', 'سطو على فيلا فخمة'];
-          player.addCash(reward, reason: "نجاح: ${crimeNames[index]}"); player.incrementCrimeSuccess(index, crimeNames[index]);
-          if (index == 2) {
-            player.addInventoryItem('stolen_car', 1);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حصلت على سيارة مسروقة! أرسلها للتشليح 🚗🔧'), backgroundColor: Colors.green));
+        courage: player.courage,
+        onSuccess: (reward, crimeId, energyUsed) {
+          final audio = Provider.of<AudioProvider>(context, listen: false);
+          audio.playEffect('click.mp3');
+          player.addCash(reward, reason: "نجاح مهمة إجرامية");
+
+          // إعطاء سيارة مسروقة بنسبة 30% إذا كانت الجريمة من فئة السيارات (الفئة 3 أو 6)
+          if (crimeId.startsWith('cat_3_') || crimeId.startsWith('cat_6_')) {
+            if(Random().nextDouble() < 0.3) {
+              player.addInventoryItem('stolen_car', 1);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حصلت على سيارة مسروقة! أرسلها للتشليح 🚗🔧', style: TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.green));
+            }
           }
-          int courageCost = index == 0 ? 5 : index == 1 ? 15 : index == 2 ? 30 : index == 3 ? 40 : 60;
-          player.setCourage(player.courage - courageCost);
-          if (energyUsed > 0) player.setEnergy(player.energy - energyUsed);
         },
         onFailure: () {
           final audio = Provider.of<AudioProvider>(context, listen: false);
           audio.playEffect('click.mp3');
-          player.handleCrimeFailure(2);
+          player.handleCrimeFailure(2); // سجن لمدة دقيقتين
         },
       );
     }
 
     if (_selectedIndex == 5) {
       return PlayerProfileView(
-        targetUid: player.uid!,
-        profileTabIndex: _profileTabIndex,
-        previewName: player.playerName,
-        previewPicUrl: player.profilePicUrl,
-        previewIsVIP: player.isVIP,
-        onBack: () => setState(() => _selectedIndex = 2)
-    );
+          targetUid: player.uid!,
+          profileTabIndex: _profileTabIndex,
+          previewName: player.playerName,
+          previewPicUrl: player.profilePicUrl,
+          previewIsVIP: player.isVIP,
+          onBack: () => setState(() => _selectedIndex = 2)
+      );
     }
 
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
@@ -340,7 +344,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     'assets/images/city_map.jpg',
                     fit: BoxFit.fill,
                     filterQuality: FilterQuality.high,
-                    gaplessPlayback: true, // 👇 ضفنا هذا السطر يمنع اختفاء الصورة وقت التحميل
+                    gaplessPlayback: true,
                   ),
                 ),
                 _buildMapHotspot('المطار', 3500, 2600, 300, 300, Colors.blue),

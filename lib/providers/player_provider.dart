@@ -1,10 +1,11 @@
+// المسار: lib/providers/player_provider.dart
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 
 class Transaction {
   final String title;
@@ -60,7 +61,6 @@ class PlayerProvider with ChangeNotifier {
 
   final List<String> _crimeToolsList = ['crowbar', 'slim_jim', 'jammer', 'lockpick', 'glass_cutter', 'laptop', 'thermite', 'stethoscope', 'hydraulic', 'emp_device'];
 
-  // البداية بـ 5 نقاط كما اتفقنا
   double _strength = 5.0;
   double _defense = 5.0;
   double _skill = 5.0;
@@ -117,55 +117,44 @@ class PlayerProvider with ChangeNotifier {
   int _gangWarWins = 0;
   Map<String, String> _territoryOwners = {};
 
-  List<int> crimeSuccessCounts = [0, 0, 0, 0, 0];
+  // 🟢 النظام الجديد للجرائم (يعتمد على Map)
+  Map<String, int> crimeSuccessCountsMap = {};
   List<Transaction> _transactions = [];
 
   final Map<String, Uint8List> _decodedImagesCache = {};
 
-  // ==========================================
-  // ⚔️ [قاعدة بيانات الأسلحة والنسب المئوية] ⚔️
-  // تم دمج الأسلحة القديمة مع النظام الجديد
-  // ==========================================
   final Map<String, Map<String, double>> weaponStats = {
-    // --- الأسلحة القديمة (بنسب مئوية معدلة) ---
-    'dagger': {'str': 0.15, 'spd': 0.25}, // خفيف (يعادل فضي تكتيكي)
-    'revolver': {'str': 0.40, 'spd': 0.40}, // متوازن (يعادل أخضر متوازن)
-    'katana': {'str': 0.90, 'spd': 0.60}, // هجومي (يعادل أزرق هجومي)
-    'shotgun': {'str': 1.90, 'spd': 0.60}, // مدمر (يعادل بنفسجي مدمر)
-    'sniper': {'str': 2.70, 'spd': 0.80}, // مدمر (يعادل ذهبي مدمر)
+    'dagger': {'str': 0.15, 'spd': 0.25},
+    'revolver': {'str': 0.40, 'spd': 0.40},
+    'katana': {'str': 0.90, 'spd': 0.60},
+    'shotgun': {'str': 1.90, 'spd': 0.60},
+    'sniper': {'str': 2.70, 'spd': 0.80},
 
-    // --- الأسلحة الجديدة (30 سلاح) ---
-    // 1. فضي (سقف 40%)
     'w_silver_heavy': {'str': 0.30, 'spd': 0.10},
     'w_silver_assault': {'str': 0.25, 'spd': 0.15},
     'w_silver_balanced': {'str': 0.20, 'spd': 0.20},
     'w_silver_tactical': {'str': 0.15, 'spd': 0.25},
     'w_silver_agile': {'str': 0.10, 'spd': 0.30},
-    // 2. أخضر (سقف 80%)
     'w_green_heavy': {'str': 0.60, 'spd': 0.20},
     'w_green_assault': {'str': 0.50, 'spd': 0.30},
     'w_green_balanced': {'str': 0.40, 'spd': 0.40},
     'w_green_tactical': {'str': 0.30, 'spd': 0.50},
     'w_green_agile': {'str': 0.20, 'spd': 0.60},
-    // 3. أزرق (سقف 150%)
     'w_blue_heavy': {'str': 1.10, 'spd': 0.40},
     'w_blue_assault': {'str': 0.90, 'spd': 0.60},
     'w_blue_balanced': {'str': 0.75, 'spd': 0.75},
     'w_blue_tactical': {'str': 0.60, 'spd': 0.90},
     'w_blue_agile': {'str': 0.40, 'spd': 1.10},
-    // 4. بنفسجي (سقف 250%)
     'w_purple_heavy': {'str': 1.90, 'spd': 0.60},
     'w_purple_assault': {'str': 1.50, 'spd': 1.00},
     'w_purple_balanced': {'str': 1.25, 'spd': 1.25},
     'w_purple_tactical': {'str': 1.00, 'spd': 1.50},
     'w_purple_agile': {'str': 0.60, 'spd': 1.90},
-    // 5. ذهبي (سقف 350%)
     'w_gold_heavy': {'str': 2.70, 'spd': 0.80},
     'w_gold_assault': {'str': 2.10, 'spd': 1.40},
     'w_gold_balanced': {'str': 1.75, 'spd': 1.75},
     'w_gold_tactical': {'str': 1.40, 'spd': 2.10},
     'w_gold_agile': {'str': 0.80, 'spd': 2.70},
-    // 6. أحمر (سقف 450%)
     'w_red_heavy': {'str': 3.60, 'spd': 0.90},
     'w_red_assault': {'str': 2.70, 'spd': 1.80},
     'w_red_balanced': {'str': 2.25, 'spd': 2.25},
@@ -173,50 +162,38 @@ class PlayerProvider with ChangeNotifier {
     'w_red_agile': {'str': 0.90, 'spd': 3.60},
   };
 
-  // ==========================================
-  // 🛡️ [قاعدة بيانات الدروع والنسب المئوية] 🛡️
-  // تم دمج الدروع القديمة مع النظام الجديد
-  // ==========================================
   final Map<String, Map<String, double>> armorStats = {
-    // --- الدروع القديمة (بنسب مئوية معدلة) ---
-    'riot_shield': {'def': 0.60, 'skl': 0.20}, // ثقيل (يعادل أخضر ثقيل)
-    'kevlar_vest': {'def': 0.75, 'skl': 0.75}, // متوازن (يعادل أزرق متوازن)
-    'ninja_suit': {'def': 0.60, 'skl': 1.90}, // رشيق (يعادل بنفسجي رشيق)
-    'steel_armor': {'def': 1.90, 'skl': 0.60}, // ثقيل (يعادل بنفسجي ثقيل)
-    'exoskeleton': {'def': 1.75, 'skl': 1.75}, // متوازن (يعادل ذهبي متوازن)
+    'riot_shield': {'def': 0.60, 'skl': 0.20},
+    'kevlar_vest': {'def': 0.75, 'skl': 0.75},
+    'ninja_suit': {'def': 0.60, 'skl': 1.90},
+    'steel_armor': {'def': 1.90, 'skl': 0.60},
+    'exoskeleton': {'def': 1.75, 'skl': 1.75},
 
-    // --- الدروع الجديدة (30 درع) ---
-    // 1. فضي (سقف 40%)
     'a_silver_heavy': {'def': 0.30, 'skl': 0.10},
     'a_silver_assault': {'def': 0.25, 'skl': 0.15},
     'a_silver_balanced': {'def': 0.20, 'skl': 0.20},
     'a_silver_tactical': {'def': 0.15, 'skl': 0.25},
     'a_silver_agile': {'def': 0.10, 'skl': 0.30},
-    // 2. أخضر (سقف 80%)
     'a_green_heavy': {'def': 0.60, 'skl': 0.20},
     'a_green_assault': {'def': 0.50, 'skl': 0.30},
     'a_green_balanced': {'def': 0.40, 'skl': 0.40},
     'a_green_tactical': {'def': 0.30, 'skl': 0.50},
     'a_green_agile': {'def': 0.20, 'skl': 0.60},
-    // 3. أزرق (سقف 150%)
     'a_blue_heavy': {'def': 1.10, 'skl': 0.40},
     'a_blue_assault': {'def': 0.90, 'skl': 0.60},
     'a_blue_balanced': {'def': 0.75, 'skl': 0.75},
     'a_blue_tactical': {'def': 0.60, 'skl': 0.90},
     'a_blue_agile': {'def': 0.40, 'skl': 1.10},
-    // 4. بنفسجي (سقف 250%)
     'a_purple_heavy': {'def': 1.90, 'skl': 0.60},
     'a_purple_assault': {'def': 1.50, 'skl': 1.00},
     'a_purple_balanced': {'def': 1.25, 'skl': 1.25},
     'a_purple_tactical': {'def': 1.00, 'skl': 1.50},
     'a_purple_agile': {'def': 0.60, 'skl': 1.90},
-    // 5. ذهبي (سقف 350%)
     'a_gold_heavy': {'def': 2.70, 'skl': 0.80},
     'a_gold_assault': {'def': 2.10, 'skl': 1.40},
     'a_gold_balanced': {'def': 1.75, 'skl': 1.75},
     'a_gold_tactical': {'def': 1.40, 'skl': 2.10},
     'a_gold_agile': {'def': 0.80, 'skl': 2.70},
-    // 6. أحمر (سقف 450%)
     'a_red_heavy': {'def': 3.60, 'skl': 0.90},
     'a_red_assault': {'def': 2.70, 'skl': 1.80},
     'a_red_balanced': {'def': 2.25, 'skl': 2.25},
@@ -224,7 +201,6 @@ class PlayerProvider with ChangeNotifier {
     'a_red_agile': {'def': 0.90, 'skl': 3.60},
   };
 
-  // --- دوال القوة الجديدة تعتمد فقط على النسبة المئوية ---
   double get strength {
     double multiplier = 0.0;
     if (_equippedWeaponId != null && weaponStats.containsKey(_equippedWeaponId)) {
@@ -500,7 +476,6 @@ class PlayerProvider with ChangeNotifier {
     _gangContribution = data['gangContribution'] ?? 0;
     _gangWarWins = data['gangWarWins'] ?? 0;
     if (data['territoryOwners'] != null) _territoryOwners = Map<String, String>.from(data['territoryOwners']);
-    if (data['crimeSuccessCounts'] != null) crimeSuccessCounts = List<int>.from(data['crimeSuccessCounts']);
     if (data['contractEndTime'] != null) _contractEndTime = DateTime.parse(data['contractEndTime']);
     _activeContractName = data['activeContractName'];
     _contractSalary = data['contractSalary'] ?? 0;
@@ -519,6 +494,16 @@ class PlayerProvider with ChangeNotifier {
     _equippedCrimeToolId = data['equippedCrimeToolId'];
     if (data['durability'] != null) _durability = Map<String, double>.from(data['durability'].map((k, v) => MapEntry(k, v.toDouble())));
     if (data['transactions'] != null) _transactions = (data['transactions'] as List).map((t) => Transaction.fromJson(Map<String, dynamic>.from(t))).toList();
+
+    // 🟢 نقل وحفظ البيانات لنظام الجرائم الجديد
+    if (data['crimeSuccessCountsMap'] != null) {
+      crimeSuccessCountsMap = Map<String, int>.from(data['crimeSuccessCountsMap']);
+    } else if (data['crimeSuccessCounts'] != null) {
+      List<int> oldList = List<int>.from(data['crimeSuccessCounts']);
+      for(int i=0; i<oldList.length; i++) {
+        crimeSuccessCountsMap['cat_0_crime_$i'] = oldList[i];
+      }
+    }
   }
 
   Future<void> _syncWithFirestore() async {
@@ -567,7 +552,7 @@ class PlayerProvider with ChangeNotifier {
         'gangContribution': _gangContribution,
         'gangWarWins': _gangWarWins,
         'territoryOwners': _territoryOwners,
-        'crimeSuccessCounts': crimeSuccessCounts,
+        'crimeSuccessCountsMap': crimeSuccessCountsMap, // 🟢 الحفظ هنا
         'contractEndTime': _contractEndTime?.toIso8601String(),
         'activeContractName': _activeContractName,
         'contractSalary': _contractSalary,
@@ -692,7 +677,13 @@ class PlayerProvider with ChangeNotifier {
   }
 
   void addWorkXP(int amount) { _workXP += amount; if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; _showNotification("تمت ترقيتك للمستوى $_workLevel"); } _syncWithFirestore(); notifyListeners(); }
-  void incrementCrimeSuccess(int index, String crimeName) { if (index < crimeSuccessCounts.length) { crimeSuccessCounts[index]++; _syncWithFirestore(); notifyListeners(); } }
+
+  // 🟢 دالة زيادة الجرائم المحدثة لتعمل مع الـ ID
+  void incrementCrimeSuccess(String crimeId) {
+    crimeSuccessCountsMap[crimeId] = (crimeSuccessCountsMap[crimeId] ?? 0) + 1;
+    _syncWithFirestore();
+    notifyListeners();
+  }
 
   void handleCrimeFailure(int minutes) { double escapeChance = 0.0; if (_equippedMaskId == 'black_mask') escapeChance = 0.35; else if (_equippedMaskId == 'silicon_mask') escapeChance = 0.55; if (Random().nextDouble() < escapeChance) { _showNotification("🎭 هربت بفضل القناع!"); } else { _showNotification("⚠️ تم القبض عليك!"); startPrisonTimer(minutes); } }
 
@@ -707,8 +698,6 @@ class PlayerProvider with ChangeNotifier {
   void startLockedInvestment(int amount, int minutes, double rate) { if (_cash >= amount) { _cash -= amount; _lockedBalance = amount; _lockedProfits = (amount * rate).floor(); _lockedUntil = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); } }
   void startWorkContract(String name, int durationMinutes, int salaryPerMinute) { if (isUnderContract) return; _activeContractName = name; _contractSalary = salaryPerMinute; _lastContractRewardTime = DateTime.now(); _contractEndTime = DateTime.now().add(Duration(minutes: durationMinutes)); _syncWithFirestore(); notifyListeners(); }
 
-// --- 🏋️ دوال النادي (Gym) المرنة ---
-
   double get maxGymStats {
     return 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0); // سقف موزون للبدايات
   }
@@ -717,7 +706,6 @@ class PlayerProvider with ChangeNotifier {
     return _strength + _defense + _skill + _speed;
   }
 
-  // التدريب الشامل (يسحب التقسيمة من الشاشة وينفذها بضغطة)
   void trainMultipleStats(int strE, int defE, int skillE, int spdE) {
     int totalEnergy = strE + defE + skillE + spdE;
     if (_energy < totalEnergy || totalEnergy <= 0) return;
@@ -737,7 +725,6 @@ class PlayerProvider with ChangeNotifier {
     double totalGain = strGain + defGain + skillGain + spdGain;
     double availableRoom = maxGymStats - currentBaseStats;
 
-    // إذا كانت الزيادة تتخطى السقف، نقللها بنسبة وتناسب
     if (totalGain > availableRoom) {
       double scale = availableRoom / totalGain;
       strGain *= scale;
@@ -752,9 +739,7 @@ class PlayerProvider with ChangeNotifier {
     _skill += skillGain;
     _speed += spdGain;
 
-    // 🛡️ زيادة الصحة القصوى العشوائية عند تمرين الدفاع
     if (defGain > 0) {
-      // عشوائية: كل نقطة دفاع تعطي بين 8 إلى 15 صحة
       double randomMultiplier = 8.0 + Random().nextDouble() * 7.0;
       int hpBoost = (defGain * randomMultiplier).toInt();
       if (hpBoost > 0) {
@@ -803,7 +788,6 @@ class PlayerProvider with ChangeNotifier {
 
   void buyItem(String itemId, int price, {bool isConsumable = false, String currency = 'cash'}) { bool canBuy = currency == 'cash' ? _cash >= price : _gold >= price; if (canBuy) { if (currency == 'cash') _cash -= price; else _gold -= price; _inventory[itemId] = (_inventory[itemId] ?? 0) + 1; _syncWithFirestore(); notifyListeners(); } }
 
-  // --- 🎒 إصلاح ثغرة المستهلكات والذهب ---
   void useItem(String itemId) {
     if ((_inventory[itemId] ?? 0) > 0) {
       if (_crimeToolsList.contains(itemId)) {
@@ -815,7 +799,6 @@ class PlayerProvider with ChangeNotifier {
       } else if (['black_mask', 'silicon_mask'].contains(itemId)) {
         _equippedMaskId = (_equippedMaskId == itemId) ? null : itemId;
       } else {
-        // قسم المستهلكات (ينقص بعد الاستخدام مباشرة)
         bool isConsumed = false;
 
         if (itemId == 'medkit') { _health = maxHealth; isConsumed = true; }
@@ -835,14 +818,12 @@ class PlayerProvider with ChangeNotifier {
           }
         }
 
-        // إخراج اللاعب من المستشفى إذا استخدم علاج
         if (['medkit', 'bandage'].contains(itemId) && _isHospitalized) {
           _isHospitalized = false;
           _hospitalReleaseTime = null;
           _showNotification("🏥 تعافيت وخرجت من المستشفى!");
         }
 
-        // الخصم من المخزن
         if (isConsumed) {
           _inventory[itemId] = _inventory[itemId]! - 1;
           if (_inventory[itemId] == 0) _inventory.remove(itemId);
@@ -860,7 +841,7 @@ class PlayerProvider with ChangeNotifier {
   void _startGoldMarketTimer() { _goldMarketTimer = Timer.periodic(const Duration(hours: 2), (timer) { _oldGoldPrice = _goldPrice; _goldPrice = 15000 + Random().nextInt(2001); notifyListeners(); }); }
   void payBail() { if (_cash >= _bailPrice) { _cash -= _bailPrice; _isInPrison = false; _prisonReleaseTime = null; _syncWithFirestore(); notifyListeners(); } }
 
-  Future<void> resetPlayerData() async { _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 100; _prestige = 100; _strength = 5; _defense = 5; _skill = 5; _speed = 5; _ownedProperties = []; _activePropertyId = null; _happiness = 0; _inventory = {'name_change_card': 1}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {}; crimeSuccessCounts = [0, 0, 0, 0, 0]; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null; _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; await _syncWithFirestore(); notifyListeners(); }
+  Future<void> resetPlayerData() async { _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 100; _prestige = 100; _strength = 5; _defense = 5; _skill = 5; _speed = 5; _ownedProperties = []; _activePropertyId = null; _happiness = 0; _inventory = {'name_change_card': 1}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {}; crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null; _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; await _syncWithFirestore(); notifyListeners(); }
 
   Future<List<Map<String, dynamic>>> fetchRealOpponents() async { try { int minLevel = max(1, _arenaLevel - 2); int maxLevel = _arenaLevel + 2; QuerySnapshot snapshot = await _firestore.collection('players').where('arenaLevel', isGreaterThanOrEqualTo: minLevel).where('arenaLevel', isLessThanOrEqualTo: maxLevel).limit(10).get(); List<Map<String, dynamic>> opponents = []; for (var doc in snapshot.docs) { if (doc.id != _uid) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; opponents.add(data); } } return opponents; } catch (e) { return []; } }
   Future<List<Map<String, dynamic>>> fetchLeaderboard() async { try { QuerySnapshot snapshot = await _firestore.collection('players').orderBy('arenaLevel', descending: true).limit(10).get(); List<Map<String, dynamic>> topPlayers = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; topPlayers.add(data); } return topPlayers; } catch (e) { return []; } }

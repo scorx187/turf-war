@@ -1,3 +1,3 @@
 # turf_war
 
-A new Flutter project.
+A strategy/Management RPG Game

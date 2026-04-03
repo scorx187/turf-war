@@ -1,119 +1,69 @@
+// المسار: lib/views/crime_view.dart
+
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 import '../widgets/quick_recovery_dialog.dart';
+import '../utils/crime_data.dart';
 
-class CrimeView extends StatelessWidget {
+class CrimeView extends StatefulWidget {
   final int courage;
-  final List<dynamic> crimeSuccessCounts; // خليتها dynamic عشان تتوافق مع بيانات الفايربيس
-  final Function(int reward, int index, int energyUsed) onSuccess;
+  final Function(int reward, String crimeId, int energyUsed) onSuccess;
   final VoidCallback onFailure;
-
-  static final Random _random = Random();
 
   const CrimeView({
     super.key,
     required this.courage,
-    required this.crimeSuccessCounts,
     required this.onSuccess,
     required this.onFailure,
   });
 
   @override
+  State<CrimeView> createState() => _CrimeViewState();
+}
+
+class _CrimeViewState extends State<CrimeView> {
+  static final Random _random = Random();
+
+  // المتغير الذي يحدد ما إذا كنا في قائمة الفئات أم داخل فئة محددة
+  int? _selectedCategoryIndex;
+
+  @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // قائمة الجرائم بمنطقك البرمجي الكامل (تبقى مثل ما هي فوق في الكود عندك)
-    final List<Map<String, dynamic>> crimes = [
-      {'name': 'سرقة محفظة', 'courage': 5, 'energy': 0, 'minCash': 50, 'maxCash': 100, 'failChance': 0.1, 'xp': 10, 'icon': Icons.account_balance_wallet, 'color': const Color(0xFFC5A059), 'heat': 2.0},
-      {'name': 'سطو على متجر', 'courage': 15, 'energy': 0, 'minCash': 300, 'maxCash': 500, 'failChance': 0.25, 'xp': 25, 'icon': Icons.store, 'color': Colors.blueAccent, 'heat': 5.0},
-      {'name': 'سرقة سيارة', 'courage': 30, 'energy': 10, 'minCash': 1000, 'maxCash': 2000, 'failChance': 0.45, 'xp': 60, 'icon': Icons.directions_car, 'color': Colors.orangeAccent, 'requireItem': 'black_mask', 'itemName': 'قناع أسود', 'heat': 10.0},
-      {'name': 'سطو على فيلا', 'courage': 45, 'energy': 20, 'minCash': 4000, 'maxCash': 7500, 'failChance': 0.6, 'xp': 120, 'icon': Icons.home, 'color': Colors.purpleAccent, 'requireItem': 'master_key', 'itemName': 'المفتاح الرئيسي', 'heat': 15.0},
-      {'name': 'سطو على البنك', 'courage': 70, 'energy': 40, 'minCash': 18000, 'maxCash': 40000, 'failChance': 0.8, 'xp': 350, 'icon': Icons.account_balance, 'color': Colors.redAccent, 'requireCar': true, 'requireItem': 'silicon_mask', 'itemName': 'قناع سيليكون وسيارة', 'heat': 25.0},
-    ];
-
     return Stack(
       children: [
-        // 1. الخلفية الثابتة والواضحة (بدل الـ BoxDecoration البطيء)
         Positioned.fill(
           child: Image.asset(
             'assets/images/ui/crime_bg.jpg',
             fit: BoxFit.cover,
-            gaplessPlayback: true, // يمنع الرمشة
-            color: Colors.black45, // تعتيم خفيف جداً يخلي الصورة واضحة بقوة
+            gaplessPlayback: true,
+            color: Colors.black.withOpacity(0.7),
             colorBlendMode: BlendMode.darken,
           ),
         ),
-
-        // 2. المحتوى فوق الخلفية
         Column(
           children: [
-            // عداد الملاحقة (Heat)
             _buildHeatMeter(player.heat),
 
-            // العنوان الفخم
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-              margin: const EdgeInsets.only(bottom: 10),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                border: const Border(
-                  top: BorderSide(color: Color(0xFF856024), width: 1),
-                  bottom: BorderSide(color: Color(0xFF856024), width: 1),
-                ),
-              ),
-              child: const Column(
-                children: [
-                  Text('السجل الإجرامي 🎭', style: TextStyle(fontFamily: 'Changa', color: Color(0xFFE2C275), fontSize: 22, fontWeight: FontWeight.bold)),
-                  Text('احترافك للجرائم يزيد من أرباحك ويقلل المخاطر', style: TextStyle(fontFamily: 'Changa', color: Colors.white54, fontSize: 12)),
-                ],
-              ),
-            ),
-
-            // قائمة المهام
+            // إضافة حركة ناعمة عند التبديل بين القوائم
             Expanded(
-              child: ListView.builder(
-                itemCount: crimes.length,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemBuilder: (context, index) {
-                  final crime = crimes[index];
-                  int successCount = index < crimeSuccessCounts.length ? (crimeSuccessCounts[index] as num).toInt() : 0;
-
-                  int stars = successCount >= 50 ? 3 : successCount >= 25 ? 2 : successCount >= 10 ? 1 : 0;
-                  double progress = stars == 3 ? 1.0 : (stars == 2 ? (successCount - 25) / 25 : stars == 1 ? (successCount - 10) / 15 : successCount / 10);
-
-                  bool isSequenceUnlocked = index == 0 || (index > 0 && crimeSuccessCounts[index - 1] >= 10);
-                  bool hasItem = crime.containsKey('requireItem') ? player.inventory.containsKey(crime['requireItem']) : true;
-                  bool hasCar = crime.containsKey('requireCar') ? player.activeCarId != null : true;
-                  bool isUnlocked = isSequenceUnlocked && hasItem && hasCar;
-
-                  double heatPenalty = (player.heat / 100) * 0.3;
-                  double finalFailChance = (crime['failChance'] as double) + heatPenalty - (stars * 0.05);
-
-                  if (player.equippedMaskId != null) finalFailChance -= 0.1;
-
-                  if (player.equippedCrimeToolId != null) {
-                    double toolDurability = player.getItemDurability(player.equippedCrimeToolId!);
-                    double toolBonus = 0.0;
-
-                    if (player.equippedCrimeToolId == 'emp_device') toolBonus = 0.30;
-                    else if (player.equippedCrimeToolId == 'thermite' && crime['name'] == 'سطو على البنك') toolBonus = 0.25;
-                    else if (player.equippedCrimeToolId == 'slim_jim' && crime['name'] == 'سرقة سيارة') toolBonus = 0.15;
-                    else if (player.equippedCrimeToolId == 'lockpick' && crime['name'] == 'سطو على فيلا') toolBonus = 0.15;
-                    else toolBonus = 0.10;
-
-                    if (toolDurability >= 10) {
-                      finalFailChance -= toolBonus;
-                    } else {
-                      finalFailChance -= (toolBonus / 2);
-                    }
-                  }
-
-                  finalFailChance = finalFailChance.clamp(0.02, 0.98);
-
-                  return _buildGoldCrimeCard(context, player, index, crime, isUnlocked, stars, progress, finalFailChance, hasItem, hasCar);
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(begin: const Offset(0.05, 0), end: Offset.zero).animate(animation),
+                      child: child,
+                    ),
+                  );
                 },
+                child: _selectedCategoryIndex == null
+                    ? _buildCategoriesList(player)
+                    : _buildCrimesList(player, _selectedCategoryIndex!),
               ),
             )
           ],
@@ -122,166 +72,202 @@ class CrimeView extends StatelessWidget {
     );
   }
 
-  // 2. تزيين عداد الملاحقة بستايل المافيا
-  Widget _buildHeatMeter(double heatValue) {
-    Color heatColor = heatValue > 70 ? Colors.redAccent : heatValue > 40 ? Colors.orangeAccent : const Color(0xFFE2C275);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: heatColor.withOpacity(0.5), width: 1.5),
-        boxShadow: [
-          BoxShadow(color: heatColor.withOpacity(0.1), blurRadius: 10, spreadRadius: 1),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: [
-                Icon(Icons.local_police, color: heatColor, size: 20),
-                const SizedBox(width: 8),
-                const Text('مستوى ملاحقة الشرطة', style: TextStyle(fontFamily: 'Changa', color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))
-              ]),
-              Text('${heatValue.toInt()}%', style: TextStyle(fontFamily: 'Changa', color: heatColor, fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-                value: heatValue / 100,
-                backgroundColor: Colors.grey[900],
-                valueColor: AlwaysStoppedAnimation<Color>(heatColor),
-                minHeight: 8
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // --- الشاشة الأولى: قائمة الفئات الرئيسية ---
+  Widget _buildCategoriesList(PlayerProvider player) {
+    return Column(
+      key: const ValueKey('CategoriesList'),
+      children: [
+        _buildHeader('العالم السفلي 🎭', 'اختر فئة إجرامية للبدء بعملياتك', null),
+        Expanded(
+          child: ListView.builder(
+            itemCount: CrimeData.categories.length,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            itemBuilder: (context, catIndex) {
+              final category = CrimeData.categories[catIndex];
 
-  // 3. تصميم بطاقة الجريمة كأنها "ملف سري" ذهبي
-  Widget _buildGoldCrimeCard(BuildContext context, PlayerProvider player, int index, Map<String, dynamic> crime, bool isUnlocked, int stars, double progress, double failChance, bool hasItem, bool hasCar) {
-    Color mainColor = isUnlocked ? crime['color'] : Colors.grey[800]!;
+              bool isCategoryUnlocked = true;
+              if (catIndex > 0) {
+                String prevCatLastCrimeId = 'cat_${catIndex - 1}_crime_19';
+                int prevCatLastCrimeCount = player.crimeSuccessCountsMap[prevCatLastCrimeId] ?? 0;
+                isCategoryUnlocked = prevCatLastCrimeCount >= 10;
+              }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isUnlocked ? mainColor.withOpacity(0.6) : Colors.white10, width: 1.5),
-        boxShadow: isUnlocked ? [BoxShadow(color: mainColor.withOpacity(0.15), blurRadius: 8)] : [],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(15),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _handleCrimeClick(context, player, index, crime, isUnlocked, hasItem, hasCar, failChance),
-            highlightColor: mainColor.withOpacity(0.2),
-            splashColor: mainColor.withOpacity(0.3),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      // الأيقونة مع دائرة التقدم
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          SizedBox(width: 55, height: 55, child: CircularProgressIndicator(value: progress, color: mainColor, backgroundColor: Colors.white10, strokeWidth: 3.5)),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(shape: BoxShape.circle, color: mainColor.withOpacity(0.1)),
-                            child: Icon(crime['icon'], color: isUnlocked ? Colors.white : Colors.white24, size: 24),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 15),
-                      // اسم الجريمة والنجوم
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(crime['name'], style: TextStyle(fontFamily: 'Changa', color: isUnlocked ? Colors.white : Colors.white24, fontSize: 18, fontWeight: FontWeight.bold)),
-                            Row(children: List.generate(3, (i) => Icon(Icons.star, size: 16, color: i < stars ? const Color(0xFFE2C275) : Colors.white10))),
-                          ],
-                        ),
-                      ),
-                      // الكاش المتوقع
-                      if (isUnlocked)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('\$${crime['minCash']} - \$${crime['maxCash']}', style: const TextStyle(fontFamily: 'Changa', color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 14)),
-                            const Text('كاش متوقع', style: TextStyle(fontFamily: 'Changa', color: Colors.white54, fontSize: 10)),
-                          ],
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  // تفاصيل وتكاليف الجريمة
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)),
+              return Card(
+                color: Colors.black87,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  side: BorderSide(color: isCategoryUnlocked ? category['color'].withOpacity(0.5) : Colors.white10, width: 1.5),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(15),
+                  onTap: () {
+                    if (!isCategoryUnlocked) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🔒 يجب إنهاء الفئة السابقة بالكامل لفتح هذه الفئة!', style: TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
+                      return;
+                    }
+                    setState(() {
+                      _selectedCategoryIndex = catIndex; // الدخول للفئة
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildSmallInfo(Icons.shield, '${crime['courage']}', Colors.orangeAccent),
-                        if (crime['energy'] > 0) _buildSmallInfo(Icons.bolt, '${crime['energy']}', Colors.yellowAccent),
-                        _buildSmallInfo(Icons.dangerous, '${(failChance * 100).toInt()}% خطر', failChance > 0.5 ? Colors.redAccent : Colors.greenAccent),
-                        if (!isUnlocked)
-                          Expanded(
-                            child: Text(
-                              _getLockReason(index, hasItem, hasCar, crime['itemName'] ?? ''),
-                              style: const TextStyle(fontFamily: 'Changa', color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.left,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: isCategoryUnlocked ? category['color'].withOpacity(0.2) : Colors.white10),
+                          child: Icon(category['icon'], color: isCategoryUnlocked ? category['color'] : Colors.white30, size: 28),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(category['name'], style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.white : Colors.white30, fontWeight: FontWeight.bold, fontSize: 18)),
+                              Text(isCategoryUnlocked ? '20 مهمة متاحة للعب' : 'مغلق 🔒', style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.greenAccent : Colors.redAccent, fontSize: 12)),
+                            ],
                           ),
+                        ),
+                        Icon(Icons.arrow_forward_ios, color: isCategoryUnlocked ? Colors.white54 : Colors.transparent, size: 18),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ),
+      ],
+    );
+  }
+
+  // --- الشاشة الثانية: قائمة الجرائم داخل الفئة ---
+  Widget _buildCrimesList(PlayerProvider player, int catIndex) {
+    final category = CrimeData.categories[catIndex];
+    List<Map<String, dynamic>> crimes = CrimeData.getCrimesForCategory(catIndex);
+    Color mainColor = category['color'];
+
+    return Column(
+      key: const ValueKey('CrimesList'),
+      children: [
+        _buildHeader(category['name'], 'أكمل الجريمة 10 مرات لتفتح التي تليها', () {
+          setState(() {
+            _selectedCategoryIndex = null; // زر الرجوع للقائمة الرئيسية
+          });
+        }),
+        Expanded(
+          child: ListView.builder(
+            itemCount: crimes.length,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            itemBuilder: (context, crimeIndex) {
+              Map<String, dynamic> crime = crimes[crimeIndex];
+              String crimeId = crime['id'];
+
+              int successCount = player.crimeSuccessCountsMap[crimeId] ?? 0;
+              int stars = successCount >= 50 ? 3 : successCount >= 25 ? 2 : successCount >= 10 ? 1 : 0;
+
+              bool isCrimeUnlocked = true;
+              if (crimeIndex > 0) {
+                String prevCrimeId = crimes[crimeIndex - 1]['id'];
+                isCrimeUnlocked = (player.crimeSuccessCountsMap[prevCrimeId] ?? 0) >= 10;
+              }
+
+              double heatPenalty = (player.heat / 100) * 0.3;
+              double finalFailChance = (crime['failChance'] as double) + heatPenalty - (stars * 0.05);
+              if (player.equippedMaskId != null) finalFailChance -= 0.1;
+
+              if (player.equippedCrimeToolId != null) {
+                double toolDurability = player.getItemDurability(player.equippedCrimeToolId!);
+                double toolBonus = 0.0;
+                if (player.equippedCrimeToolId == 'emp_device') toolBonus = 0.30;
+                else if (player.equippedCrimeToolId == 'thermite' && catIndex >= 14) toolBonus = 0.25;
+                else if (player.equippedCrimeToolId == 'slim_jim' && (catIndex == 3 || catIndex == 6)) toolBonus = 0.15;
+                else if (player.equippedCrimeToolId == 'lockpick' && catIndex == 4) toolBonus = 0.15;
+                else toolBonus = 0.10;
+
+                if (toolDurability >= 10) finalFailChance -= toolBonus;
+                else finalFailChance -= (toolBonus / 2);
+              }
+
+              finalFailChance = finalFailChance.clamp(0.02, 0.98);
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: isCrimeUnlocked ? mainColor.withOpacity(0.5) : Colors.white10),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  enabled: isCrimeUnlocked,
+                  onTap: () => _handleCrimeClick(context, player, crime, isCrimeUnlocked, finalFailChance),
+                  leading: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: stars == 3 ? 1.0 : (stars == 2 ? (successCount - 25) / 25 : stars == 1 ? (successCount - 10) / 15 : successCount / 10),
+                        color: mainColor, backgroundColor: Colors.white10,
+                      ),
+                      Icon(category['icon'], color: isCrimeUnlocked ? Colors.white : Colors.white24, size: 20),
+                    ],
+                  ),
+                  title: Text(crime['name'], style: TextStyle(fontFamily: 'Changa', color: isCrimeUnlocked ? Colors.white : Colors.white30, fontSize: 16, fontWeight: FontWeight.bold)),
+                  subtitle: isCrimeUnlocked
+                      ? Row(children: List.generate(3, (i) => Icon(Icons.star, size: 16, color: i < stars ? const Color(0xFFE2C275) : Colors.white10)))
+                      : const Text('أنجز الجريمة السابقة 10 مرات 🔒', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontFamily: 'Changa')),
+                  trailing: isCrimeUnlocked ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('\$${crime['minCash']} - \$${crime['maxCash']}', style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text('طاقة: ${crime['energy']} | شجاعة: ${crime['courage']}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                    ],
+                  ) : const Icon(Icons.lock, color: Colors.white24),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- هيدر مخصص يدعم زر الرجوع ---
+  Widget _buildHeader(String title, String subtitle, VoidCallback? onBack) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+      decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), border: const Border.symmetric(horizontal: BorderSide(color: Color(0xFF856024)))),
+      child: Row(
+        children: [
+          if (onBack != null)
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+              onPressed: onBack,
+            )
+          else
+            const SizedBox(width: 48), // مسافة للحفاظ على التوسيط
+
+          Expanded(
+            child: Column(
+              children: [
+                Text(title, style: const TextStyle(fontFamily: 'Changa', color: Color(0xFFE2C275), fontSize: 22, fontWeight: FontWeight.bold)),
+                Text(subtitle, style: const TextStyle(fontFamily: 'Changa', color: Colors.white54, fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 48),
+        ],
       ),
     );
   }
 
-  Widget _buildSmallInfo(IconData icon, String text, Color color) {
-    return Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 4),
-          Text(text, style: const TextStyle(fontFamily: 'Changa', color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold))
-        ]
-    );
-  }
+  void _handleCrimeClick(BuildContext context, PlayerProvider player, Map<String, dynamic> crime, bool isUnlocked, double finalFailChance) {
+    if (!isUnlocked) return;
 
-  String _getLockReason(int index, bool hasItem, bool hasCar, String itemName) {
-    if (index > 0 && crimeSuccessCounts[index - 1] < 10) return 'أكمل السابقة 10 مرات';
-    if (!hasItem) return 'مطلوب: $itemName';
-    if (!hasCar) return 'مطلوب سيارة';
-    return 'مغلق';
-  }
-
-  // --- التفاعل والمنطق الخلفي (لم يتم تغييره) ---
-  void _handleCrimeClick(BuildContext context, PlayerProvider player, int index, Map<String, dynamic> crime, bool isUnlocked, bool hasItem, bool hasCar, double finalFailChance) {
-    if (!isUnlocked) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أكمل المتطلبات أولاً! 🔒', style: TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
-      return;
-    }
-
-    int reqCourage = crime['courage'] as int;
-    int reqEnergy = crime['energy'] as int;
+    int reqCourage = crime['courage'];
+    int reqEnergy = crime['energy'];
 
     if (player.courage < reqCourage) {
       QuickRecoveryDialog.show(context, 'courage', reqCourage - player.courage);
@@ -296,15 +282,14 @@ class CrimeView extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ أداة الجريمة معطلة! كفاءتها انخفضت للنصف وتحتاج إصلاح.', style: TextStyle(fontFamily: 'Changa'))));
     }
 
-    double crimeHeat = crime['heat'] as double;
+    player.setCourage(player.courage - reqCourage);
+    if (reqEnergy > 0) player.setEnergy(player.energy - reqEnergy);
 
     if (_random.nextDouble() < finalFailChance) {
-      player.increaseHeat(crimeHeat * 1.5);
-      player.setCourage(player.courage - reqCourage);
-      if (reqEnergy > 0) player.setEnergy(player.energy - reqEnergy);
-      onFailure();
+      player.increaseHeat(crime['heat'] * 1.5);
+      widget.onFailure();
     } else {
-      player.increaseHeat(crimeHeat);
+      player.increaseHeat(crime['heat']);
 
       if (player.equippedCrimeToolId != null) {
         double durabilityLoss = 5.0;
@@ -323,12 +308,12 @@ class CrimeView extends StatelessWidget {
         player.reduceDurability(player.equippedCrimeToolId, durabilityLoss);
       }
 
-      int reward = (crime['minCash'] as int) + _random.nextInt((crime['maxCash'] as int) - (crime['minCash'] as int) + 1);
-
+      int reward = crime['minCash'] + _random.nextInt((crime['maxCash'] - crime['minCash']) + 1);
       _checkRandomEvent(context, player);
 
-      player.addCrimeXP(crime['xp'] as int);
-      onSuccess(reward, index, reqEnergy);
+      player.addCrimeXP(crime['xp']);
+      player.incrementCrimeSuccess(crime['id']);
+      widget.onSuccess(reward, crime['id'], reqEnergy);
     }
   }
 
@@ -354,5 +339,38 @@ class CrimeView extends StatelessWidget {
 
   void _showEventSnackBar(BuildContext context, String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: color, behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 2)));
+  }
+
+  Widget _buildHeatMeter(double heatValue) {
+    Color heatColor = heatValue > 70 ? Colors.redAccent : heatValue > 40 ? Colors.orangeAccent : const Color(0xFFE2C275);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: heatColor.withOpacity(0.5), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(children: [
+                Icon(Icons.local_police, color: heatColor, size: 20),
+                const SizedBox(width: 8),
+                const Text('مستوى ملاحقة الشرطة', style: TextStyle(fontFamily: 'Changa', color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))
+              ]),
+              Text('${heatValue.toInt()}%', style: TextStyle(fontFamily: 'Changa', color: heatColor, fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(value: heatValue / 100, backgroundColor: Colors.grey[900], valueColor: AlwaysStoppedAnimation<Color>(heatColor), minHeight: 8),
+          ),
+        ],
+      ),
+    );
   }
 }
