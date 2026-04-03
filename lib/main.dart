@@ -20,9 +20,13 @@ class GameColors {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 1. تثبيت اتجاه الشاشة على الوضع العمودي
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
+
+  // 2. 🟢 تفعيل وضع ملء الشاشة (إخفاء شريط الإشعارات والبطارية وأزرار التنقل)
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(
     MultiProvider(

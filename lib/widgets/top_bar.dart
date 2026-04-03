@@ -11,7 +11,7 @@ class TopBar extends StatelessWidget {
   final int health;
   final int maxHealth;
   final int prestige;
-  final int maxPrestige; // 🟢 أضفنا الحد الأقصى للشهامة
+  final int maxPrestige;
   final String playerName;
   final String? profilePicUrl;
   final int level;
@@ -29,8 +29,8 @@ class TopBar extends StatelessWidget {
     required this.maxCourage,
     required this.health,
     required this.maxHealth,
-    required this.prestige,     // 🟢 صار إجباري
-    required this.maxPrestige,  // 🟢 صار إجباري
+    required this.prestige,
+    required this.maxPrestige,
     required this.playerName,
     this.profilePicUrl,
     required this.level,
@@ -46,7 +46,7 @@ class TopBar extends StatelessWidget {
     double hpProgress = (maxHealth > 0 && !health.isNaN) ? (health / maxHealth).clamp(0.0, 1.0) : 0.0;
     double enProgress = (maxEnergy > 0 && !energy.isNaN) ? (energy / maxEnergy).clamp(0.0, 1.0) : 0.0;
     double crProgress = (maxCourage > 0 && !courage.isNaN) ? (courage / maxCourage).clamp(0.0, 1.0) : 0.0;
-    double prProgress = (maxPrestige > 0 && !prestige.isNaN) ? (prestige / maxPrestige).clamp(0.0, 1.0) : 0.0; // 🟢 حساب نسبة الشهامة
+    double prProgress = (maxPrestige > 0 && !prestige.isNaN) ? (prestige / maxPrestige).clamp(0.0, 1.0) : 0.0;
 
     String displayName = playerName.length > 13 ? '${playerName.substring(0, 13)}..' : playerName;
 
@@ -164,17 +164,16 @@ class TopBar extends StatelessWidget {
             ),
             const SizedBox(height: 4),
 
-            // --- الصف الثاني: الموارد ---
+            // --- الصف الثاني: الموارد (تم تكبير الأيقونات) ---
             Row(
               children: [
-                Expanded(child: _buildResourceChip('assets/images/icons/health.png', '${_formatCompact(health)}/${_formatCompact(maxHealth)}', progress: hpProgress, barColor: Colors.redAccent)),
+                Expanded(child: _buildResourceChip('الصحة', 'assets/images/icons/health.png', '${_formatCompact(health)}/${_formatCompact(maxHealth)}', progress: hpProgress, barColor: Colors.redAccent)),
                 const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('assets/images/icons/energy.png', '${_formatCompact(energy)}/${_formatCompact(maxEnergy)}', progress: enProgress, barColor: Colors.lightBlueAccent)),
+                Expanded(child: _buildResourceChip('الطاقة', 'assets/images/icons/energy.png', '${_formatCompact(energy)}/${_formatCompact(maxEnergy)}', progress: enProgress, barColor: Colors.lightBlueAccent)),
                 const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('assets/images/icons/courage.png', '${_formatCompact(courage)}/${_formatCompact(maxCourage)}', progress: crProgress, barColor: Colors.greenAccent)),
+                Expanded(child: _buildResourceChip('الشجاعة', 'assets/images/icons/courage.png', '${_formatCompact(courage)}/${_formatCompact(maxCourage)}', progress: crProgress, barColor: Colors.greenAccent)),
                 const SizedBox(width: 4),
-                // 🟢 تفعيل بار الشهامة بلون برتقالي فخم!
-                Expanded(child: _buildResourceChip('assets/images/icons/prestige.png', '${_formatCompact(prestige)}/${_formatCompact(maxPrestige)}', progress: prProgress, barColor: Colors.deepOrangeAccent)),
+                Expanded(child: _buildResourceChip('الشهامة', 'assets/images/icons/prestige.png', '${_formatCompact(prestige)}/${_formatCompact(maxPrestige)}', progress: prProgress, barColor: Colors.deepOrangeAccent)),
               ],
             ),
             const SizedBox(height: 2),
@@ -265,7 +264,6 @@ class TopBar extends StatelessWidget {
     );
   }
 
-  // الكاش والذهب
   Widget _buildTopUpResource({required String iconPath, required String value, required String bgImagePath, required String plusImagePath}) {
     return Stack(
       clipBehavior: Clip.none,
@@ -308,10 +306,10 @@ class TopBar extends StatelessWidget {
     );
   }
 
-  // الموارد السفلية
-  Widget _buildResourceChip(String imagePath, String value, {double? progress, Color? barColor}) {
+  // 🟢 تعديل حجم الصور هنا ليكون أكبر بشكل ملحوظ
+  Widget _buildResourceChip(String title, String imagePath, String value, {double? progress, Color? barColor}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.55),
         borderRadius: BorderRadius.circular(6),
@@ -325,21 +323,26 @@ class TopBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(imagePath, width: 20, height: 20, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 20)),
+              // 👇 تم تكبير الأيقونة من 14 إلى 24 لتبدو بارزة جداً
+              Image.asset(imagePath, width: 24, height: 24, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 24)),
               const SizedBox(width: 4),
               Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 2.0),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(value, style: const TextStyle(fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
-                  ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(title, style: const TextStyle(fontFamily: 'Changa', fontSize: 11, color: Colors.white70)),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 2),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(value, style: const TextStyle(fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
+            ),
+          ),
           if (progress != null && barColor != null) ...[
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
             Container(
               width: double.infinity,
               height: 3,

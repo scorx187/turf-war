@@ -54,26 +54,26 @@ class CrimeData {
     List<Map<String, dynamic>> crimes = [];
 
     for (int i = 0; i < 20; i++) {
-      // 🟢 الشجاعة تبدأ من 2 فقط للجرائم الأولى، وتزيد تدريجياً، ولا يوجد طاقة أبداً
       int reqCourage = max(1, 2 + (catIndex * 5) + (i * 1));
-      int reqEnergy = 0; // خليناها 0 عشان ما تستهلك شيء
+      int reqEnergy = 0;
 
       double multiplier = pow(1.3, catIndex).toDouble();
       int minCash = (50 * multiplier).toInt() + (i * 20 * (catIndex + 1));
       int maxCash = (100 * multiplier).toInt() + (i * 40 * (catIndex + 1));
-      int xp = (10 * multiplier).toInt() + (i * 2);
+      int xp = (40 * multiplier).toInt() + (i * 15 * (catIndex + 1));
 
-      // 🟢 الصعوبة: الفئة الأولى والثانية سهلة جداً جداً جداً
       double baseFailChance;
       if (catIndex == 0) {
-        baseFailChance = 0.00 + (i * 0.005); // من 0% إلى 9.5% كحد أقصى!
+        baseFailChance = 0.02 + (i * 0.008);
       } else if (catIndex == 1) {
-        baseFailChance = 0.05 + (i * 0.005); // من 5% إلى 14.5%
+        baseFailChance = 0.10 + (i * 0.01);
       } else {
-        baseFailChance = 0.10 + ((catIndex - 2) * 0.03) + (i * 0.01); // تدرج طبيعي للفئات المتقدمة
+        baseFailChance = 0.15 + ((catIndex - 2) * 0.035) + (i * 0.015);
       }
 
-      double heat = 1.0 + (catIndex * 1.0) + (i * 0.1);
+      // 🟢 [التعديل هنا]: جعل ملاحقة الشرطة بطيئة جداً جداً في الارتفاع
+      // المعادلة الجديدة تضمن أن الزيادة تكاد تكون معدومة في البداية وتتدرج بشكل بسيط جداً
+      double heat = 0.05 + (catIndex * 0.05) + (pow(catIndex, 1.5) * 0.01) + (i * 0.005);
 
       crimes.add({
         'id': 'cat_${catIndex}_crime_$i',
@@ -82,7 +82,7 @@ class CrimeData {
         'energy': reqEnergy,
         'minCash': minCash,
         'maxCash': maxCash,
-        'failChance': min(baseFailChance, 0.90),
+        'failChance': min(baseFailChance, 0.95),
         'xp': xp,
         'heat': heat,
       });

@@ -1,3 +1,5 @@
+// المسار: lib/views/chat_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,17 +17,83 @@ class ChatView extends StatefulWidget {
 class _ChatViewState extends State<ChatView> {
   final TextEditingController _controller = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   late Stream<QuerySnapshot> _chatStream;
+  final ScrollController _scrollController = ScrollController();
+
+  static List<QueryDocumentSnapshot>? _cachedMessages;
+  static Map<String, dynamic>? _cachedAdminMsg;
+
+  // 🟢 السر هنا: تقليل العدد لـ 8 رسائل فقط يخلي الشات يفتح بلمح البصر من أول مرة
+  int _messageLimit = 8;
+  bool _isFetchingMore = false;
+  bool _hasMore = true;
 
   @override
   void initState() {
     super.initState();
-    // ستريم واحد يجيب كل الرسايل، وبنفلترها داخل الكود عشان ما نحتاج Index معقد في فايربيس
+    _setupStreamOnly();
+    _fetchAdminMessage();
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100) {
+        _loadMore();
+      }
+    });
+  }
+
+  void _loadMore() {
+    if (_isFetchingMore || !_hasMore) return;
+
+    setState(() {
+      _isFetchingMore = true;
+      _messageLimit += 10; // 🟢 يسحب 10 إضافية فقط كل سحبة عشان ما يثقل الجوال
+      _setupStreamOnly();
+    });
+  }
+
+  void _setupStreamOnly() {
     _chatStream = _firestore
         .collection('chat')
         .orderBy('timestamp', descending: true)
-        .limit(100) // زدنا العدد عشان نضمن إن رسالة الإدارة تكون من ضمنهم
+        .limit(_messageLimit)
         .snapshots();
+  }
+
+  Future<void> _fetchAdminMessage() async {
+    if (_cachedAdminMsg != null) return;
+
+    try {
+      final query = await _firestore.collection('chat')
+          .where('type', isEqualTo: 'admin')
+          .limit(1) // 🟢 نسحب أحدث رسالة إدارة واحدة فقط لتسريع الاستجابة
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        final docs = query.docs.toList();
+        docs.sort((a, b) {
+          final t1 = a.data()['timestamp'] as Timestamp?;
+          final t2 = b.data()['timestamp'] as Timestamp?;
+          if (t1 == null || t2 == null) return 0;
+          return t2.compareTo(t1);
+        });
+
+        if (mounted) {
+          setState(() {
+            _cachedAdminMsg = docs.first.data();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching admin message: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _sendMessage() {
@@ -38,10 +106,15 @@ class _ChatViewState extends State<ChatView> {
       'uid': player.uid,
       'message': _controller.text.trim(),
       'isVIP': player.isVIP,
+      // ملاحظة: حفظ الصورة بحجمها الكامل هنا هو سبب ثقل الشات الأساسي
       'profilePicUrl': player.profilePicUrl,
       'timestamp': FieldValue.serverTimestamp(),
     });
     _controller.clear();
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
   }
 
   void _openPlayerProfile(BuildContext context, String uid, String name, String? picUrl, bool isVIP) {
@@ -69,7 +142,7 @@ class _ChatViewState extends State<ChatView> {
                             prestige: player.prestige,
                             maxPrestige: player.maxPrestige,
                             playerName: player.playerName,
-                            profilePicUrl: player.profilePicUrl, // 🟢 إرسال الصورة هنا
+                            profilePicUrl: player.profilePicUrl,
                             level: player.crimeLevel,
                             currentXp: player.crimeXP,
                             maxXp: player.xpToNextLevel,
@@ -132,35 +205,43 @@ class _ChatViewState extends State<ChatView> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(padding: const EdgeInsets.all(16), width: double.infinity, decoration: const BoxDecoration(color: Colors.black26, border: Border(bottom: BorderSide(color: Colors.white10))), child: const Text('شات المدينة أونلاين 🌐', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+        Container(
+            padding: const EdgeInsets.all(16),
+            width: double.infinity,
+            decoration: const BoxDecoration(color: Colors.black26, border: Border(bottom: BorderSide(color: Colors.white10))),
+            child: const Text('شات المدينة أونلاين 🌐', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center)
+        ),
 
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _chatStream,
             builder: (context, snapshot) {
               if (snapshot.hasError) return const Center(child: Text('خطأ في الاتصال', style: TextStyle(color: Colors.redAccent)));
-              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('لا توجد رسائل...', style: TextStyle(color: Colors.white54)));
 
-              final messages = snapshot.data!.docs;
-              final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid;
-
-              // --- البحث عن أحدث رسالة إدارة من ضمن الرسايل ---
-              Map<String, dynamic>? latestAdminMsg;
-              try {
-                final adminDoc = messages.firstWhere((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  return data['type'] == 'admin';
+              if (snapshot.hasData) {
+                _cachedMessages = snapshot.data!.docs;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _isFetchingMore = false;
+                    _hasMore = _cachedMessages!.length >= _messageLimit;
+                  }
                 });
-                latestAdminMsg = adminDoc.data() as Map<String, dynamic>;
-              } catch (e) {
-                latestAdminMsg = null; // إذا مافيه رسالة إدارة
               }
+
+              if (_cachedMessages == null) {
+                return const Center(child: CircularProgressIndicator(color: Colors.amber));
+              }
+
+              if (_cachedMessages!.isEmpty) {
+                return const Center(child: Text('لا توجد رسائل...', style: TextStyle(color: Colors.white54)));
+              }
+
+              final messages = _cachedMessages!;
+              final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid;
 
               return Column(
                 children: [
-                  // --- [شريط الإعلانات الإدارية المثبت] ---
-                  if (latestAdminMsg != null)
+                  if (_cachedAdminMsg != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
@@ -175,7 +256,7 @@ class _ChatViewState extends State<ChatView> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                latestAdminMsg['message'] ?? '',
+                                _cachedAdminMsg!['message'] ?? '',
                                 style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -183,19 +264,25 @@ class _ChatViewState extends State<ChatView> {
                         ),
                       ),
                     ),
-                  // ------------------------------------------
 
-                  // --- [قائمة الدردشة] ---
                   Expanded(
                     child: ListView.builder(
+                      controller: _scrollController,
                       reverse: true,
                       padding: const EdgeInsets.all(12),
-                      itemCount: messages.length,
+                      itemCount: messages.length + (_hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
+
+                        if (index == messages.length) {
+                          return const Padding(
+                            padding: EdgeInsets.all(15.0),
+                            child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2.5))),
+                          );
+                        }
+
                         final msg = messages[index].data() as Map<String, dynamic>;
                         final String msgType = msg['type'] ?? 'player';
 
-                        // نخفي رسالة الإدارة من الشات العادي لأنها مثبتة فوق
                         if (msgType == 'admin') {
                           return const SizedBox.shrink();
                         } else if (msgType == 'system') {
@@ -254,7 +341,6 @@ class _ChatViewState extends State<ChatView> {
           ),
         ),
 
-        // --- [صندوق الإرسال] ---
         Container(
           padding: const EdgeInsets.all(10),
           decoration: const BoxDecoration(color: Color(0xFF1A1A1D), border: Border(top: BorderSide(color: Colors.white10))),

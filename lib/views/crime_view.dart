@@ -214,23 +214,18 @@ class _CrimeViewState extends State<CrimeView> {
                       Icon(category['icon'], color: isCrimeUnlocked ? Colors.white : Colors.white24, size: 20),
                     ],
                   ),
-
-                  // 🟢 حل مشكلة التمدد بالاسم
+                  // 👇 هنا التعديل: شلنا الـ maxLines والـ overflow عشان تطلع الكلمة كاملة وتنزل سطر اذا احتجت
                   title: Text(
                     crime['name'],
                     style: TextStyle(fontFamily: 'Changa', color: isCrimeUnlocked ? Colors.white : Colors.white30, fontSize: 14, fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-
-                  // 🟢 حل مشكلة الـ Overflow باستخدام Wrap
                   subtitle: isCrimeUnlocked
                       ? Padding(
                     padding: const EdgeInsets.only(top: 6.0),
                     child: Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 6, // مسافة أفقية بين العناصر
-                      runSpacing: 4, // مسافة عمودية في حال نزول عنصر لسطر جديد
+                      spacing: 6,
+                      runSpacing: 4,
                       children: [
                         Row(
                           mainAxisSize: MainAxisSize.min,
@@ -257,7 +252,6 @@ class _CrimeViewState extends State<CrimeView> {
                   )
                       : const Text('أنجز الجريمة السابقة 10 مرات 🔒', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontFamily: 'Changa')),
 
-                  // 🟢 حل مشكلة الـ Vertical Overflow بإضافة mainAxisSize.min
                   trailing: isCrimeUnlocked ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -265,7 +259,14 @@ class _CrimeViewState extends State<CrimeView> {
                     children: [
                       Text('\$${crime['minCash']} - \$${crime['maxCash']}', style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text('شجاعة: ${crime['courage']}', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('+${crime['xp']} XP', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                          const SizedBox(width: 8),
+                          Text('شجاعة: ${crime['courage']}', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                        ],
+                      ),
                     ],
                   ) : const Icon(Icons.lock, color: Colors.white24),
                 ),
