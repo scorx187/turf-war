@@ -373,7 +373,7 @@ class PlayerProvider with ChangeNotifier {
   Map<String, String> get territoryOwners => _territoryOwners;
   DateTime? get vipUntil => _vipUntil;
   bool get isVIP => _vipUntil != null && DateTime.now().isBefore(_vipUntil!);
-  int get maxCourage => isVIP ? 200 : 100;
+  int get maxCourage => (isVIP ? 200 : 100) + _crimeLevel;
   int get maxEnergy => isVIP ? 200 : 100;
   int get prestige => _prestige;
   int get maxPrestige => isVIP ? 200 : 100;
@@ -856,6 +856,19 @@ class PlayerProvider with ChangeNotifier {
   void collectCraftedItem() { if (_isCrafting && _labEndTime != null && DateTime.now().isAfter(_labEndTime!)) { _isCrafting = false; _labEndTime = null; if (_craftingItemId != null) { _inventory[_craftingItemId!] = (_inventory[_craftingItemId!] ?? 0) + 1; _craftingItemId = null; } _syncWithFirestore(); notifyListeners(); } }
   void addInventoryItem(String itemId, int amount) { _inventory[itemId] = (_inventory[itemId] ?? 0) + amount; _syncWithFirestore(); notifyListeners(); }
 
+  // 🛠️ دالة المطور: فتح جميع الجرائم للاختبار
+  void unlockAllCrimesForDev() {
+    for (int catIndex = 0; catIndex < 20; catIndex++) {
+      for (int crimeIndex = 0; crimeIndex < 20; crimeIndex++) {
+        String crimeId = 'cat_${catIndex}_crime_$crimeIndex';
+        // نعطي كل جريمة 10 مرات نجاح عشان تفتح اللي بعدها وتفتح كل الفئات
+        crimeSuccessCountsMap[crimeId] = 10;
+      }
+    }
+    _syncWithFirestore();
+    notifyListeners();
+    _showNotification("🛠️ (أداة المطور): تم فتح جميع الجرائم بنجاح!");
+  }
   @override
   void dispose() { _playerDataSubscription?.cancel(); _gameLoopTimer?.cancel(); _goldMarketTimer?.cancel(); _notificationStream.close(); super.dispose(); }
 }

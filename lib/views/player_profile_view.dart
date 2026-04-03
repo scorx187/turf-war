@@ -7,7 +7,7 @@ import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import 'private_chat_view.dart';
-import 'pvp_battle_view.dart'; // 👈 تم استيراد شاشة المعركة هنا
+import 'pvp_battle_view.dart';
 
 class PlayerProfileView extends StatefulWidget {
   final String targetUid;
@@ -316,7 +316,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                   _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatView(targetUid: widget.targetUid, targetName: playerData!['playerName'] ?? 'مجهول', targetPicUrl: playerData!['profilePicUrl'])));
                   }),
-                  // 👇 هنا تفعيل زر الهجوم المباشر
                   _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () {
                     if (!playerData!.containsKey('uid') || playerData!['uid'] == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -325,12 +324,11 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       return;
                     }
 
-                    // فتح شاشة القتال وتمرير بيانات الخصم
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => Scaffold(
-                          backgroundColor: Colors.black, // الحفاظ على الثيم المظلم
+                          backgroundColor: Colors.black,
                           body: SafeArea(
                             child: PvpBattleView(
                               enemyData: playerData!,
@@ -418,6 +416,28 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 10),
+                      // 👇 الزر الجديد لفتح جميع الجرائم
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            player.unlockAllCrimesForDev();
+                          },
+                          icon: const Icon(Icons.lock_open, color: Colors.white, size: 18),
+                          label: const Text(
+                            'فتح جميع الجرائم (للمطور)',
+                            style: TextStyle(fontFamily: 'Changa', color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade800,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),

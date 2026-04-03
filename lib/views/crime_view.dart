@@ -25,8 +25,6 @@ class CrimeView extends StatefulWidget {
 
 class _CrimeViewState extends State<CrimeView> {
   static final Random _random = Random();
-
-  // المتغير الذي يحدد ما إذا كنا في قائمة الفئات أم داخل فئة محددة
   int? _selectedCategoryIndex;
 
   @override
@@ -48,7 +46,6 @@ class _CrimeViewState extends State<CrimeView> {
           children: [
             _buildHeatMeter(player.heat),
 
-            // إضافة حركة ناعمة عند التبديل بين القوائم
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
@@ -72,7 +69,6 @@ class _CrimeViewState extends State<CrimeView> {
     );
   }
 
-  // --- الشاشة الأولى: قائمة الفئات الرئيسية ---
   Widget _buildCategoriesList(PlayerProvider player) {
     return Column(
       key: const ValueKey('CategoriesList'),
@@ -107,7 +103,7 @@ class _CrimeViewState extends State<CrimeView> {
                       return;
                     }
                     setState(() {
-                      _selectedCategoryIndex = catIndex; // الدخول للفئة
+                      _selectedCategoryIndex = catIndex;
                     });
                   },
                   child: Padding(
@@ -142,7 +138,6 @@ class _CrimeViewState extends State<CrimeView> {
     );
   }
 
-  // --- الشاشة الثانية: قائمة الجرائم داخل الفئة ---
   Widget _buildCrimesList(PlayerProvider player, int catIndex) {
     final category = CrimeData.categories[catIndex];
     List<Map<String, dynamic>> crimes = CrimeData.getCrimesForCategory(catIndex);
@@ -153,7 +148,7 @@ class _CrimeViewState extends State<CrimeView> {
       children: [
         _buildHeader(category['name'], 'أكمل الجريمة 10 مرات لتفتح التي تليها', () {
           setState(() {
-            _selectedCategoryIndex = null; // زر الرجوع للقائمة الرئيسية
+            _selectedCategoryIndex = null;
           });
         }),
         Expanded(
@@ -190,7 +185,13 @@ class _CrimeViewState extends State<CrimeView> {
                 else finalFailChance -= (toolBonus / 2);
               }
 
-              finalFailChance = finalFailChance.clamp(0.02, 0.98);
+              finalFailChance = finalFailChance.clamp(0.00, 0.98);
+
+              int successPercentage = ((1.0 - finalFailChance) * 100).toInt();
+
+              Color successColor = successPercentage >= 80 ? Colors.greenAccent
+                  : successPercentage >= 50 ? Colors.orangeAccent
+                  : Colors.redAccent;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -200,7 +201,7 @@ class _CrimeViewState extends State<CrimeView> {
                   border: Border.all(color: isCrimeUnlocked ? mainColor.withOpacity(0.5) : Colors.white10),
                 ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   enabled: isCrimeUnlocked,
                   onTap: () => _handleCrimeClick(context, player, crime, isCrimeUnlocked, finalFailChance),
                   leading: Stack(
@@ -213,16 +214,58 @@ class _CrimeViewState extends State<CrimeView> {
                       Icon(category['icon'], color: isCrimeUnlocked ? Colors.white : Colors.white24, size: 20),
                     ],
                   ),
-                  title: Text(crime['name'], style: TextStyle(fontFamily: 'Changa', color: isCrimeUnlocked ? Colors.white : Colors.white30, fontSize: 16, fontWeight: FontWeight.bold)),
+
+                  // 🟢 حل مشكلة التمدد بالاسم
+                  title: Text(
+                    crime['name'],
+                    style: TextStyle(fontFamily: 'Changa', color: isCrimeUnlocked ? Colors.white : Colors.white30, fontSize: 14, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  // 🟢 حل مشكلة الـ Overflow باستخدام Wrap
                   subtitle: isCrimeUnlocked
-                      ? Row(children: List.generate(3, (i) => Icon(Icons.star, size: 16, color: i < stars ? const Color(0xFFE2C275) : Colors.white10)))
-                      : const Text('أنجز الجريمة السابقة 10 مرات 🔒', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontFamily: 'Changa')),
+                      ? Padding(
+                    padding: const EdgeInsets.only(top: 6.0),
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6, // مسافة أفقية بين العناصر
+                      runSpacing: 4, // مسافة عمودية في حال نزول عنصر لسطر جديد
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(3, (i) => Icon(Icons.star, size: 14, color: i < stars ? const Color(0xFFE2C275) : Colors.white10)),
+                        ),
+                        Text(
+                            'نجاح: $successCount',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'Changa')
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: successColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: successColor.withOpacity(0.5)),
+                          ),
+                          child: Text(
+                              'النسبة: $successPercentage%',
+                              style: TextStyle(color: successColor, fontSize: 10, fontFamily: 'Changa', fontWeight: FontWeight.bold)
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                      : const Text('أنجز الجريمة السابقة 10 مرات 🔒', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontFamily: 'Changa')),
+
+                  // 🟢 حل مشكلة الـ Vertical Overflow بإضافة mainAxisSize.min
                   trailing: isCrimeUnlocked ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('\$${crime['minCash']} - \$${crime['maxCash']}', style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
-                      Text('طاقة: ${crime['energy']} | شجاعة: ${crime['courage']}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                      Text('\$${crime['minCash']} - \$${crime['maxCash']}', style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text('شجاعة: ${crime['courage']}', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
                     ],
                   ) : const Icon(Icons.lock, color: Colors.white24),
                 ),
@@ -234,7 +277,6 @@ class _CrimeViewState extends State<CrimeView> {
     );
   }
 
-  // --- هيدر مخصص يدعم زر الرجوع ---
   Widget _buildHeader(String title, String subtitle, VoidCallback? onBack) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
@@ -247,7 +289,7 @@ class _CrimeViewState extends State<CrimeView> {
               onPressed: onBack,
             )
           else
-            const SizedBox(width: 48), // مسافة للحفاظ على التوسيط
+            const SizedBox(width: 48),
 
           Expanded(
             child: Column(
@@ -267,14 +309,9 @@ class _CrimeViewState extends State<CrimeView> {
     if (!isUnlocked) return;
 
     int reqCourage = crime['courage'];
-    int reqEnergy = crime['energy'];
 
     if (player.courage < reqCourage) {
       QuickRecoveryDialog.show(context, 'courage', reqCourage - player.courage);
-      return;
-    }
-    if (player.energy < reqEnergy) {
-      QuickRecoveryDialog.show(context, 'energy', reqEnergy - player.energy);
       return;
     }
 
@@ -283,7 +320,6 @@ class _CrimeViewState extends State<CrimeView> {
     }
 
     player.setCourage(player.courage - reqCourage);
-    if (reqEnergy > 0) player.setEnergy(player.energy - reqEnergy);
 
     if (_random.nextDouble() < finalFailChance) {
       player.increaseHeat(crime['heat'] * 1.5);
@@ -313,7 +349,8 @@ class _CrimeViewState extends State<CrimeView> {
 
       player.addCrimeXP(crime['xp']);
       player.incrementCrimeSuccess(crime['id']);
-      widget.onSuccess(reward, crime['id'], reqEnergy);
+
+      widget.onSuccess(reward, crime['id'], 0);
     }
   }
 
