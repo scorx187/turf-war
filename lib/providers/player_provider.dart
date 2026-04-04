@@ -421,9 +421,7 @@ class PlayerProvider with ChangeNotifier {
     if (_uid == null || _isLoading) return;
     try {
       await _firestore.collection('players').doc(_uid).set({
-        'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl,
-        'currentCity': _currentCity,
-        'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _maxHealth, 'happiness': _happiness, 'strength': _strength, 'defense': _defense, 'skill': _skill, 'speed': _speed, 'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(),
+        'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl, 'currentCity': _currentCity, 'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _maxHealth, 'happiness': _happiness, 'strength': _strength, 'defense': _defense, 'skill': _skill, 'speed': _speed, 'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(),
       }, SetOptions(merge: true));
     } catch (e) {}
   }
@@ -465,13 +463,13 @@ class PlayerProvider with ChangeNotifier {
     });
   }
 
-  void travelToCity(String newCity, int ticketPrice) {
-    if (_cash >= ticketPrice) {
-      _cash -= ticketPrice;
-      _currentCity = newCity;
+  void travelToCity(String city, int price) {
+    if (_cash >= price) {
+      _cash -= price;
+      _currentCity = city;
       _syncWithFirestore();
       notifyListeners();
-      _showNotification("✈️ هبطت طائرتك بسلام في $newCity!");
+      _showNotification("✈️ هبطت طائرتك بسلام في $city!");
     } else {
       _showNotification("⚠️ لا تملك كاش كافي للسفر!");
     }
@@ -562,6 +560,8 @@ class PlayerProvider with ChangeNotifier {
 
   void updateName(String newName) { if (_inventory.containsKey('name_change_card') && _inventory['name_change_card']! > 0) { _playerName = newName; _inventory['name_change_card'] = _inventory['name_change_card']! - 1; if (_inventory['name_change_card'] == 0) _inventory.remove('name_change_card'); _syncWithFirestore(); notifyListeners(); } }
   void startPrisonTimer(int minutes) { _isInPrison = true; _prisonReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
+
+  // 🟢 تعديل شراء الأداة من السوق عشان يدعم الخصائص الاضافية
   void buyItem(String itemId, int price, {bool isConsumable = false, String currency = 'cash'}) { bool canBuy = currency == 'cash' ? _cash >= price : _gold >= price; if (canBuy) { if (currency == 'cash') _cash -= price; else _gold -= price; _inventory[itemId] = (_inventory[itemId] ?? 0) + 1; _syncWithFirestore(); notifyListeners(); } }
 
   void useItem(String itemId) {
@@ -667,6 +667,39 @@ class PlayerProvider with ChangeNotifier {
   void collectCraftedItem() { if (_isCrafting && _labEndTime != null && DateTime.now().isAfter(_labEndTime!)) { _isCrafting = false; _labEndTime = null; if (_craftingItemId != null) { _inventory[_craftingItemId!] = (_inventory[_craftingItemId!] ?? 0) + 1; _craftingItemId = null; } _syncWithFirestore(); notifyListeners(); } }
   void addInventoryItem(String itemId, int amount) { _inventory[itemId] = (_inventory[itemId] ?? 0) + amount; _syncWithFirestore(); notifyListeners(); }
   void unlockAllCrimesForDev() { for (int catIndex = 0; catIndex < 20; catIndex++) { for (int crimeIndex = 0; crimeIndex < 20; crimeIndex++) { String crimeId = 'cat_${catIndex}_crime_$crimeIndex'; crimeSuccessCountsMap[crimeId] = 10; } } _syncWithFirestore(); notifyListeners(); _showNotification("🛠️ (أداة المطور): تم فتح جميع الجرائم بنجاح!"); }
+
+  // 🟢 نظام الصداقة 🟢
+  Future<void> sendFriendRequest(String tUid) async {
+    if (_uid == null || _uid == tUid) return;
+    try {
+      await _firestore.collection('players').doc(tUid).collection('friend_requests').doc(_uid).set({
+        'senderId': _uid,
+        'senderName': _playerName,
+        'picUrl': _profilePicUrl,
+        'timestamp': FieldValue.serverTimestamp()
+      });
+      _showNotification("🤝 تم إرسال طلب الصداقة!");
+    } catch (e) {}
+  }
+
+  Future<void> acceptFriend(String rUid, String rName) async {
+    if (_uid == null) return;
+    try {
+      await _firestore.collection('players').doc(_uid).collection('friend_requests').doc(rUid).delete();
+      await _firestore.collection('players').doc(_uid).collection('friends').doc(rUid).set({'uid': rUid, 'name': rName, 'date': FieldValue.serverTimestamp()});
+      await _firestore.collection('players').doc(rUid).collection('friends').doc(_uid).set({'uid': _uid, 'name': _playerName, 'date': FieldValue.serverTimestamp()});
+      _showNotification("✅ تمت إضافة $rName كصديق!");
+      notifyListeners();
+    } catch (e) {}
+  }
+
+  Future<void> rejectFriend(String rUid) async {
+    if (_uid == null) return;
+    try {
+      await _firestore.collection('players').doc(_uid).collection('friend_requests').doc(rUid).delete();
+      notifyListeners();
+    } catch (e) {}
+  }
 
   @override
   void dispose() { _playerDataSubscription?.cancel(); _gameLoopTimer?.cancel(); _goldMarketTimer?.cancel(); _notificationStream.close(); super.dispose(); }

@@ -57,7 +57,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'workLevel': player.workLevel,
         'creditScore': player.creditScore,
         'gangName': player.gangName,
-        'currentCity': player.currentCity, // 🟢 المدينة الحالية
+        'currentCity': player.currentCity,
       };
     } else {
       playerData = {
@@ -415,7 +415,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                             children: [
                               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withOpacity(0.5))), child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))),
                               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withOpacity(0.4))), child: Text('ID: ${playerData!['gameId'] ?? '------'}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1))),
-                              // 🟢 إضافة اسم المدينة في بروفايل اللاعب
                               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.teal.withOpacity(0.4))), child: Text('📍 ${playerData!['currentCity'] ?? 'ملاذ'}', style: const TextStyle(color: Colors.tealAccent, fontSize: 12, fontWeight: FontWeight.bold))),
                             ],
                           ),
@@ -430,7 +429,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
           ),
           const SizedBox(height: 10),
 
-          // 🟢 شريط تحذيري إذا كان اللاعب في المستشفى أو السجن 🟢
           if (playerData!['isHospitalized'] == true)
             Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red.withOpacity(0.5))), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.local_hospital, color: Colors.redAccent), SizedBox(width: 8), Text('هذا اللاعب يتعالج في المستشفى حالياً 🏥', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold))])),
           if (playerData!['isInPrison'] == true)
@@ -490,11 +488,10 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               child: Wrap(
                 spacing: 15, runSpacing: 15, alignment: WrapAlignment.center,
                 children: [
-                  _buildActionBtn(Icons.person_add, 'إضافة', Colors.blue, () {}),
+                  _buildActionBtn(Icons.person_add, 'إضافة', Colors.blue, () => player.sendFriendRequest(widget.targetUid)),
                   _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatView(targetUid: widget.targetUid, targetName: playerData!['playerName'] ?? 'مجهول', targetPicUrl: playerData!['profilePicUrl'])));
                   }),
-                  // 🟢 التعديل هنا: زر الهجوم يفحص المدينة والمستشفى والسجن 🟢
                   _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () {
                     if (!playerData!.containsKey('uid') || playerData!['uid'] == null) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جاري التحميل...')));
