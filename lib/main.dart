@@ -104,9 +104,6 @@ class GameBackgroundScaffold extends StatelessWidget {
                 ),
               ),
             ),
-          SafeArea(
-            child: child,
-          ),
         ],
       ),
     );
