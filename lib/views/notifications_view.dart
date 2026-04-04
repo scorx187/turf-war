@@ -4,20 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/player_provider.dart';
-// 🟢 ضروري نضيف هذي عشان تفتح البروفايل والتوب بار معاه
 import 'player_profile_view.dart';
 import '../widgets/top_bar.dart';
 
 class NotificationsView extends StatelessWidget {
   const NotificationsView({super.key});
 
-  // 🟢 دالة تفتح بروفايل اللاعب (المرسل أو الهاجم) 🟢
+  String _formatWithCommas(int number) {
+    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return number.toString().replaceAllMapped(reg, (Match match) => '${match[1]},');
+  }
+
   void _openProfile(BuildContext context, String uid) async {
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.amber)));
-
     final playerProv = Provider.of<PlayerProvider>(context, listen: false);
     final targetData = await playerProv.getPlayerById(uid);
-
     if (context.mounted) {
       Navigator.pop(context);
       if (targetData != null) {
@@ -30,16 +31,8 @@ class NotificationsView extends StatelessWidget {
                     child: Consumer<PlayerProvider>(
                         builder: (context, player, child) => Column(
                             children: [
-                              TopBar(
-                                  cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy, courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth, prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName, profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP, maxXp: player.xpToNextLevel, isVIP: player.isVIP
-                              ),
-                              Expanded(child: PlayerProfileView(
-                                  targetUid: uid,
-                                  previewName: targetData['playerName'],
-                                  previewPicUrl: targetData['profilePicUrl'],
-                                  previewIsVIP: targetData['isVIP'] == true,
-                                  onBack: () => Navigator.pop(context)
-                              )),
+                              TopBar(cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy, courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth, prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName, profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP, maxXp: player.xpToNextLevel, isVIP: player.isVIP),
+                              Expanded(child: PlayerProfileView(targetUid: uid, previewName: targetData['playerName'], previewPicUrl: targetData['profilePicUrl'], previewIsVIP: targetData['isVIP'] == true, onBack: () => Navigator.pop(context))),
                             ]
                         )
                     )
@@ -63,37 +56,24 @@ class NotificationsView extends StatelessWidget {
         title: const Text('الإشعارات 🔔', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.amber),
-        elevation: 10,
-        shadowColor: Colors.black,
       ),
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: FutureBuilder<List<Map<String, dynamic>>>(
             future: player.fetchAttacksLog(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Colors.amber));
-              }
+              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Colors.amber));
 
               List<Map<String, dynamic>> allNotifications = [];
-
               if (snapshot.hasData) {
                 for (var attack in snapshot.data!) {
-                  allNotifications.add({
-                    'type': 'attack',
-                    'data': attack,
-                    'date': (attack['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-                  });
+                  allNotifications.add({'type': 'attack', 'data': attack, 'date': (attack['date'] as Timestamp?)?.toDate() ?? DateTime.now()});
                 }
               }
 
               for (var t in player.transactions) {
                 if (t.isPositive && (t.title.contains('تحويل') || t.title.contains('غنيمة') || t.title.contains('هبة'))) {
-                  allNotifications.add({
-                    'type': 'transfer',
-                    'data': t,
-                    'date': t.date,
-                  });
+                  allNotifications.add({'type': 'transfer', 'data': t, 'date': t.date});
                 }
               }
 
@@ -111,17 +91,40 @@ class NotificationsView extends StatelessWidget {
 
                   if (item['type'] == 'attack') {
                     final data = item['data'];
+                    String result = data['result'] ?? 'win';
+
+                    String title;
+                    String subtitle;
+                    Color color;
+                    IconData icon;
+
+                    if (result == 'win') {
+                      title = 'تعرضت لهجوم وهُزمت! 🏥';
+                      subtitle = 'اللاعب ${data['attackerName']} هزمك وسرق ${_formatWithCommas(data['stolenAmount'] ?? 0)}\$ وأدخلك المستشفى!';
+                      color = Colors.redAccent;
+                      icon = Icons.local_hospital;
+                    } else if (result == 'loss') {
+                      title = 'صددت هجوماً بنجاح! 🛡️';
+                      subtitle = 'اللاعب ${data['attackerName']} حاول الهجوم عليك لكنك سحقته وأرسلته للمستشفى!';
+                      color = Colors.green;
+                      icon = Icons.security;
+                    } else {
+                      title = 'اشتباك وانتهى بتعادل! ⚔️';
+                      subtitle = 'اللاعب ${data['attackerName']} اشتبك معك، انتهت المعركة بتعادل وتضررت صحتكما.';
+                      color = Colors.orangeAccent;
+                      icon = Icons.handshake;
+                    }
+
                     return Card(
-                      color: Colors.redAccent.withOpacity(0.1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.redAccent.withOpacity(0.5))),
+                      color: color.withOpacity(0.1),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: color.withOpacity(0.5))),
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
-                        // 🟢 الدخول لبروفايل اللي هجم عليك 🟢
                         onTap: () => _openProfile(context, data['attackerId']),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                        leading: const CircleAvatar(backgroundColor: Colors.redAccent, child: Icon(Icons.warning, color: Colors.white)),
-                        title: const Text('تعرضت لهجوم! ⚔️', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-                        subtitle: Text('اللاعب ${data['attackerName']} قام بالهجوم عليك وسرق \$${data['stolenAmount']}', style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', height: 1.5)),
+                        leading: CircleAvatar(backgroundColor: color, child: Icon(icon, color: Colors.white)),
+                        title: Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                        subtitle: Text(subtitle, style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', height: 1.5)),
                       ),
                     );
                   } else {
@@ -131,16 +134,12 @@ class NotificationsView extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.green.withOpacity(0.5))),
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
-                        // 🟢 الدخول لبروفايل اللي حول لك كاش 🟢
-                        onTap: () {
-                          if (t.senderUid != null) {
-                            _openProfile(context, t.senderUid!);
-                          }
-                        },
+                        onTap: () { if (t.senderUid != null) _openProfile(context, t.senderUid!); },
                         contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
                         leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.attach_money, color: Colors.white)),
                         title: const Text('إشعار مالي 💸', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-                        subtitle: Text('${t.title} بمقدار \$${t.amount}', style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', height: 1.5)),
+                        // 🟢 التعديل هنا: علامة الدولار أصبحت في الخلف 🟢
+                        subtitle: Text('${t.title} بمقدار ${_formatWithCommas(t.amount)}\$', style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', height: 1.5)),
                       ),
                     );
                   }

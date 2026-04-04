@@ -12,11 +12,12 @@ class Transaction {
   final int amount;
   final DateTime date;
   final bool isPositive;
+  final String? senderUid;
 
-  Transaction({required this.title, required this.amount, required this.date, required this.isPositive});
+  Transaction({required this.title, required this.amount, required this.date, required this.isPositive, this.senderUid});
 
-  Map<String, dynamic> toJson() => {'title': title, 'amount': amount, 'date': date.toIso8601String(), 'isPositive': isPositive};
-  factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(title: json['title'], amount: json['amount'], date: DateTime.parse(json['date']), isPositive: json['isPositive']);
+  Map<String, dynamic> toJson() => {'title': title, 'amount': amount, 'date': date.toIso8601String(), 'isPositive': isPositive, 'senderUid': senderUid};
+  factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(title: json['title'], amount: json['amount'], date: DateTime.parse(json['date']), isPositive: json['isPositive'], senderUid: json['senderUid']);
 }
 
 class PlayerProvider with ChangeNotifier {
@@ -123,112 +124,35 @@ class PlayerProvider with ChangeNotifier {
   final Map<String, Uint8List> _decodedImagesCache = {};
 
   final Map<String, Map<String, double>> weaponStats = {
-    'dagger': {'str': 0.15, 'spd': 0.25},
-    'revolver': {'str': 0.40, 'spd': 0.40},
-    'katana': {'str': 0.90, 'spd': 0.60},
-    'shotgun': {'str': 1.90, 'spd': 0.60},
-    'sniper': {'str': 2.70, 'spd': 0.80},
-
-    'w_silver_heavy': {'str': 0.30, 'spd': 0.10},
-    'w_silver_assault': {'str': 0.25, 'spd': 0.15},
-    'w_silver_balanced': {'str': 0.20, 'spd': 0.20},
-    'w_silver_tactical': {'str': 0.15, 'spd': 0.25},
-    'w_silver_agile': {'str': 0.10, 'spd': 0.30},
-    'w_green_heavy': {'str': 0.60, 'spd': 0.20},
-    'w_green_assault': {'str': 0.50, 'spd': 0.30},
-    'w_green_balanced': {'str': 0.40, 'spd': 0.40},
-    'w_green_tactical': {'str': 0.30, 'spd': 0.50},
-    'w_green_agile': {'str': 0.20, 'spd': 0.60},
-    'w_blue_heavy': {'str': 1.10, 'spd': 0.40},
-    'w_blue_assault': {'str': 0.90, 'spd': 0.60},
-    'w_blue_balanced': {'str': 0.75, 'spd': 0.75},
-    'w_blue_tactical': {'str': 0.60, 'spd': 0.90},
-    'w_blue_agile': {'str': 0.40, 'spd': 1.10},
-    'w_purple_heavy': {'str': 1.90, 'spd': 0.60},
-    'w_purple_assault': {'str': 1.50, 'spd': 1.00},
-    'w_purple_balanced': {'str': 1.25, 'spd': 1.25},
-    'w_purple_tactical': {'str': 1.00, 'spd': 1.50},
-    'w_purple_agile': {'str': 0.60, 'spd': 1.90},
-    'w_gold_heavy': {'str': 2.70, 'spd': 0.80},
-    'w_gold_assault': {'str': 2.10, 'spd': 1.40},
-    'w_gold_balanced': {'str': 1.75, 'spd': 1.75},
-    'w_gold_tactical': {'str': 1.40, 'spd': 2.10},
-    'w_gold_agile': {'str': 0.80, 'spd': 2.70},
-    'w_red_heavy': {'str': 3.60, 'spd': 0.90},
-    'w_red_assault': {'str': 2.70, 'spd': 1.80},
-    'w_red_balanced': {'str': 2.25, 'spd': 2.25},
-    'w_red_tactical': {'str': 1.80, 'spd': 2.70},
-    'w_red_agile': {'str': 0.90, 'spd': 3.60},
+    'dagger': {'str': 0.15, 'spd': 0.25}, 'revolver': {'str': 0.40, 'spd': 0.40}, 'katana': {'str': 0.90, 'spd': 0.60}, 'shotgun': {'str': 1.90, 'spd': 0.60}, 'sniper': {'str': 2.70, 'spd': 0.80},
+    'w_silver_heavy': {'str': 0.30, 'spd': 0.10}, 'w_silver_assault': {'str': 0.25, 'spd': 0.15}, 'w_silver_balanced': {'str': 0.20, 'spd': 0.20}, 'w_silver_tactical': {'str': 0.15, 'spd': 0.25}, 'w_silver_agile': {'str': 0.10, 'spd': 0.30}, 'w_green_heavy': {'str': 0.60, 'spd': 0.20}, 'w_green_assault': {'str': 0.50, 'spd': 0.30}, 'w_green_balanced': {'str': 0.40, 'spd': 0.40}, 'w_green_tactical': {'str': 0.30, 'spd': 0.50}, 'w_green_agile': {'str': 0.20, 'spd': 0.60}, 'w_blue_heavy': {'str': 1.10, 'spd': 0.40}, 'w_blue_assault': {'str': 0.90, 'spd': 0.60}, 'w_blue_balanced': {'str': 0.75, 'spd': 0.75}, 'w_blue_tactical': {'str': 0.60, 'spd': 0.90}, 'w_blue_agile': {'str': 0.40, 'spd': 1.10}, 'w_purple_heavy': {'str': 1.90, 'spd': 0.60}, 'w_purple_assault': {'str': 1.50, 'spd': 1.00}, 'w_purple_balanced': {'str': 1.25, 'spd': 1.25}, 'w_purple_tactical': {'str': 1.00, 'spd': 1.50}, 'w_purple_agile': {'str': 0.60, 'spd': 1.90}, 'w_gold_heavy': {'str': 2.70, 'spd': 0.80}, 'w_gold_assault': {'str': 2.10, 'spd': 1.40}, 'w_gold_balanced': {'str': 1.75, 'spd': 1.75}, 'w_gold_tactical': {'str': 1.40, 'spd': 2.10}, 'w_gold_agile': {'str': 0.80, 'spd': 2.70}, 'w_red_heavy': {'str': 3.60, 'spd': 0.90}, 'w_red_assault': {'str': 2.70, 'spd': 1.80}, 'w_red_balanced': {'str': 2.25, 'spd': 2.25}, 'w_red_tactical': {'str': 1.80, 'spd': 2.70}, 'w_red_agile': {'str': 0.90, 'spd': 3.60},
   };
 
   final Map<String, Map<String, double>> armorStats = {
-    'riot_shield': {'def': 0.60, 'skl': 0.20},
-    'kevlar_vest': {'def': 0.75, 'skl': 0.75},
-    'ninja_suit': {'def': 0.60, 'skl': 1.90},
-    'steel_armor': {'def': 1.90, 'skl': 0.60},
-    'exoskeleton': {'def': 1.75, 'skl': 1.75},
-
-    'a_silver_heavy': {'def': 0.30, 'skl': 0.10},
-    'a_silver_assault': {'def': 0.25, 'skl': 0.15},
-    'a_silver_balanced': {'def': 0.20, 'skl': 0.20},
-    'a_silver_tactical': {'def': 0.15, 'skl': 0.25},
-    'a_silver_agile': {'def': 0.10, 'skl': 0.30},
-    'a_green_heavy': {'def': 0.60, 'skl': 0.20},
-    'a_green_assault': {'def': 0.50, 'skl': 0.30},
-    'a_green_balanced': {'def': 0.40, 'skl': 0.40},
-    'a_green_tactical': {'def': 0.30, 'skl': 0.50},
-    'a_green_agile': {'def': 0.20, 'skl': 0.60},
-    'a_blue_heavy': {'def': 1.10, 'skl': 0.40},
-    'a_blue_assault': {'def': 0.90, 'skl': 0.60},
-    'a_blue_balanced': {'def': 0.75, 'skl': 0.75},
-    'a_blue_tactical': {'def': 0.60, 'skl': 0.90},
-    'a_blue_agile': {'def': 0.40, 'skl': 1.10},
-    'a_purple_heavy': {'def': 1.90, 'skl': 0.60},
-    'a_purple_assault': {'def': 1.50, 'skl': 1.00},
-    'a_purple_balanced': {'def': 1.25, 'skl': 1.25},
-    'a_purple_tactical': {'def': 1.00, 'skl': 1.50},
-    'a_purple_agile': {'def': 0.60, 'skl': 1.90},
-    'a_gold_heavy': {'def': 2.70, 'skl': 0.80},
-    'a_gold_assault': {'def': 2.10, 'skl': 1.40},
-    'a_gold_balanced': {'def': 1.75, 'skl': 1.75},
-    'a_gold_tactical': {'def': 1.40, 'skl': 2.10},
-    'a_gold_agile': {'def': 0.80, 'skl': 2.70},
-    'a_red_heavy': {'def': 3.60, 'skl': 0.90},
-    'a_red_assault': {'def': 2.70, 'skl': 1.80},
-    'a_red_balanced': {'def': 2.25, 'skl': 2.25},
-    'a_red_tactical': {'def': 1.80, 'skl': 2.70},
-    'a_red_agile': {'def': 0.90, 'skl': 3.60},
+    'riot_shield': {'def': 0.60, 'skl': 0.20}, 'kevlar_vest': {'def': 0.75, 'skl': 0.75}, 'ninja_suit': {'def': 0.60, 'skl': 1.90}, 'steel_armor': {'def': 1.90, 'skl': 0.60}, 'exoskeleton': {'def': 1.75, 'skl': 1.75}, 'a_silver_heavy': {'def': 0.30, 'skl': 0.10}, 'a_silver_assault': {'def': 0.25, 'skl': 0.15}, 'a_silver_balanced': {'def': 0.20, 'skl': 0.20}, 'a_silver_tactical': {'def': 0.15, 'skl': 0.25}, 'a_silver_agile': {'def': 0.10, 'skl': 0.30}, 'a_green_heavy': {'def': 0.60, 'skl': 0.20}, 'a_green_assault': {'def': 0.50, 'skl': 0.30}, 'a_green_balanced': {'def': 0.40, 'skl': 0.40}, 'a_green_tactical': {'def': 0.30, 'skl': 0.50}, 'a_green_agile': {'def': 0.20, 'skl': 0.60}, 'a_blue_heavy': {'def': 1.10, 'skl': 0.40}, 'a_blue_assault': {'def': 0.90, 'skl': 0.60}, 'a_blue_balanced': {'def': 0.75, 'skl': 0.75}, 'a_blue_tactical': {'def': 0.60, 'skl': 0.90}, 'a_blue_agile': {'def': 0.40, 'skl': 1.10}, 'a_purple_heavy': {'def': 1.90, 'skl': 0.60}, 'a_purple_assault': {'def': 1.50, 'skl': 1.00}, 'a_purple_balanced': {'def': 1.25, 'skl': 1.25}, 'a_purple_tactical': {'def': 1.00, 'skl': 1.50}, 'a_purple_agile': {'def': 0.60, 'skl': 1.90}, 'a_gold_heavy': {'def': 2.70, 'skl': 0.80}, 'a_gold_assault': {'def': 2.10, 'skl': 1.40}, 'a_gold_balanced': {'def': 1.75, 'skl': 1.75}, 'a_gold_tactical': {'def': 1.40, 'skl': 2.10}, 'a_gold_agile': {'def': 0.80, 'skl': 2.70}, 'a_red_heavy': {'def': 3.60, 'skl': 0.90}, 'a_red_assault': {'def': 2.70, 'skl': 1.80}, 'a_red_balanced': {'def': 2.25, 'skl': 2.25}, 'a_red_tactical': {'def': 1.80, 'skl': 2.70}, 'a_red_agile': {'def': 0.90, 'skl': 3.60},
   };
 
   double get strength {
     double multiplier = 0.0;
-    if (_equippedWeaponId != null && weaponStats.containsKey(_equippedWeaponId)) {
-      multiplier = weaponStats[_equippedWeaponId]!['str']!;
-    }
+    if (_equippedWeaponId != null && weaponStats.containsKey(_equippedWeaponId)) multiplier = weaponStats[_equippedWeaponId]!['str']!;
     return _strength * (1.0 + multiplier);
   }
 
   double get speed {
     double multiplier = 0.0;
-    if (_equippedWeaponId != null && weaponStats.containsKey(_equippedWeaponId)) {
-      multiplier = weaponStats[_equippedWeaponId]!['spd']!;
-    }
+    if (_equippedWeaponId != null && weaponStats.containsKey(_equippedWeaponId)) multiplier = weaponStats[_equippedWeaponId]!['spd']!;
     return _speed * (1.0 + multiplier);
   }
 
   double get defense {
     double multiplier = 0.0;
-    if (_equippedArmorId != null && armorStats.containsKey(_equippedArmorId)) {
-      multiplier = armorStats[_equippedArmorId]!['def']!;
-    }
+    if (_equippedArmorId != null && armorStats.containsKey(_equippedArmorId)) multiplier = armorStats[_equippedArmorId]!['def']!;
     return _defense * (1.0 + multiplier);
   }
 
   double get skill {
     double multiplier = 0.0;
-    if (_equippedArmorId != null && armorStats.containsKey(_equippedArmorId)) {
-      multiplier = armorStats[_equippedArmorId]!['skl']!;
-    }
+    if (_equippedArmorId != null && armorStats.containsKey(_equippedArmorId)) multiplier = armorStats[_equippedArmorId]!['skl']!;
     return _skill * (1.0 + multiplier);
   }
 
@@ -239,9 +163,7 @@ class PlayerProvider with ChangeNotifier {
       final bytes = base64Decode(base64Str);
       _decodedImagesCache[base64Str] = bytes;
       return bytes;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   }
 
   final Map<String, Map<String, dynamic>> _playersCache = {};
@@ -249,11 +171,8 @@ class PlayerProvider with ChangeNotifier {
 
   Future<Map<String, dynamic>?> getPlayerById(String uid) async {
     if (_playersCache.containsKey(uid) && _playersCacheTime.containsKey(uid)) {
-      if (DateTime.now().difference(_playersCacheTime[uid]!).inMinutes < 5) {
-        return _playersCache[uid];
-      }
+      if (DateTime.now().difference(_playersCacheTime[uid]!).inMinutes < 5) return _playersCache[uid];
     }
-
     try {
       DocumentSnapshot cacheDoc = await _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.cache));
       if (cacheDoc.exists) {
@@ -272,9 +191,7 @@ class PlayerProvider with ChangeNotifier {
         });
         return data;
       }
-    } catch (e) {
-      debugPrint("اللاعب ليس في الكاش، سيتم جلبه من السيرفر...");
-    }
+    } catch (e) {}
 
     try {
       DocumentSnapshot serverDoc = await _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.server));
@@ -285,14 +202,11 @@ class PlayerProvider with ChangeNotifier {
         _playersCacheTime[uid] = DateTime.now();
         return data;
       }
-    } catch (e) {
-      debugPrint("خطأ في السيرفر: $e");
-    }
+    } catch (e) {}
 
     return null;
   }
 
-  // 🟢 التعديل الأول: دالة الأيدي تمت إضافة حماية لمنع التعليق اللانهائي
   Future<String> _generateUniqueGameId() async {
     String newId = '';
     bool isUnique = false;
@@ -302,13 +216,8 @@ class PlayerProvider with ChangeNotifier {
       newId = (100000 + Random().nextInt(900000)).toString();
       try {
         final check = await _firestore.collection('players').where('gameId', isEqualTo: newId).limit(1).get();
-        if (check.docs.isEmpty) {
-          isUnique = true;
-        }
-      } catch (e) {
-        // في حال انقطاع النت نعطي اللاعب الأيدي العشوائي ونفتح اللعبة بدل ما تعلق
-        isUnique = true;
-      }
+        if (check.docs.isEmpty) isUnique = true;
+      } catch (e) { isUnique = true; }
     }
     return newId;
   }
@@ -336,11 +245,9 @@ class PlayerProvider with ChangeNotifier {
   String? get equippedCrimeToolId => _equippedCrimeToolId;
   List<String> get ownedCars => _ownedCars;
   String? get activeCarId => _activeCarId;
-
   double get heat => _heat;
   int get spareParts => _spareParts;
   double getItemDurability(String id) => _durability[id] ?? 100.0;
-
   DateTime? get chopShopEndTime => _chopShopEndTime;
   bool get isChopping => _isChopping;
   DateTime? get labEndTime => _labEndTime;
@@ -356,14 +263,9 @@ class PlayerProvider with ChangeNotifier {
   int get oldGoldPrice => _oldGoldPrice;
   int get maxLoanLimit => 20000 + (_creditScore * 2000);
   bool get isInvestmentLocked => _lockedUntil != null && DateTime.now().isBefore(_lockedUntil!);
-
   int get crimeLevel => _crimeLevel;
   int get crimeXP => _crimeXP;
-
-  int get xpToNextLevel {
-    return (100 * pow(1.05, _crimeLevel - 1)).toInt();
-  }
-
+  int get xpToNextLevel => (100 * pow(1.05, _crimeLevel - 1)).toInt();
   int get workLevel => _workLevel;
   int get workXP => _workXP;
   int get workXPToNextLevel => max(150, _workLevel * 150);
@@ -406,7 +308,6 @@ class PlayerProvider with ChangeNotifier {
     });
   }
 
-  // 🟢 التعديل الثاني والأهم: حماية دالة التشغيل بـ try-catch-finally
   Future<void> initializePlayerOnServer(String uid, String name) async {
     _uid = uid;
     _isLoading = true;
@@ -429,10 +330,7 @@ class PlayerProvider with ChangeNotifier {
         _gameId = await _generateUniqueGameId();
         await _syncWithFirestore();
       }
-    } catch (e) {
-      debugPrint("خطأ أثناء محاولة جلب بيانات اللاعب: $e");
-    } finally {
-      // 🟢 هذا السطر يضمن أن اللعبة تفتح (وتشيل شاشة التحميل) مهما كانت الظروف
+    } catch (e) {} finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -442,8 +340,6 @@ class PlayerProvider with ChangeNotifier {
         _applyFirestoreData(snapshot.data()!);
         notifyListeners();
       }
-    }, onError: (error) {
-      debugPrint("خطأ في المزامنة المباشرة للبيانات: $error");
     });
   }
 
@@ -513,9 +409,7 @@ class PlayerProvider with ChangeNotifier {
       crimeSuccessCountsMap = Map<String, int>.from(data['crimeSuccessCountsMap']);
     } else if (data['crimeSuccessCounts'] != null) {
       List<int> oldList = List<int>.from(data['crimeSuccessCounts']);
-      for(int i=0; i<oldList.length; i++) {
-        crimeSuccessCountsMap['cat_0_crime_$i'] = oldList[i];
-      }
+      for(int i=0; i<oldList.length; i++) { crimeSuccessCountsMap['cat_0_crime_$i'] = oldList[i]; }
     }
   }
 
@@ -523,70 +417,9 @@ class PlayerProvider with ChangeNotifier {
     if (_uid == null || _isLoading) return;
     try {
       await _firestore.collection('players').doc(_uid).set({
-        'playerName': _playerName,
-        'gameId': _gameId,
-        'bio': _bio,
-        'profilePicUrl': _profilePicUrl,
-        'backgroundPicUrl': _backgroundPicUrl,
-        'cash': _cash,
-        'gold': _gold,
-        'bankBalance': _bankBalance,
-        'energy': _energy,
-        'courage': _courage,
-        'prestige': _prestige,
-        'health': _health,
-        'maxHealth': _maxHealth,
-        'happiness': _happiness,
-        'strength': _strength,
-        'defense': _defense,
-        'skill': _skill,
-        'speed': _speed,
-        'ownedProperties': _ownedProperties,
-        'activePropertyId': _activePropertyId,
-        'inventory': _inventory,
-        'crimeLevel': _crimeLevel,
-        'crimeXP': _crimeXP,
-        'workLevel': _workLevel,
-        'workXP': _workXP,
-        'arenaLevel': _arenaLevel,
-        'isInPrison': _isInPrison,
-        'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(),
-        'isHospitalized': _isHospitalized,
-        'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(),
-        'lockedBalance': _lockedBalance,
-        'lockedProfits': _lockedProfits,
-        'lockedUntil': _lockedUntil?.toIso8601String(),
-        'vipUntil': _vipUntil?.toIso8601String(),
-        'loanAmount': _loanAmount,
-        'creditScore': _creditScore,
-        'loanTime': _loanTime?.toIso8601String(),
-        'gangName': _gangName,
-        'gangRank': _gangRank,
-        'gangContribution': _gangContribution,
-        'gangWarWins': _gangWarWins,
-        'territoryOwners': _territoryOwners,
-        'crimeSuccessCountsMap': crimeSuccessCountsMap,
-        'contractEndTime': _contractEndTime?.toIso8601String(),
-        'activeContractName': _activeContractName,
-        'contractSalary': _contractSalary,
-        'lastUpdate': FieldValue.serverTimestamp(),
-        'ownedCars': _ownedCars,
-        'activeCarId': _activeCarId,
-        'chopShopEndTime': _chopShopEndTime?.toIso8601String(),
-        'isChopping': _isChopping,
-        'labEndTime': _labEndTime?.toIso8601String(),
-        'isCrafting': _isCrafting,
-        'craftingItemId': _craftingItemId,
-        'heat': _heat,
-        'spareParts': _spareParts,
-        'durability': _durability,
-        'equippedWeaponId': _equippedWeaponId,
-        'equippedArmorId': _equippedArmorId,
-        'equippedMaskId': _equippedMaskId,
-        'equippedCrimeToolId': _equippedCrimeToolId,
-        'transactions': _transactions.map((t) => t.toJson()).toList(),
+        'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl, 'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _maxHealth, 'happiness': _happiness, 'strength': _strength, 'defense': _defense, 'skill': _skill, 'speed': _speed, 'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(),
       }, SetOptions(merge: true));
-    } catch (e) { debugPrint("Sync failed: $e"); }
+    } catch (e) {}
   }
 
   void _startGameLoop() {
@@ -610,16 +443,9 @@ class PlayerProvider with ChangeNotifier {
           _health = min(maxHealth, _health + healAmount);
           _fractionalHealth -= healAmount;
           localChanged = true;
-
-          if (_health >= maxHealth && _isHospitalized) {
-            _isHospitalized = false;
-            _hospitalReleaseTime = null;
-            _showNotification("تعافيت بالكامل وخرجت من المستشفى!");
-          }
+          if (_health >= maxHealth && _isHospitalized) { _isHospitalized = false; _hospitalReleaseTime = null; _showNotification("تعافيت بالكامل وخرجت من المستشفى!"); }
         }
-      } else {
-        _fractionalHealth = 0.0;
-      }
+      } else { _fractionalHealth = 0.0; }
 
       if (timer.tick % 60 == 0) { for (var tool in _crimeToolsList) { if ((_durability[tool] ?? 100) < 100) { _durability[tool] = min(100.0, (_durability[tool] ?? 100) + 1.0); localChanged = true; } } }
       if (_loanAmount > 0 && _loanTime != null) { if (DateTime.now().difference(_loanTime!).inHours >= 2) { _loanAmount = (_loanAmount * 1.1).floor(); _loanTime = DateTime.now(); _showNotification("البنك 🏦: تمت إضافة فوائد 10% على قرضك لتأخرك في السداد!"); localChanged = true; } }
@@ -634,35 +460,17 @@ class PlayerProvider with ChangeNotifier {
   }
 
   void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
-
-  void updateProfilePic(String base64Image) {
-    _profilePicUrl = base64Image;
-    notifyListeners();
-    _syncWithFirestore();
-
-    _firestore.collection('chat').where('uid', isEqualTo: _uid).get().then((snapshot) {
-      WriteBatch batch = _firestore.batch();
-      for (var doc in snapshot.docs) {
-        batch.update(doc.reference, {'profilePicUrl': base64Image});
-      }
-      batch.commit();
-    }).catchError((e) => debugPrint("خطأ في تحديث صور الشات: $e"));
-  }
-
-  void updateBackgroundPic(String base64Image) {
-    _backgroundPicUrl = base64Image;
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
+  void updateProfilePic(String base64Image) { _profilePicUrl = base64Image; notifyListeners(); _syncWithFirestore(); _firestore.collection('chat').where('uid', isEqualTo: _uid).get().then((snapshot) { WriteBatch batch = _firestore.batch(); for (var doc in snapshot.docs) { batch.update(doc.reference, {'profilePicUrl': base64Image}); } batch.commit(); }); }
+  void updateBackgroundPic(String base64Image) { _backgroundPicUrl = base64Image; _syncWithFirestore(); notifyListeners(); }
   void increaseHeat(double amount) { _heat = min(100, _heat + amount); notifyListeners(); }
   void reduceHeat(double amount) { _heat = max(0, _heat - amount); notifyListeners(); }
   void reduceDurability(String? itemId, double amount) { if (itemId == null || !_crimeToolsList.contains(itemId)) return; _durability[itemId] = max(0, (_durability[itemId] ?? 100.0) - amount); if ((_durability[itemId] ?? 100) < 10) _showNotification("⚠️ عتاد الجريمة يحتاج إصلاح في الورشة!"); notifyListeners(); }
   void repairItem(String itemId, int requiredParts) { if (_crimeToolsList.contains(itemId) && _spareParts >= requiredParts && (_durability[itemId] ?? 100) < 100) { _spareParts -= requiredParts; _durability[itemId] = 100.0; _showNotification("🛠️ تم إصلاح الأداة بنجاح!"); _syncWithFirestore(); notifyListeners(); } }
   void collectChoppedCar() { if (_isChopping && _chopShopEndTime != null && DateTime.now().isAfter(_chopShopEndTime!)) { _isChopping = false; _chopShopEndTime = null; addCash(15000, reason: "بيع قطع غيار من التشليح 🚗"); _spareParts += 15; _showNotification("حصلت على 15 قطعة غيار للإصلاح!"); _syncWithFirestore(); notifyListeners(); } }
 
-  void addCash(int amount, {String reason = "مكافأة"}) { _cash += amount; _addTransaction(reason, amount, true); _syncWithFirestore(); notifyListeners(); }
-  void removeCash(int amount, {String reason = "خصم"}) { _cash = max(0, _cash - amount); _addTransaction(reason, amount, false); _syncWithFirestore(); notifyListeners(); }
+  void addCash(int amount, {String reason = "مكافأة", String? senderUid}) { _cash += amount; _addTransaction(reason, amount, true, senderUid: senderUid); _syncWithFirestore(); notifyListeners(); }
+  void removeCash(int amount, {String reason = "خصم", String? senderUid}) { _cash = max(0, _cash - amount); _addTransaction(reason, amount, false, senderUid: senderUid); _syncWithFirestore(); notifyListeners(); }
+
   void addGold(int amount) { _gold += amount; _syncWithFirestore(); notifyListeners(); }
   void removeGold(int amount) { _gold = max(0, _gold - amount); _syncWithFirestore(); notifyListeners(); }
 
@@ -670,98 +478,49 @@ class PlayerProvider with ChangeNotifier {
     if (_crimeLevel >= 450) return;
     _crimeXP += amount;
     bool leveledUp = false;
-
     while (_crimeXP >= xpToNextLevel && _crimeLevel < 450) {
       _crimeXP -= xpToNextLevel;
-
       int oldBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
       _crimeLevel++;
       int newBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
-
       _maxHealth += (newBase - oldBase);
       if (_maxHealth > 50000000) _maxHealth = 50000000;
-
       leveledUp = true;
     }
-
     if (leveledUp) _showNotification("🎉 لفل إجرامي جديد: $_crimeLevel");
     _syncWithFirestore();
     notifyListeners();
   }
 
   void addWorkXP(int amount) { _workXP += amount; if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; _showNotification("تمت ترقيتك للمستوى $_workLevel"); } _syncWithFirestore(); notifyListeners(); }
-
-  void incrementCrimeSuccess(String crimeId) {
-    crimeSuccessCountsMap[crimeId] = (crimeSuccessCountsMap[crimeId] ?? 0) + 1;
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
+  void incrementCrimeSuccess(String crimeId) { crimeSuccessCountsMap[crimeId] = (crimeSuccessCountsMap[crimeId] ?? 0) + 1; _syncWithFirestore(); notifyListeners(); }
   void handleCrimeFailure(int minutes) { double escapeChance = 0.0; if (_equippedMaskId == 'black_mask') escapeChance = 0.35; else if (_equippedMaskId == 'silicon_mask') escapeChance = 0.55; if (Random().nextDouble() < escapeChance) { _showNotification("🎭 هربت بفضل القناع!"); } else { _showNotification("⚠️ تم القبض عليك!"); startPrisonTimer(minutes); } }
 
   void depositToBank(int amount) { if (_cash >= amount) { _cash -= amount; _bankBalance += (amount * 0.9).floor(); _syncWithFirestore(); notifyListeners(); } }
   void withdrawFromBank(int amount) { if (_bankBalance >= amount) { _bankBalance -= amount; _cash += amount; _syncWithFirestore(); notifyListeners(); } }
   void buyGold(int amount) { int cost = amount * _goldPrice; if (_cash >= cost) { _cash -= cost; _gold += amount; _syncWithFirestore(); notifyListeners(); } }
   void sellGold(int amount) { if (_gold >= amount) { _cash += amount * _goldPrice; _gold -= amount; _syncWithFirestore(); notifyListeners(); } }
-
   void takeLoan(int amount) { if (_loanAmount + amount <= maxLoanLimit) { if (_loanAmount == 0) _loanTime = DateTime.now(); _loanAmount += amount; _cash += (amount * 0.95).floor(); _syncWithFirestore(); notifyListeners(); } }
   bool canRepayLoan() { if (_loanTime == null) return true; return DateTime.now().difference(_loanTime!).inMinutes >= 5; }
   void repayLoan(int amount) { if (canRepayLoan() && amount <= _cash && amount <= _loanAmount) { _cash -= amount; _loanAmount -= amount; if (_loanAmount == 0) { _loanTime = null; _creditScore += 10; _showNotification("البنك 🏦: سددت قرضك بالكامل! زادت سمعتك."); } _syncWithFirestore(); notifyListeners(); } }
   void startLockedInvestment(int amount, int minutes, double rate) { if (_cash >= amount) { _cash -= amount; _lockedBalance = amount; _lockedProfits = (amount * rate).floor(); _lockedUntil = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); } }
   void startWorkContract(String name, int durationMinutes, int salaryPerMinute) { if (isUnderContract) return; _activeContractName = name; _contractSalary = salaryPerMinute; _lastContractRewardTime = DateTime.now(); _contractEndTime = DateTime.now().add(Duration(minutes: durationMinutes)); _syncWithFirestore(); notifyListeners(); }
 
-  double get maxGymStats {
-    return 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0);
-  }
-
-  double get currentBaseStats {
-    return _strength + _defense + _skill + _speed;
-  }
+  double get maxGymStats => 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0);
+  double get currentBaseStats => _strength + _defense + _skill + _speed;
 
   void trainMultipleStats(int strE, int defE, int skillE, int spdE) {
     int totalEnergy = strE + defE + skillE + spdE;
     if (_energy < totalEnergy || totalEnergy <= 0) return;
-
-    if (currentBaseStats >= maxGymStats) {
-      _showNotification("🚨 وصلت للحد الأقصى لجسمك في هذا المستوى! ارفع لفلك.");
-      return;
-    }
-
+    if (currentBaseStats >= maxGymStats) { _showNotification("🚨 وصلت للحد الأقصى لجسمك في هذا المستوى! ارفع لفلك."); return; }
     double gainPerEnergy = 0.01 + (_happiness * 0.0002);
-
-    double strGain = strE * gainPerEnergy;
-    double defGain = defE * gainPerEnergy;
-    double skillGain = skillE * gainPerEnergy;
-    double spdGain = spdE * gainPerEnergy;
-
+    double strGain = strE * gainPerEnergy; double defGain = defE * gainPerEnergy; double skillGain = skillE * gainPerEnergy; double spdGain = spdE * gainPerEnergy;
     double totalGain = strGain + defGain + skillGain + spdGain;
     double availableRoom = maxGymStats - currentBaseStats;
-
-    if (totalGain > availableRoom) {
-      double scale = availableRoom / totalGain;
-      strGain *= scale;
-      defGain *= scale;
-      skillGain *= scale;
-      spdGain *= scale;
-    }
-
-    _energy -= totalEnergy;
-    _strength += strGain;
-    _defense += defGain;
-    _skill += skillGain;
-    _speed += spdGain;
-
-    if (defGain > 0) {
-      double randomMultiplier = 8.0 + Random().nextDouble() * 7.0;
-      int hpBoost = (defGain * randomMultiplier).toInt();
-      if (hpBoost > 0) {
-        _maxHealth = min(50000000, _maxHealth + hpBoost);
-        _showNotification("🛡️ تمرين الدفاع زاد صحتك القصوى بمقدار +$hpBoost نقطة!");
-      }
-    }
-
-    _syncWithFirestore();
-    notifyListeners();
+    if (totalGain > availableRoom) { double scale = availableRoom / totalGain; strGain *= scale; defGain *= scale; skillGain *= scale; spdGain *= scale; }
+    _energy -= totalEnergy; _strength += strGain; _defense += defGain; _skill += skillGain; _speed += spdGain;
+    if (defGain > 0) { double randomMultiplier = 8.0 + Random().nextDouble() * 7.0; int hpBoost = (defGain * randomMultiplier).toInt(); if (hpBoost > 0) { _maxHealth = min(50000000, _maxHealth + hpBoost); _showNotification("🛡️ تمرين الدفاع زاد صحتك القصوى بمقدار +$hpBoost نقطة!"); } }
+    _syncWithFirestore(); notifyListeners();
   }
 
   void incrementArenaLevel() { _arenaLevel++; _syncWithFirestore(); notifyListeners(); }
@@ -780,76 +539,34 @@ class PlayerProvider with ChangeNotifier {
     int missing = maxHealth - _health;
     if (missing <= 0) return;
     int cost = isVIP ? max(1, (missing * 0.8).toInt()) : missing;
-
-    if (_cash >= cost) {
-      _cash -= cost;
-      _health = maxHealth;
-      _isHospitalized = false;
-      _hospitalReleaseTime = null;
-      _addTransaction("فاتورة المستشفى", cost, false);
-      _syncWithFirestore();
-      notifyListeners();
-      _showNotification("🏥 تم العلاج بالكامل مقابل $cost كاش!");
-    } else {
-      _showNotification("⚠️ كاش غير كافي! تحتاج $cost");
-    }
+    if (_cash >= cost) { _cash -= cost; _health = maxHealth; _isHospitalized = false; _hospitalReleaseTime = null; _addTransaction("فاتورة المستشفى", cost, false); _syncWithFirestore(); notifyListeners(); _showNotification("🏥 تم العلاج بالكامل مقابل $cost كاش!"); } else { _showNotification("⚠️ كاش غير كافي! تحتاج $cost"); }
   }
 
   void updateName(String newName) { if (_inventory.containsKey('name_change_card') && _inventory['name_change_card']! > 0) { _playerName = newName; _inventory['name_change_card'] = _inventory['name_change_card']! - 1; if (_inventory['name_change_card'] == 0) _inventory.remove('name_change_card'); _syncWithFirestore(); notifyListeners(); } }
   void startPrisonTimer(int minutes) { _isInPrison = true; _prisonReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
-
   void buyItem(String itemId, int price, {bool isConsumable = false, String currency = 'cash'}) { bool canBuy = currency == 'cash' ? _cash >= price : _gold >= price; if (canBuy) { if (currency == 'cash') _cash -= price; else _gold -= price; _inventory[itemId] = (_inventory[itemId] ?? 0) + 1; _syncWithFirestore(); notifyListeners(); } }
 
   void useItem(String itemId) {
     if ((_inventory[itemId] ?? 0) > 0) {
-      if (_crimeToolsList.contains(itemId)) {
-        _equippedCrimeToolId = (_equippedCrimeToolId == itemId) ? null : itemId;
-      } else if (weaponStats.containsKey(itemId)) {
-        _equippedWeaponId = (_equippedWeaponId == itemId) ? null : itemId;
-      } else if (armorStats.containsKey(itemId)) {
-        _equippedArmorId = (_equippedArmorId == itemId) ? null : itemId;
-      } else if (['black_mask', 'silicon_mask'].contains(itemId)) {
-        _equippedMaskId = (_equippedMaskId == itemId) ? null : itemId;
-      } else {
+      if (_crimeToolsList.contains(itemId)) { _equippedCrimeToolId = (_equippedCrimeToolId == itemId) ? null : itemId; } else if (weaponStats.containsKey(itemId)) { _equippedWeaponId = (_equippedWeaponId == itemId) ? null : itemId; } else if (armorStats.containsKey(itemId)) { _equippedArmorId = (_equippedArmorId == itemId) ? null : itemId; } else if (['black_mask', 'silicon_mask'].contains(itemId)) { _equippedMaskId = (_equippedMaskId == itemId) ? null : itemId; } else {
         bool isConsumed = false;
-
-        if (itemId == 'medkit') { _health = maxHealth; isConsumed = true; }
-        else if (itemId == 'bandage') { _health = min(maxHealth, _health + (maxHealth * 0.25).toInt()); isConsumed = true; }
-        else if (itemId == 'steroids') { _energy = maxEnergy; isConsumed = true; }
-        else if (itemId == 'coffee') { _courage = maxCourage; isConsumed = true; }
-        else if (itemId == 'bribe_small') { reduceHeat(20.0); isConsumed = true; }
-        else if (itemId == 'fake_plates') { reduceHeat(40.0); isConsumed = true; }
-        else if (itemId == 'bribe_big') { _heat = 0.0; isConsumed = true; }
-        else if (itemId == 'smoke_bomb') {
-          if (_isInPrison) {
-            _isInPrison = false; _prisonReleaseTime = null;
-            _showNotification("💨 استخدمت القنبلة الدخانية وهربت من السجن!");
-            isConsumed = true;
-          } else {
-            _showNotification("لا يمكنك استخدام هذا إلا في السجن!");
-          }
-        }
-
-        if (['medkit', 'bandage'].contains(itemId) && _isHospitalized) {
-          _isHospitalized = false;
-          _hospitalReleaseTime = null;
-          _showNotification("🏥 تعافيت وخرجت من المستشفى!");
-        }
-
-        if (isConsumed) {
-          _inventory[itemId] = _inventory[itemId]! - 1;
-          if (_inventory[itemId] == 0) _inventory.remove(itemId);
-        }
+        if (itemId == 'medkit') { _health = maxHealth; isConsumed = true; } else if (itemId == 'bandage') { _health = min(maxHealth, _health + (maxHealth * 0.25).toInt()); isConsumed = true; } else if (itemId == 'steroids') { _energy = maxEnergy; isConsumed = true; } else if (itemId == 'coffee') { _courage = maxCourage; isConsumed = true; } else if (itemId == 'bribe_small') { reduceHeat(20.0); isConsumed = true; } else if (itemId == 'fake_plates') { reduceHeat(40.0); isConsumed = true; } else if (itemId == 'bribe_big') { _heat = 0.0; isConsumed = true; } else if (itemId == 'smoke_bomb') { if (_isInPrison) { _isInPrison = false; _prisonReleaseTime = null; _showNotification("💨 استخدمت القنبلة الدخانية وهربت من السجن!"); isConsumed = true; } else { _showNotification("لا يمكنك استخدام هذا إلا في السجن!"); } }
+        if (['medkit', 'bandage'].contains(itemId) && _isHospitalized) { _isHospitalized = false; _hospitalReleaseTime = null; _showNotification("🏥 تعافيت وخرجت من المستشفى!"); }
+        if (isConsumed) { _inventory[itemId] = _inventory[itemId]! - 1; if (_inventory[itemId] == 0) _inventory.remove(itemId); }
       }
-      _syncWithFirestore();
-      notifyListeners();
+      _syncWithFirestore(); notifyListeners();
     }
   }
 
   void addItemDirectly(String itemId, {int quantity = 1}) { _inventory[itemId] = (_inventory[itemId] ?? 0) + quantity; _syncWithFirestore(); notifyListeners(); }
   void buyVIP(int days, int cost) { if (_gold >= cost) { _gold -= cost; DateTime start = isVIP ? _vipUntil! : DateTime.now(); _vipUntil = start.add(Duration(days: days)); _syncWithFirestore(); notifyListeners(); } }
   void _showNotification(String message) => _notificationStream.add(message);
-  void _addTransaction(String title, int amount, bool isPositive) { _transactions.insert(0, Transaction(title: title, amount: amount, date: DateTime.now(), isPositive: isPositive)); if (_transactions.length > 20) _transactions.removeLast(); }
+
+  void _addTransaction(String title, int amount, bool isPositive, {String? senderUid}) {
+    _transactions.insert(0, Transaction(title: title, amount: amount, date: DateTime.now(), isPositive: isPositive, senderUid: senderUid));
+    if (_transactions.length > 20) _transactions.removeLast();
+  }
+
   void _startGoldMarketTimer() { _goldMarketTimer = Timer.periodic(const Duration(hours: 2), (timer) { _oldGoldPrice = _goldPrice; _goldPrice = 15000 + Random().nextInt(2001); notifyListeners(); }); }
   void payBail() { if (_cash >= _bailPrice) { _cash -= _bailPrice; _isInPrison = false; _prisonReleaseTime = null; _syncWithFirestore(); notifyListeners(); } }
 
@@ -857,7 +574,74 @@ class PlayerProvider with ChangeNotifier {
 
   Future<List<Map<String, dynamic>>> fetchRealOpponents() async { try { int minLevel = max(1, _arenaLevel - 2); int maxLevel = _arenaLevel + 2; QuerySnapshot snapshot = await _firestore.collection('players').where('arenaLevel', isGreaterThanOrEqualTo: minLevel).where('arenaLevel', isLessThanOrEqualTo: maxLevel).limit(10).get(); List<Map<String, dynamic>> opponents = []; for (var doc in snapshot.docs) { if (doc.id != _uid) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; opponents.add(data); } } return opponents; } catch (e) { return []; } }
   Future<List<Map<String, dynamic>>> fetchLeaderboard() async { try { QuerySnapshot snapshot = await _firestore.collection('players').orderBy('arenaLevel', descending: true).limit(10).get(); List<Map<String, dynamic>> topPlayers = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; topPlayers.add(data); } return topPlayers; } catch (e) { return []; } }
-  Future<void> recordPvpVictory(String enemyUid, String enemyName, int reward) async { addCash(reward, reason: "غنيمة من $enemyName"); try { await _firestore.collection('players').doc(enemyUid).update({ 'cash': FieldValue.increment(-reward) }); await _firestore.collection('players').doc(enemyUid).collection('attacks_log').add({ 'attackerId': _uid, 'attackerName': _playerName, 'stolenAmount': reward, 'date': FieldValue.serverTimestamp(), 'hasAvenged': false }); } catch (e) {} }
+
+  // 🟢 التعديل الجديد والمهم: دالة تسجل نتيجة المعركة (فوز، خسارة، تعادل) وتتحكم بالمستشفى
+  Future<void> recordPvpResult(String enemyUid, String enemyName, String result, int reward) async {
+    try {
+      final enemyRef = _firestore.collection('players').doc(enemyUid);
+      final logRef = enemyRef.collection('attacks_log').doc();
+
+      Map<String, dynamic> logData = {
+        'attackerId': _uid,
+        'attackerName': _playerName,
+        'result': result, // 'win' (المهاجم فاز), 'loss' (المهاجم خسر), 'draw' (تعادل)
+        'stolenAmount': reward,
+        'date': FieldValue.serverTimestamp(),
+        'hasAvenged': false,
+      };
+
+      await _firestore.runTransaction((transaction) async {
+        final enemySnap = await transaction.get(enemyRef);
+        if (!enemySnap.exists) return;
+
+        int enemyCash = enemySnap.data()?['cash'] ?? 0;
+        int enemyHealth = enemySnap.data()?['health'] ?? 100;
+        Map<String, dynamic> updates = {};
+
+        if (result == 'win') {
+          // المهاجم فاز: المدافع يخسر فلوس ويدخل المستشفى 15 دقيقة
+          int finalReward = min(reward, enemyCash);
+          updates['cash'] = enemyCash - finalReward;
+          updates['health'] = 0;
+          updates['isHospitalized'] = true;
+          updates['hospitalReleaseTime'] = DateTime.now().add(const Duration(minutes: 15)).toIso8601String();
+          logData['stolenAmount'] = finalReward;
+        } else if (result == 'loss') {
+          // المهاجم خسر: المدافع ما يصير له شيء
+        } else if (result == 'draw') {
+          // تعادل: تنقص صحة المدافع 20
+          int newHealth = max(1, enemyHealth - 20);
+          updates['health'] = newHealth;
+          if (newHealth <= 1) { // لو صحته طارت بسبب التعادل
+            updates['health'] = 0;
+            updates['isHospitalized'] = true;
+            updates['hospitalReleaseTime'] = DateTime.now().add(const Duration(minutes: 15)).toIso8601String();
+          }
+        }
+
+        if (updates.isNotEmpty) {
+          transaction.update(enemyRef, updates);
+        }
+        transaction.set(logRef, logData);
+      });
+
+      // 🟢 تطبيق التأثير على المهاجم (اللاعب الحالي) 🟢
+      if (result == 'win') {
+        addCash(reward, reason: "غنيمة من $enemyName");
+        _showNotification("⚔️ انتصرت على $enemyName وأرسلته للمستشفى!");
+      } else if (result == 'loss') {
+        enterHospital(15);
+        _showNotification("🏥 لقد خسرت المعركة وتم نقلك للمستشفى!");
+      } else if (result == 'draw') {
+        setHealth(max(1, health - 20));
+        _showNotification("🤝 انتهت المعركة بالتعادل! تضررت صحتك.");
+      }
+
+    } catch (e) {
+      debugPrint("خطأ في حفظ نتيجة المعركة: $e");
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchAttacksLog() async { if (_uid == null) return []; try { QuerySnapshot snapshot = await _firestore.collection('players').doc(_uid).collection('attacks_log').orderBy('date', descending: true).limit(20).get(); List<Map<String, dynamic>> logs = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['logId'] = doc.id; logs.add(data); } return logs; } catch (e) { return []; } }
   Future<void> markAsAvenged(String logId) async { if (_uid == null) return; try { await _firestore.collection('players').doc(_uid).collection('attacks_log').doc(logId).update({'hasAvenged': true}); } catch (e) {} }
   void buyCar(String carId, int price) { if (_cash >= price && !_ownedCars.contains(carId)) { _cash -= price; _ownedCars.add(carId); _activeCarId ??= carId; _syncWithFirestore(); notifyListeners(); } }
@@ -867,18 +651,8 @@ class PlayerProvider with ChangeNotifier {
   void startCrafting(String itemId, int costCash, int durationMinutes) { if (!_isCrafting && _cash >= costCash) { _cash -= costCash; _isCrafting = true; _craftingItemId = itemId; _labEndTime = DateTime.now().add(Duration(minutes: durationMinutes)); _syncWithFirestore(); notifyListeners(); } }
   void collectCraftedItem() { if (_isCrafting && _labEndTime != null && DateTime.now().isAfter(_labEndTime!)) { _isCrafting = false; _labEndTime = null; if (_craftingItemId != null) { _inventory[_craftingItemId!] = (_inventory[_craftingItemId!] ?? 0) + 1; _craftingItemId = null; } _syncWithFirestore(); notifyListeners(); } }
   void addInventoryItem(String itemId, int amount) { _inventory[itemId] = (_inventory[itemId] ?? 0) + amount; _syncWithFirestore(); notifyListeners(); }
+  void unlockAllCrimesForDev() { for (int catIndex = 0; catIndex < 20; catIndex++) { for (int crimeIndex = 0; crimeIndex < 20; crimeIndex++) { String crimeId = 'cat_${catIndex}_crime_$crimeIndex'; crimeSuccessCountsMap[crimeId] = 10; } } _syncWithFirestore(); notifyListeners(); _showNotification("🛠️ (أداة المطور): تم فتح جميع الجرائم بنجاح!"); }
 
-  void unlockAllCrimesForDev() {
-    for (int catIndex = 0; catIndex < 20; catIndex++) {
-      for (int crimeIndex = 0; crimeIndex < 20; crimeIndex++) {
-        String crimeId = 'cat_${catIndex}_crime_$crimeIndex';
-        crimeSuccessCountsMap[crimeId] = 10;
-      }
-    }
-    _syncWithFirestore();
-    notifyListeners();
-    _showNotification("🛠️ (أداة المطور): تم فتح جميع الجرائم بنجاح!");
-  }
   @override
   void dispose() { _playerDataSubscription?.cancel(); _gameLoopTimer?.cancel(); _goldMarketTimer?.cancel(); _notificationStream.close(); super.dispose(); }
 }

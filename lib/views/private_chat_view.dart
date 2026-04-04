@@ -33,6 +33,12 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     chatId = myUid.compareTo(widget.targetUid) > 0 ? '${myUid}_${widget.targetUid}' : '${widget.targetUid}_$myUid';
   }
 
+  // 🟢 دالة لإضافة الفواصل للأرقام عشان يسهل قراءتها
+  String _formatWithCommas(int number) {
+    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return number.toString().replaceAllMapped(reg, (Match match) => '${match[1]},');
+  }
+
   void _sendMessage({String type = 'text', int? amount}) async {
     String msgText = _controller.text.trim();
     if (type == 'text' && msgText.isEmpty) return;
@@ -46,7 +52,8 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     Map<String, dynamic> messageData = {
       'senderId': myUid,
       'type': type,
-      'message': msgText,
+      // 🟢 تم تعديل علامة $ لتكون بعد الرقم
+      'message': type == 'transfer' ? 'قام بتحويل ${_formatWithCommas(amount ?? 0)}\$ 💸' : msgText,
       'timestamp': FieldValue.serverTimestamp(),
       'isRead': false,
       'isBurn': _isBurnMessage,
@@ -67,7 +74,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     if (mounted) setState(() => _isBurnMessage = false);
   }
 
-  // 🟢 التعديل هنا: استخدام Transaction لضمان وصول الإشعار للطرف الآخر
   void _quickTransfer() {
     final player = Provider.of<PlayerProvider>(context, listen: false);
     showDialog(
@@ -78,15 +84,23 @@ class _PrivateChatViewState extends State<PrivateChatView> {
             textDirection: TextDirection.rtl,
             child: AlertDialog(
               backgroundColor: Colors.grey[900],
-              title: const Text('تحويل سريع 💸', style: TextStyle(color: Colors.amber)),
-              content: TextField(
-                controller: amtCtrl,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(hintText: 'المبلغ..', filled: true, fillColor: Colors.black45),
+              title: const Text('تحويل سريع 💸', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 🟢 إظهار الكاش المتاح للزعيم بالفواصل وعلامة الدولار في الخلف 🟢
+                  Text('الكاش المتاح: ${_formatWithCommas(player.cash)}\$', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 15)),
+                  const SizedBox(height: 15),
+                  TextField(
+                    controller: amtCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white, fontFamily: 'Changa'),
+                    decoration: const InputDecoration(hintText: 'المبلغ..', filled: true, fillColor: Colors.black45),
+                  ),
+                ],
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
+                TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء', style: TextStyle(fontFamily: 'Changa', color: Colors.white54))),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
                   onPressed: () async {
@@ -108,7 +122,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
 
                           transaction.update(senderRef, {'cash': senderCash - amt});
 
-                          // 🟢 إضافة التحويل إلى سجل الطرف المستلم لكي يظهر في الإشعارات
                           List<dynamic> receiverTxs = receiverSnap.data()?['transactions'] ?? [];
                           receiverTxs.insert(0, {
                             'title': 'تحويل من ${player.playerName}',
@@ -135,7 +148,7 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرصيد غير كافي!')));
                     }
                   },
-                  child: const Text('أرسل', style: TextStyle(color: Colors.black)),
+                  child: const Text('أرسل', style: TextStyle(color: Colors.black, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
                 )
               ],
             ),
@@ -201,23 +214,16 @@ class _PrivateChatViewState extends State<PrivateChatView> {
 
     _firestore.collection('private_chats').doc(chatId).set({'unread_$myUid': 0}, SetOptions(merge: true));
 
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) {
-        if (didPop) return;
-        if (FocusManager.instance.primaryFocus?.hasFocus ?? false) {
-          FocusManager.instance.primaryFocus?.unfocus();
-        } else {
-          Navigator.of(context).pop();
-        }
-      },
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
           backgroundColor: const Color(0xFF1A1A1D),
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             backgroundColor: Colors.black87,
-            titleSpacing: 0,
+            titleSpacing: 15,
             title: StreamBuilder<DocumentSnapshot>(
               stream: _firestore.collection('players').doc(widget.targetUid).snapshots(),
               builder: (context, snapshot) {
@@ -239,7 +245,9 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                   if (targetData['lastUpdate'] != null) {
                     DateTime lastUpdate = (targetData['lastUpdate'] as Timestamp).toDate();
                     final diff = DateTime.now().difference(lastUpdate);
-                    if (diff.inMinutes < 5) {
+
+                    // 🟢 التعديل هنا: إذا غاب اللاعب أكثر من دقيقة تظهر له "آخر ظهور" فوراً 🟢
+                    if (diff.inMinutes <= 1) {
                       statusText = 'متصل الآن';
                       statusColor = Colors.greenAccent;
                     } else if (diff.inHours < 1) {
@@ -288,7 +296,16 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                 );
               },
             ),
-            iconTheme: const IconThemeData(color: Colors.amber),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.amber),
+                onPressed: () {
+                  FocusScope.of(context).unfocus();
+                  Navigator.of(context).pop();
+                },
+              ),
+              const SizedBox(width: 10),
+            ],
           ),
           body: Column(
             children: [
@@ -326,8 +343,12 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                         }
 
                         if (type == 'transfer') {
-                          // 🟢 التعديل هنا: التفريق بين المرسل والمستلم نصياً
-                          String transferMsg = isMe ? 'قمت بتحويل \$${msg['amount']} 💸' : 'قام ${widget.targetName} بتحويل \$${msg['amount']} 💸';
+                          int amount = msg['amount'] ?? 0;
+                          String formattedAmount = _formatWithCommas(amount);
+
+                          // 🟢 التعديل هنا: تغيير النص لـ "قمت" لك، و "قام فلان" للخصم + علامة الدولار بالعكس 🟢
+                          String transferMsg = isMe ? 'قمت بتحويل $formattedAmount\$ 💸' : 'قام ${widget.targetName} بتحويل $formattedAmount\$ 💸';
+
                           return TransferBubble(message: transferMsg, isMe: isMe);
                         }
 
@@ -492,7 +513,7 @@ class TransferBubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(color: Colors.amber.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)),
-        child: Text(message, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+        child: Text(message, style: const TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 14, fontWeight: FontWeight.bold)),
       ),
     );
   }
