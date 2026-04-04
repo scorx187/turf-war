@@ -33,7 +33,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     chatId = myUid.compareTo(widget.targetUid) > 0 ? '${myUid}_${widget.targetUid}' : '${widget.targetUid}_$myUid';
   }
 
-  // 🟢 دالة لإضافة الفواصل للأرقام عشان يسهل قراءتها
   String _formatWithCommas(int number) {
     RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
     return number.toString().replaceAllMapped(reg, (Match match) => '${match[1]},');
@@ -52,7 +51,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     Map<String, dynamic> messageData = {
       'senderId': myUid,
       'type': type,
-      // 🟢 تم تعديل علامة $ لتكون بعد الرقم
       'message': type == 'transfer' ? 'قام بتحويل ${_formatWithCommas(amount ?? 0)}\$ 💸' : msgText,
       'timestamp': FieldValue.serverTimestamp(),
       'isRead': false,
@@ -88,7 +86,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 🟢 إظهار الكاش المتاح للزعيم بالفواصل وعلامة الدولار في الخلف 🟢
                   Text('الكاش المتاح: ${_formatWithCommas(player.cash)}\$', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 15)),
                   const SizedBox(height: 15),
                   TextField(
@@ -106,7 +103,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                   onPressed: () async {
                     int? amt = int.tryParse(amtCtrl.text.trim());
                     if (amt != null && amt > 0 && amt <= player.cash) {
-
                       try {
                         await _firestore.runTransaction((transaction) async {
                           final senderRef = _firestore.collection('players').doc(player.uid);
@@ -173,22 +169,7 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                     return Column(
                       children: [
                         TopBar(
-                            cash: player.cash,
-                            gold: player.gold,
-                            energy: player.energy,
-                            maxEnergy: player.maxEnergy,
-                            courage: player.courage,
-                            maxCourage: player.maxCourage,
-                            health: player.health,
-                            maxHealth: player.maxHealth,
-                            prestige: player.prestige,
-                            maxPrestige: player.maxPrestige,
-                            playerName: player.playerName,
-                            profilePicUrl: player.profilePicUrl,
-                            level: player.crimeLevel,
-                            currentXp: player.crimeXP,
-                            maxXp: player.xpToNextLevel,
-                            isVIP: player.isVIP
+                            cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy, courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth, prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName, profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP, maxXp: player.xpToNextLevel, isVIP: player.isVIP
                         ),
                         Expanded(child: PlayerProfileView(
                             targetUid: widget.targetUid,
@@ -221,9 +202,18 @@ class _PrivateChatViewState extends State<PrivateChatView> {
         child: Scaffold(
           backgroundColor: const Color(0xFF1A1A1D),
           appBar: AppBar(
-            automaticallyImplyLeading: false,
             backgroundColor: Colors.black87,
-            titleSpacing: 15,
+            titleSpacing: 0,
+            // 🟢 التعديل هنا: زر الرجوع أصبح في اليمين (مدمج مع الصورة) نفس الواتساب 🟢
+            leadingWidth: 40,
+            leading: IconButton(
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.arrow_back_ios, color: Colors.amber, size: 22),
+              onPressed: () {
+                FocusScope.of(context).unfocus();
+                Navigator.of(context).pop();
+              },
+            ),
             title: StreamBuilder<DocumentSnapshot>(
               stream: _firestore.collection('players').doc(widget.targetUid).snapshots(),
               builder: (context, snapshot) {
@@ -246,7 +236,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                     DateTime lastUpdate = (targetData['lastUpdate'] as Timestamp).toDate();
                     final diff = DateTime.now().difference(lastUpdate);
 
-                    // 🟢 التعديل هنا: إذا غاب اللاعب أكثر من دقيقة تظهر له "آخر ظهور" فوراً 🟢
                     if (diff.inMinutes <= 1) {
                       statusText = 'متصل الآن';
                       statusColor = Colors.greenAccent;
@@ -296,16 +285,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                 );
               },
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.amber),
-                onPressed: () {
-                  FocusScope.of(context).unfocus();
-                  Navigator.of(context).pop();
-                },
-              ),
-              const SizedBox(width: 10),
-            ],
           ),
           body: Column(
             children: [
@@ -346,7 +325,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                           int amount = msg['amount'] ?? 0;
                           String formattedAmount = _formatWithCommas(amount);
 
-                          // 🟢 التعديل هنا: تغيير النص لـ "قمت" لك، و "قام فلان" للخصم + علامة الدولار بالعكس 🟢
                           String transferMsg = isMe ? 'قمت بتحويل $formattedAmount\$ 💸' : 'قام ${widget.targetName} بتحويل $formattedAmount\$ 💸';
 
                           return TransferBubble(message: transferMsg, isMe: isMe);

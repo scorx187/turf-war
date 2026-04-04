@@ -57,6 +57,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'workLevel': player.workLevel,
         'creditScore': player.creditScore,
         'gangName': player.gangName,
+        'currentCity': player.currentCity, // 🟢 المدينة الحالية
       };
     } else {
       playerData = {
@@ -70,6 +71,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'crimeLevel': 0,
         'workLevel': 0,
         'creditScore': 0,
+        'currentCity': 'ملاذ',
       };
       _loadData();
     }
@@ -145,7 +147,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: Colors.grey[900], title: const Text("تحذير نهائي ⚠️", style: TextStyle(color: Colors.white), textAlign: TextAlign.right), content: const Text("هل أنت متأكد من مسح كافة بياناتك؟ لا يمكن التراجع.", style: TextStyle(color: Colors.white70), textAlign: TextAlign.right), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("إلغاء", style: TextStyle(color: Colors.blue))), TextButton(onPressed: () { player.resetPlayerData(); Navigator.pop(context); }, child: const Text("نعم، امسح كل شيء", style: TextStyle(color: Colors.red)))]));
   }
 
-  // 🟢 التعديل هنا: يرسل الإشعار للطرف الآخر حتى لو تم التحويل من بروفايله 🟢
   void _showTransferDialog(PlayerProvider player) {
     TextEditingController amountController = TextEditingController();
     bool isTransferring = false;
@@ -194,7 +195,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
                         transaction.update(senderRef, {'cash': senderCash - amount});
 
-                        // إضافة التحويل لقائمة الطرف المستلم عشان يظهر له في الإشعارات
                         List<dynamic> receiverTxs = receiverSnap.data()?['transactions'] ?? [];
                         receiverTxs.insert(0, {
                           'title': 'تحويل من ${player.playerName}',
@@ -388,7 +388,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 15),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-                decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(20), border: Border.all(color: isVIP ? Colors.amber.withValues(alpha: 0.4) : Colors.white10), image: backgroundPicData != null ? DecorationImage(image: MemoryImage(backgroundPicData), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.5), BlendMode.darken)) : null),
+                decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(20), border: Border.all(color: isVIP ? Colors.amber.withOpacity(0.4) : Colors.white10), image: backgroundPicData != null ? DecorationImage(image: MemoryImage(backgroundPicData), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.darken)) : null),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -397,7 +397,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF212121), shape: BoxShape.circle, border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null, boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10)]), child: CircleAvatar(radius: 40, backgroundColor: Colors.grey[800], backgroundImage: profilePicData != null ? MemoryImage(profilePicData) : null, child: profilePicData == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54) : null)),
+                          Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF212121), shape: BoxShape.circle, border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null, boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)]), child: CircleAvatar(radius: 40, backgroundColor: Colors.grey[800], backgroundImage: profilePicData != null ? MemoryImage(profilePicData) : null, child: profilePicData == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54) : null)),
                           Positioned(bottom: 0, right: 0, child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Color(0xFF1A1A1D), shape: BoxShape.circle), child: CircleAvatar(radius: 7, backgroundColor: isOnline ? Colors.greenAccent : Colors.redAccent))),
                           if (isMe) const Positioned(top: 0, left: 0, child: CircleAvatar(radius: 12, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 14, color: Colors.black)))
                         ],
@@ -413,8 +413,10 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                           Wrap(
                             spacing: 8, runSpacing: 8,
                             children: [
-                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withValues(alpha: 0.5))), child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))),
-                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withValues(alpha: 0.4))), child: Text('ID: ${playerData!['gameId'] ?? '------'}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1))),
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withOpacity(0.5))), child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))),
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withOpacity(0.4))), child: Text('ID: ${playerData!['gameId'] ?? '------'}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1))),
+                              // 🟢 إضافة اسم المدينة في بروفايل اللاعب
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.teal.withOpacity(0.4))), child: Text('📍 ${playerData!['currentCity'] ?? 'ملاذ'}', style: const TextStyle(color: Colors.tealAccent, fontSize: 12, fontWeight: FontWeight.bold))),
                             ],
                           ),
                         ],
@@ -426,7 +428,15 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               ),
             ),
           ),
-          const SizedBox(height: 25),
+          const SizedBox(height: 10),
+
+          // 🟢 شريط تحذيري إذا كان اللاعب في المستشفى أو السجن 🟢
+          if (playerData!['isHospitalized'] == true)
+            Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red.withOpacity(0.5))), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.local_hospital, color: Colors.redAccent), SizedBox(width: 8), Text('هذا اللاعب يتعالج في المستشفى حالياً 🏥', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold))])),
+          if (playerData!['isInPrison'] == true)
+            Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.withOpacity(0.5))), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.lock, color: Colors.grey), SizedBox(width: 8), Text('هذا اللاعب يقضي عقوبة في السجن 🔒', style: TextStyle(color: Colors.grey, fontFamily: 'Changa', fontWeight: FontWeight.bold))])),
+
+          const SizedBox(height: 15),
 
           // 2. البايو
           GestureDetector(
@@ -435,7 +445,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.all(15),
               width: double.infinity,
-              decoration: BoxDecoration(color: isMe ? Colors.white.withValues(alpha: 0.05) : Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: isMe ? Colors.amber.withValues(alpha: 0.3) : Colors.white10)),
+              decoration: BoxDecoration(color: isMe ? Colors.white.withOpacity(0.05) : Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: isMe ? Colors.amber.withOpacity(0.3) : Colors.white10)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -466,7 +476,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
           ),
           const SizedBox(height: 25),
 
-          // --- ⚔️ قسم الإحصائيات القتالية ⚔️ ---
           if (isMe) ...[
             const Padding(padding: EdgeInsets.symmetric(horizontal: 25), child: Align(alignment: Alignment.centerRight, child: Text("الإحصائيات القتالية ⚔️", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)))),
             const SizedBox(height: 10),
@@ -485,8 +494,30 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                   _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatView(targetUid: widget.targetUid, targetName: playerData!['playerName'] ?? 'مجهول', targetPicUrl: playerData!['profilePicUrl'])));
                   }),
+                  // 🟢 التعديل هنا: زر الهجوم يفحص المدينة والمستشفى والسجن 🟢
                   _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () {
-                    if (!playerData!.containsKey('uid') || playerData!['uid'] == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جاري التحميل...'))); return; }
+                    if (!playerData!.containsKey('uid') || playerData!['uid'] == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جاري التحميل...')));
+                      return;
+                    }
+
+                    bool isHosp = playerData!['isHospitalized'] == true;
+                    bool isPris = playerData!['isInPrison'] == true;
+                    String targetCity = playerData!['currentCity'] ?? 'ملاذ';
+
+                    if (isHosp) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اللاعب في المستشفى 🏥، لا يمكنك الهجوم عليه!', style: TextStyle(fontFamily: 'Changa'))));
+                      return;
+                    }
+                    if (isPris) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اللاعب يقبع في السجن 🔒، لا يمكنك الوصول إليه!', style: TextStyle(fontFamily: 'Changa'))));
+                      return;
+                    }
+                    if (player.currentCity != targetCity) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('أنت في ${player.currentCity} والهدف في $targetCity ✈️! يجب أن تسافر إليه أولاً.', style: const TextStyle(fontFamily: 'Changa'))));
+                      return;
+                    }
+
                     Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(backgroundColor: Colors.black, body: SafeArea(child: PvpBattleView(enemyData: playerData!, onBack: () => Navigator.pop(context))))));
                   }),
                   _buildActionBtn(Icons.attach_money, 'تحويل', Colors.amber, () => _showTransferDialog(player)),
@@ -507,9 +538,9 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
             const SizedBox(height: 20),
 
-            if (player.heat > 0) Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha:0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent.withValues(alpha:0.3))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.local_police, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text("مستوى الملاحقة", style: TextStyle(color: Colors.white70))]), Text("${player.heat.toInt()}%", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))])),
+            if (player.heat > 0) Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent.withOpacity(0.3))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.local_police, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text("مستوى الملاحقة", style: TextStyle(color: Colors.white70))]), Text("${player.heat.toInt()}%", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))])),
 
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: [ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: audio.isMuted ? Colors.redAccent.withValues(alpha:0.2) : Colors.green.withValues(alpha:0.2), side: BorderSide(color: audio.isMuted ? Colors.redAccent : Colors.green), minimumSize: const Size(double.infinity, 50)), onPressed: () => audio.toggleMute(), icon: Icon(audio.isMuted ? Icons.volume_off : Icons.volume_up, color: audio.isMuted ? Colors.redAccent : Colors.green), label: Text(audio.isMuted ? "تشغيل الصوت" : "كتم الصوت", style: TextStyle(color: audio.isMuted ? Colors.redAccent : Colors.green))), const SizedBox(height: 15), ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withValues(alpha:0.2), side: const BorderSide(color: Colors.red), minimumSize: const Size(double.infinity, 50)), onPressed: () { audio.playEffect('click.mp3'); _showResetConfirmation(player); }, icon: const Icon(Icons.delete_forever, color: Colors.red), label: const Text("مسح البيانات", style: TextStyle(color: Colors.red)))])),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: [ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: audio.isMuted ? Colors.redAccent.withOpacity(0.2) : Colors.green.withOpacity(0.2), side: BorderSide(color: audio.isMuted ? Colors.redAccent : Colors.green), minimumSize: const Size(double.infinity, 50)), onPressed: () => audio.toggleMute(), icon: Icon(audio.isMuted ? Icons.volume_off : Icons.volume_up, color: audio.isMuted ? Colors.redAccent : Colors.green), label: Text(audio.isMuted ? "تشغيل الصوت" : "كتم الصوت", style: TextStyle(color: audio.isMuted ? Colors.redAccent : Colors.green))), const SizedBox(height: 15), ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.2), side: const BorderSide(color: Colors.red), minimumSize: const Size(double.infinity, 50)), onPressed: () { audio.playEffect('click.mp3'); _showResetConfirmation(player); }, icon: const Icon(Icons.delete_forever, color: Colors.red), label: const Text("مسح البيانات", style: TextStyle(color: Colors.red)))])),
           ],
 
           const SizedBox(height: 30),
@@ -519,11 +550,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     );
   }
 
-  Widget _buildPlaceholder(String text) {
-    return Container(margin: const EdgeInsets.symmetric(horizontal: 20), padding: const EdgeInsets.all(35), width: double.infinity, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: Center(child: Text(text, style: const TextStyle(color: Colors.white54, fontSize: 16), textAlign: TextAlign.center)));
-  }
-
+  Widget _buildPlaceholder(String text) { return Container(margin: const EdgeInsets.symmetric(horizontal: 20), padding: const EdgeInsets.all(35), width: double.infinity, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: Center(child: Text(text, style: const TextStyle(color: Colors.white54, fontSize: 16), textAlign: TextAlign.center))); }
   Widget _buildProfileStat(String label, String val, IconData icon, Color color) { return Column(children: [Icon(icon, color: color, size: 28), const SizedBox(height: 6), Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12))]); }
-  Widget _buildActionBtn(IconData icon, String label, Color color, VoidCallback onTap) { return GestureDetector(onTap: onTap, child: SizedBox(width: 75, child: Column(children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withValues(alpha:0.15), shape: BoxShape.circle, border: Border.all(color: color.withValues(alpha:0.5))), child: Icon(icon, color: color, size: 24)), const SizedBox(height: 6), Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))]))); }
+  Widget _buildActionBtn(IconData icon, String label, Color color, VoidCallback onTap) { return GestureDetector(onTap: onTap, child: SizedBox(width: 75, child: Column(children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.5))), child: Icon(icon, color: color, size: 24)), const SizedBox(height: 6), Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))]))); }
   Widget _buildCombatStat(String label, double val, IconData icon, Color color) { return SizedBox(width: 130, child: Row(children: [Icon(icon, color: color, size: 22), const SizedBox(width: 8), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)), Text(val.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))])])); }
 }

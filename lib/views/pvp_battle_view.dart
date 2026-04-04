@@ -19,16 +19,17 @@ class PvpBattleView extends StatefulWidget {
 
 class _PvpBattleViewState extends State<PvpBattleView> {
   String battleLog = "استعد للقتال! أنت تواجه لاعب حقيقي الآن.";
-  bool isFighting = false;
+  // 🟢 تم تصحيح اسم المتغير هنا ليتطابق مع باقي الكود
+  bool _isBattling = false;
   bool isX2Speed = false;
+  String? _result;
+  int _stolenAmount = 0;
 
-  // 🟢 دالة لإضافة الفواصل للأرقام
   String _formatWithCommas(int number) {
     RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
     return number.toString().replaceAllMapped(reg, (Match match) => '${match[1]},');
   }
 
-  // 🧮 معادلات الـ RPG المعقدة
   int calculateDamage(double atk, double def) {
     if (atk <= 0) return 10;
     double rawDamage = atk * (atk / (atk + def)) * 5.0;
@@ -60,7 +61,7 @@ class _PvpBattleViewState extends State<PvpBattleView> {
     }
 
     setState(() {
-      isFighting = true;
+      _isBattling = true;
       battleLog = "🥊 بدأت المعركة ضد ${widget.enemyData['playerName']}...\n";
     });
 
@@ -79,11 +80,9 @@ class _PvpBattleViewState extends State<PvpBattleView> {
 
     int round = 1;
 
-    // حلقة القتال (حد أقصى 20 جولة)
     while (playerHP > 0 && enemyHP > 0 && round <= 20) {
       log.writeln("--- الجولة $round ---");
 
-      // ⚔️ [دور اللاعب في الهجوم]
       bool enemyDodged = checkDodge(player.speed, enemySkill);
       if (enemyDodged) {
         log.writeln("💨 ${widget.enemyData['playerName']} تفادى ضربتك بمهارته!");
@@ -102,7 +101,6 @@ class _PvpBattleViewState extends State<PvpBattleView> {
 
       if (enemyHP <= 0) break;
 
-      // 🛡️ [دور الخصم في الهجوم]
       bool playerDodged = checkDodge(enemySpd, player.skill);
       if (playerDodged) {
         log.writeln("🛡️ تفاديت ضربة الخصم ببراعة!");
@@ -126,47 +124,75 @@ class _PvpBattleViewState extends State<PvpBattleView> {
       if (mounted) setState(() => battleLog = log.toString());
     }
 
-    // --- 📊 تحديد النتيجة النهائية وتنفيذ عقوبات المستشفى ---
     log.writeln("\n========================");
 
     String result;
-    int reward = 0;
 
     if (enemyHP <= 0 && playerHP > 0) {
-      // 🟢 حالة الفوز
-      result = 'win';
-      int enemyCash = widget.enemyData['cash'] ?? 0;
-      reward = (enemyCash * 0.1).toInt(); // تسرق 10% من كاش الخصم كحد أقصى
-      if (reward > 100000) reward = 100000;
-
-      log.writeln("🏆 انتصار ساحق! قمت بتدمير ${widget.enemyData['playerName']}.");
-      log.writeln("💰 غنيمة المعركة: ${_formatWithCommas(reward)}\$ كاش.");
-      log.writeln("🏥 تم إرسال الخصم إلى المستشفى!");
+      // 🟢 حالة الفوز: ننتظر من اللاعب اختيار مصير الخصم
+      result = 'win_pending_choice';
+      log.writeln("🏆 الخصم سقط أرضاً وهو ينزف...");
 
     } else if (playerHP <= 0 && enemyHP > 0) {
-      // 🔴 حالة الخسارة
       result = 'loss';
-      log.writeln("💀 لقد سقطت في المعركة... تحتاج إلى مستشفى فوراً.");
+      log.writeln("💀 لقد سقطت في المعركة... سيتم نقلك للمستشفى فوراً.");
+      await player.recordPvpResult(widget.enemyData['uid'], widget.enemyData['playerName'] ?? 'مجهول', result, 0);
 
     } else {
-      // 🟡 حالة التعادل
       result = 'draw';
       log.writeln("🤝 انتهت 20 جولة! كلاكما منهك جداً، النتيجة: تعادل.");
       log.writeln("💡 تضررت صحتكما بشكل بالغ بسبب الاشتباك المستمر.");
+      await player.recordPvpResult(widget.enemyData['uid'], widget.enemyData['playerName'] ?? 'مجهول', result, 0);
     }
 
-    // 🟢 إرسال النتيجة لقاعدة البيانات (اللي تبرمجت عشان تدخل المهزوم للمستشفى وترسل له إشعار)
+    if (mounted) {
+      setState(() {
+        _result = result;
+        _isBattling = false;
+        battleLog = log.toString();
+      });
+    }
+  }
+
+  // 🟢 دالة تطبيق خيار الفوز اللي يختاره اللاعب
+  void _applyWinChoice(String choice, PlayerProvider player) async {
+    setState(() => _isBattling = true); // إظهار تحميل بسيط
+
+    int reward = 0;
+    int hospitalTime = 15;
+    String summary = "";
+
+    if (choice == 'leave') {
+      reward = 0;
+      hospitalTime = 15;
+      summary = "اخترت الرحمة.. غادرت المكان وتم نقل الخصم للمستشفى.";
+    } else if (choice == 'rob') {
+      int enemyCash = widget.enemyData['cash'] ?? 0;
+      reward = (enemyCash * 0.1).toInt(); // سرقة 10% من كاش الخصم
+      if (reward > 100000) reward = 100000;
+      hospitalTime = 15;
+      summary = "قمت بتفتيش جيوب الخصم وسرقت ${_formatWithCommas(reward)}\$ 💸";
+    } else if (choice == 'execute') {
+      reward = 0;
+      hospitalTime = 60; // عقوبة غيبوبة لمدة 60 دقيقة
+      summary = "سددت ضربة وحشية للخصم! 🩸 تم إدخاله العناية المركزة لـ 60 دقيقة.";
+    }
+
+    // تسجيل النتيجة في الفايربيس بالمدة والمكافأة المحددة
     await player.recordPvpResult(
         widget.enemyData['uid'],
         widget.enemyData['playerName'] ?? 'مجهول',
-        result,
-        reward
+        'win',
+        reward,
+        hospitalMinutes: hospitalTime
     );
 
     if (mounted) {
       setState(() {
-        isFighting = false;
-        battleLog = log.toString();
+        _result = 'win';
+        _stolenAmount = reward;
+        battleLog += "\n\n$summary";
+        _isBattling = false;
       });
     }
   }
@@ -188,7 +214,7 @@ class _PvpBattleViewState extends State<PvpBattleView> {
                 const Expanded(
                   child: Text('معركة لاعب ضد لاعب ⚔️', style: TextStyle(color: Colors.redAccent, fontSize: 20, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
                 ),
-                if (!isFighting)
+                if (!_isBattling && _result == null)
                   TextButton(
                     style: TextButton.styleFrom(backgroundColor: isX2Speed ? Colors.amber : Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                     onPressed: () => setState(() => isX2Speed = !isX2Speed),
@@ -214,7 +240,10 @@ class _PvpBattleViewState extends State<PvpBattleView> {
                     child: Text(battleLog, style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontFamily: 'monospace', height: 1.5)),
                   ),
                   const SizedBox(height: 20),
-                  if (!isFighting)
+
+                  if (_isBattling)
+                    const CircularProgressIndicator(color: Colors.redAccent)
+                  else if (_result == null)
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
                       onPressed: () {
@@ -223,7 +252,58 @@ class _PvpBattleViewState extends State<PvpBattleView> {
                       },
                       icon: const Icon(Icons.flash_on, color: Colors.white),
                       label: const Text("هجوم!", style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Changa', color: Colors.white)),
-                    ),
+                    )
+                  // 🟢 حالة الفوز المبدئي: تظهر أزرار الخيارات 🟢
+                  else if (_result == 'win_pending_choice') ...[
+                      const Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 60),
+                      const SizedBox(height: 10),
+                      const Text('الخصم يسقط أمامك! 🩸', style: TextStyle(color: Colors.orangeAccent, fontSize: 26, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                      const Text('ماذا تريد أن تفعل به؟', style: TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Changa')),
+                      const SizedBox(height: 30),
+
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800], minimumSize: const Size(double.infinity, 50)),
+                        icon: const Icon(Icons.directions_run, color: Colors.white),
+                        label: const Text("المغادرة (نقل للمستشفى 15 دقيقة)", style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                        onPressed: () => _applyWinChoice('leave', player),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green[800], minimumSize: const Size(double.infinity, 50)),
+                        icon: const Icon(Icons.attach_money, color: Colors.white),
+                        label: const Text("سلب الأموال (سرقة كاش + مستشفى 15 دقيقة)", style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                        onPressed: () => _applyWinChoice('rob', player),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red[900], minimumSize: const Size(double.infinity, 50)),
+                        icon: const Icon(Icons.dangerous, color: Colors.white),
+                        label: const Text("ضربة قاضية (غيبوبة 60 دقيقة)", style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                        onPressed: () => _applyWinChoice('execute', player),
+                      ),
+                    ]
+                    // 🟢 إظهار النتيجة النهائية 🟢
+                    else ...[
+                        if (_result == 'win') ...[
+                          const Icon(Icons.emoji_events, color: Colors.amber, size: 60),
+                          const SizedBox(height: 10),
+                          const Text('انتصاااار! 🎉', style: TextStyle(color: Colors.amber, fontSize: 32, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                        ] else if (_result == 'loss') ...[
+                          const Icon(Icons.sentiment_very_dissatisfied, color: Colors.red, size: 60),
+                          const SizedBox(height: 10),
+                          const Text('هزيمة ساحقة! ☠️', style: TextStyle(color: Colors.red, fontSize: 32, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                        ] else ...[
+                          const Icon(Icons.handshake, color: Colors.orange, size: 60),
+                          const SizedBox(height: 10),
+                          const Text('النتيجة تعادل! 🤝', style: TextStyle(color: Colors.orange, fontSize: 32, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                        ],
+                        const SizedBox(height: 30),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800]),
+                          onPressed: widget.onBack,
+                          child: const Text('عودة للخريطة', style: TextStyle(color: Colors.white, fontFamily: 'Changa')),
+                        )
+                      ]
                 ],
               ),
             ),
