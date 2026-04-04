@@ -1,3 +1,5 @@
+// المسار: lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -11,21 +13,19 @@ import 'providers/audio_provider.dart';
 
 // 🔥 تعريف الألوان الخاصة باللعبة هنا لسهولة الوصول إليها
 class GameColors {
-  static const Color primary = Colors.amber; // لون الأزرار والعناوين الرئيسية
-  static const Color background = Colors.black; // لون الخلفية الأساسي
-  static const Color surface = Color(0xFF1E1E1E); // لون الحقول والقوائم
-  static const Color accent = Colors.blueAccent; // لون جانبي (مثل النيون)
+  static const Color primary = Colors.amber;
+  static const Color background = Colors.black;
+  static const Color surface = Color(0xFF1E1E1E);
+  static const Color accent = Colors.blueAccent;
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. تثبيت اتجاه الشاشة على الوضع العمودي
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
 
-  // 2. 🟢 تفعيل وضع ملء الشاشة (إخفاء شريط الإشعارات والبطارية وأزرار التنقل)
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(
@@ -60,7 +60,7 @@ class MyGame extends StatelessWidget {
   }
 }
 
-// 🧱 ويدجت الخلفية المشتركة (لتسهيل الصيانة)
+// 🧱 ويدجت الخلفية المشتركة (هنا كان الخطأ وتم إصلاحه)
 class GameBackgroundScaffold extends StatelessWidget {
   final Widget child;
   final bool showOverlay;
@@ -80,6 +80,7 @@ class GameBackgroundScaffold extends StatelessWidget {
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       body: Stack(
         children: [
+          // 1. رسم الصورة
           Positioned.fill(
             child: Image.asset(
               'assets/images/turfwar_loading_screen.jpg',
@@ -87,6 +88,7 @@ class GameBackgroundScaffold extends StatelessWidget {
               alignment: const Alignment(0.0, -0.2),
             ),
           ),
+          // 2. رسم الفلتر المتدرج (الظل)
           if (showOverlay)
             Positioned.fill(
               child: Container(
@@ -104,6 +106,12 @@ class GameBackgroundScaffold extends StatelessWidget {
                 ),
               ),
             ),
+          // 3. 🟢 رسم المحتوى (الأزرار واسم اللعبة وغيرها) هنا كان مفقود!
+          Positioned.fill(
+            child: SafeArea(
+              child: child,
+            ),
+          ),
         ],
       ),
     );
@@ -172,7 +180,7 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
     }
 
     if (!_initialized) {
-      return GameBackgroundScaffold(
+      return const GameBackgroundScaffold(
         showOverlay: false,
         child: Center(
           child: CircularProgressIndicator(color: GameColors.primary),
@@ -193,7 +201,7 @@ class AuthWrapper extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return GameBackgroundScaffold(
+          return const GameBackgroundScaffold(
             showOverlay: false,
             child: Center(child: CircularProgressIndicator(color: GameColors.primary)),
           );
@@ -241,19 +249,15 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // 🔥 تم تعديل هذه الدالة لإصلاح أخطاء الإصدار 7.2.0 من google_sign_in
   Future<void> _loginWithStandardGoogle() async {
     setState(() => _isLoading = true);
     try {
-      // تم التعديل: استدعاء GoogleSignIn بشكل صحيح
       final GoogleSignIn googleSignIn = GoogleSignIn();
-
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
       if (googleUser != null) {
         final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
-        // تم التعديل: الوصول إلى التوكنات بطريقة متوافقة
         final AuthCredential credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
@@ -309,17 +313,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 TextField(
                   controller: _nameController,
-                  maxLength: 14, // 🟢 وضعنا الحد الأقصى هنا
+                  maxLength: 14,
                   style: const TextStyle(color: Colors.white, fontSize: 18),
                   decoration: InputDecoration(
-                    counterText: "", // 🟢 أخفينا العداد المزعج
+                    counterText: "",
                     prefixIcon: const Icon(Icons.person_outline, color: GameColors.primary),
                     hintText: 'ادخل اسمك المستعار...',
                     hintStyle: const TextStyle(color: Colors.white30),
                     filled: true,
                     fillColor: Colors.black45,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: GameColors.primary, width: 2.0)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: GameColors.primary, width: 2.0)),
                     contentPadding: const EdgeInsets.all(20),
                   ),
                 ),

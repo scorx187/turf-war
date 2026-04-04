@@ -27,6 +27,9 @@ import '../views/laboratory_view.dart';
 import '../views/workshop_view.dart';
 import '../views/prison_view.dart';
 import '../views/player_profile_view.dart';
+import '../views/notifications_view.dart';
+// 🟢 استيراد شاشة الخاص المستقلة
+import '../views/private_chat_list_view.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -38,7 +41,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
-  int _selectedIndex = 2; // الخريطة هي الافتراضية
+  int _selectedIndex = 2;
   int _profileTabIndex = 0;
   String _activeArea = 'الخريطة';
   StreamSubscription? _notificationSubscription;
@@ -135,6 +138,54 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
+  void _showQuickMenuDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (c) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: Colors.grey[900],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+            side: const BorderSide(color: Colors.amber, width: 2),
+          ),
+          title: const Text('القائمة السريعة', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildMenuOption(Icons.notifications, 'الإشعارات', () {
+                Navigator.pop(c);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsView()));
+              }),
+              const Divider(color: Colors.white10),
+
+              // 🟢 ربط زر الرسائل عشان يفتح شاشة الخاص المستقلة مباشرة!
+              _buildMenuOption(Icons.message, 'الرسائل', () {
+                Navigator.pop(c);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivateChatListView()));
+              }),
+              const Divider(color: Colors.white10),
+
+              _buildMenuOption(Icons.settings, 'الإعدادات', () {
+                Navigator.pop(c);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('سيتم برمجة الإعدادات قريباً!', style: TextStyle(fontFamily: 'Changa'))));
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuOption(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.amber, size: 28),
+      title: Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 18, fontWeight: FontWeight.bold)),
+      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+      onTap: onTap,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
@@ -155,6 +206,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1D),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             TopBar(
@@ -190,41 +242,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
           setState(() => _profileTabIndex = index);
         },
-        items: [
-          BottomNavigationBarItem(
-            icon: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('private_chats').where('participants', arrayContains: player.uid ?? '').snapshots(),
-              builder: (context, snapshot) {
-                int totalUnreadChats = 0;
-                if (snapshot.hasData) {
-                  for (var doc in snapshot.data!.docs) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    if ((data['unread_${player.uid}'] ?? 0) > 0) totalUnreadChats++;
-                  }
-                }
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.chat_bubble),
-                    if (totalUnreadChats > 0)
-                      Positioned(
-                        top: -4,
-                        right: -4,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                          child: Text('$totalUnreadChats', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ),
-                      )
-                  ],
-                );
-              },
-            ),
-            label: 'الخاص',
-          ),
-          const BottomNavigationBarItem(icon: Icon(Icons.group), label: 'الأصدقاء'),
-          const BottomNavigationBarItem(icon: Icon(Icons.psychology), label: 'المهارات'),
-          const BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
+        // 🟢 تم تنظيف القائمة السفلية للزعيم وإزالة الرسائل منها لتكون مستقلة
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.group), label: 'الأصدقاء'),
+          BottomNavigationBarItem(icon: Icon(Icons.psychology), label: 'المهارات'),
+          BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
         ],
       )
           : BottomNavBar(
@@ -251,7 +273,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_selectedIndex == 0) return const InventoryView();
     if (_selectedIndex == 1) return ChatView();
 
-    // 🟢 استدعاء واجهة الجرائم الجديدة
     if (_selectedIndex == 3) {
       return CrimeView(
         courage: player.courage,
@@ -260,7 +281,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           audio.playEffect('click.mp3');
           player.addCash(reward, reason: "نجاح مهمة إجرامية");
 
-          // إعطاء سيارة مسروقة بنسبة 30% إذا كانت الجريمة من فئة السيارات (الفئة 3 أو 6)
           if (crimeId.startsWith('cat_3_') || crimeId.startsWith('cat_6_')) {
             if(Random().nextDouble() < 0.3) {
               player.addInventoryItem('stolen_car', 1);
@@ -271,7 +291,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         onFailure: () {
           final audio = Provider.of<AudioProvider>(context, listen: false);
           audio.playEffect('click.mp3');
-          player.handleCrimeFailure(2); // سجن لمدة دقيقتين
+          player.handleCrimeFailure(2);
         },
       );
     }
@@ -305,69 +325,99 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_activeArea == 'المختبر السري') return LaboratoryView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'الورشة') return WorkshopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double imageWidth = 4096;
-        final double imageHeight = 4096;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double imageWidth = 4096;
+              final double imageHeight = 4096;
 
-        double minScaleX = constraints.maxWidth / imageWidth;
-        double minScaleY = constraints.maxHeight / imageHeight;
-        double calculatedMinScale = minScaleX > minScaleY ? minScaleX : minScaleY;
+              double minScaleX = constraints.maxWidth / imageWidth;
+              double minScaleY = constraints.maxHeight / imageHeight;
+              double calculatedMinScale = minScaleX > minScaleY ? minScaleX : minScaleY;
 
-        if (!_isMapInitialized) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              double dx = (constraints.maxWidth - (imageWidth * calculatedMinScale)) / 2;
-              double dy = (constraints.maxHeight - (imageHeight * calculatedMinScale)) / 2;
+              if (!_isMapInitialized) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    double dx = (constraints.maxWidth - (imageWidth * calculatedMinScale)) / 2;
+                    double dy = (constraints.maxHeight - (imageHeight * calculatedMinScale)) / 2;
 
-              _mapTransformationController.value = Matrix4.identity()
-                ..translate(dx, dy)
-                ..scale(calculatedMinScale);
-            }
-          });
-          _isMapInitialized = true;
-        }
+                    _mapTransformationController.value = Matrix4.identity()
+                      ..translate(dx, dy)
+                      ..scale(calculatedMinScale);
+                  }
+                });
+                _isMapInitialized = true;
+              }
 
-        return InteractiveViewer(
-          transformationController: _mapTransformationController,
-          minScale: calculatedMinScale,
-          maxScale: 3.0,
-          constrained: false,
-          boundaryMargin: EdgeInsets.zero,
-          child: SizedBox(
-            width: imageWidth,
-            height: imageHeight,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/city_map.jpg',
-                    fit: BoxFit.fill,
-                    filterQuality: FilterQuality.high,
-                    gaplessPlayback: true,
+              return InteractiveViewer(
+                transformationController: _mapTransformationController,
+                minScale: calculatedMinScale,
+                maxScale: 3.0,
+                constrained: false,
+                boundaryMargin: EdgeInsets.zero,
+                child: SizedBox(
+                  width: imageWidth,
+                  height: imageHeight,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Image.asset(
+                          'assets/images/city_map.jpg',
+                          fit: BoxFit.fill,
+                          filterQuality: FilterQuality.high,
+                          gaplessPlayback: true,
+                        ),
+                      ),
+                      _buildMapHotspot('المطار', 3500, 2600, 300, 300, Colors.blue),
+                      _buildMapHotspot('عجلة الحظ', 1400, 300, 300, 300, Colors.orange),
+                      _buildMapHotspot('البنك', 600, 600, 300, 300, Colors.green),
+                      _buildMapHotspot('المستشفى', 3500, 1400, 300, 300, Colors.red),
+                      _buildMapHotspot('السجن', 2600, 600, 300, 300, Colors.grey),
+                      _buildMapHotspot('المصنع', 3200, 350, 300, 300, Colors.brown),
+                      _buildMapHotspot('سباق الشوارع', 350, 1200, 300, 300, Colors.pink),
+                      _buildMapHotspot('المتجر الأسود', 800, 1600, 300, 300, Colors.black),
+                      _buildMapHotspot('صالة التدريب', 1800, 2400, 300, 300, Colors.blueGrey),
+                      _buildMapHotspot('ساحة القتال', 1900, 1800, 300, 300, Colors.redAccent),
+                      _buildMapHotspot('ساحة اللاعبين', 2200, 400, 300, 300, Colors.orangeAccent),
+                      _buildMapHotspot('العقارات', 500, 2300, 300, 300, Colors.amber),
+                      _buildMapHotspot('العصابات', 1800, 3300, 300, 300, Colors.deepOrange),
+                      _buildMapHotspot('التشليح', 3400, 3200, 300, 300, Colors.lime),
+                      _buildMapHotspot('المختبر السري', 2600, 3600, 300, 300, Colors.greenAccent),
+                      _buildMapHotspot('الورشة', 2650, 2850, 300, 300, Colors.blueAccent),
+                    ],
                   ),
                 ),
-                _buildMapHotspot('المطار', 3500, 2600, 300, 300, Colors.blue),
-                _buildMapHotspot('عجلة الحظ', 1400, 300, 300, 300, Colors.orange),
-                _buildMapHotspot('البنك', 600, 600, 300, 300, Colors.green),
-                _buildMapHotspot('المستشفى', 3500, 1400, 300, 300, Colors.red),
-                _buildMapHotspot('السجن', 2600, 600, 300, 300, Colors.grey),
-                _buildMapHotspot('المصنع', 3200, 350, 300, 300, Colors.brown),
-                _buildMapHotspot('سباق الشوارع', 350, 1200, 300, 300, Colors.pink),
-                _buildMapHotspot('المتجر الأسود', 800, 1600, 300, 300, Colors.black),
-                _buildMapHotspot('صالة التدريب', 1800, 2400, 300, 300, Colors.blueGrey),
-                _buildMapHotspot('ساحة القتال', 1900, 1800, 300, 300, Colors.redAccent),
-                _buildMapHotspot('ساحة اللاعبين', 2200, 400, 300, 300, Colors.orangeAccent),
-                _buildMapHotspot('العقارات', 500, 2300, 300, 300, Colors.amber),
-                _buildMapHotspot('العصابات', 1800, 3300, 300, 300, Colors.deepOrange),
-                _buildMapHotspot('التشليح', 3400, 3200, 300, 300, Colors.lime),
-                _buildMapHotspot('المختبر السري', 2600, 3600, 300, 300, Colors.greenAccent),
-                _buildMapHotspot('الورشة', 2650, 2850, 300, 300, Colors.blueAccent),
-              ],
+              );
+            },
+          ),
+        ),
+
+        Positioned(
+          top: 15,
+          right: 15,
+          child: GestureDetector(
+            onTap: () {
+              Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+              _showQuickMenuDialog(context);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.85),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.amber, width: 2),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 8, offset: const Offset(0, 4)),
+                  BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 10, spreadRadius: 1),
+                ],
+              ),
+              child: const Icon(Icons.menu, color: Colors.amber, size: 28),
             ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 

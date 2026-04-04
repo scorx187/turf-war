@@ -3,9 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../widgets/top_bar.dart';
 import 'player_profile_view.dart';
+import 'pvp_battle_view.dart';
 
 class ChatView extends StatefulWidget {
   const ChatView({super.key});
@@ -24,7 +26,6 @@ class _ChatViewState extends State<ChatView> {
   static List<QueryDocumentSnapshot>? _cachedMessages;
   static Map<String, dynamic>? _cachedAdminMsg;
 
-  // 🟢 السر هنا: تقليل العدد لـ 8 رسائل فقط يخلي الشات يفتح بلمح البصر من أول مرة
   int _messageLimit = 8;
   bool _isFetchingMore = false;
   bool _hasMore = true;
@@ -47,7 +48,7 @@ class _ChatViewState extends State<ChatView> {
 
     setState(() {
       _isFetchingMore = true;
-      _messageLimit += 10; // 🟢 يسحب 10 إضافية فقط كل سحبة عشان ما يثقل الجوال
+      _messageLimit += 10;
       _setupStreamOnly();
     });
   }
@@ -66,7 +67,7 @@ class _ChatViewState extends State<ChatView> {
     try {
       final query = await _firestore.collection('chat')
           .where('type', isEqualTo: 'admin')
-          .limit(1) // 🟢 نسحب أحدث رسالة إدارة واحدة فقط لتسريع الاستجابة
+          .limit(1)
           .get();
 
       if (query.docs.isNotEmpty) {
@@ -106,7 +107,6 @@ class _ChatViewState extends State<ChatView> {
       'uid': player.uid,
       'message': _controller.text.trim(),
       'isVIP': player.isVIP,
-      // ملاحظة: حفظ الصورة بحجمها الكامل هنا هو سبب ثقل الشات الأساسي
       'profilePicUrl': player.profilePicUrl,
       'timestamp': FieldValue.serverTimestamp(),
     });
@@ -126,6 +126,7 @@ class _ChatViewState extends State<ChatView> {
           child: Scaffold(
             backgroundColor: const Color(0xFF1A1A1D),
             body: SafeArea(
+              top: false,
               child: Consumer<PlayerProvider>(
                   builder: (context, player, child) {
                     return Column(
@@ -201,6 +202,100 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
+  Widget _buildBountyCard(BuildContext context, Map<String, dynamic> msg, String currentUserUid) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.deepOrange.withOpacity(0.8), width: 2),
+          boxShadow: [BoxShadow(color: Colors.deepOrange.withOpacity(0.2), blurRadius: 8, spreadRadius: 1)]
+      ),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.warning_amber_rounded, color: Colors.deepOrange, size: 24),
+                SizedBox(width: 8),
+                Text('مطلوب حياً أو ميتاً! 🚨', style: TextStyle(color: Colors.deepOrange, fontFamily: 'Changa', fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(width: 8),
+                Icon(Icons.warning_amber_rounded, color: Colors.deepOrange, size: 24),
+              ],
+            ),
+            const Divider(color: Colors.white24),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 25,
+                  backgroundColor: Colors.grey[800],
+                  backgroundImage: msg['targetPicUrl'] != null ? MemoryImage(base64Decode(msg['targetPicUrl'])) : null,
+                  child: msg['targetPicUrl'] == null ? const Icon(Icons.person, color: Colors.white54) : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('الهدف: ${msg['targetName'] ?? 'مجهول'}', style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('المكافأة: \$${msg['amount']}', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text('بواسطة: ${msg['senderName'] ?? 'شخص مجهول'}', style: const TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 11)),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[800],
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                  ),
+                  icon: const Icon(Icons.my_location, color: Colors.white, size: 16),
+                  label: const Text('هجوم', style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    if (msg['targetUid'] == currentUserUid) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا يمكنك الهجوم على نفسك!', style: TextStyle(fontFamily: 'Changa'))));
+                      return;
+                    }
+
+                    showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.amber)));
+
+                    final playerProv = Provider.of<PlayerProvider>(context, listen: false);
+                    final enemyData = await playerProv.getPlayerById(msg['targetUid']);
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      if (enemyData != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => Scaffold(
+                              backgroundColor: Colors.black,
+                              body: SafeArea(
+                                top: false,
+                                child: PvpBattleView(
+                                  enemyData: enemyData,
+                                  onBack: () => Navigator.pop(context),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشل العثور على بيانات الهدف!')));
+                      }
+                    }
+                  },
+                )
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -237,7 +332,8 @@ class _ChatViewState extends State<ChatView> {
               }
 
               final messages = _cachedMessages!;
-              final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid;
+              // 🟢 التعديل هنا: وضعنا ?? '' لضمان عدم وجود قيمة null
+              final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid ?? '';
 
               return Column(
                 children: [
@@ -287,6 +383,10 @@ class _ChatViewState extends State<ChatView> {
                           return const SizedBox.shrink();
                         } else if (msgType == 'system') {
                           return _buildSystemBroadcast('النظام', msg['message'] ?? '', Colors.redAccent, Icons.gavel);
+                        }
+                        else if (msgType == 'bounty') {
+                          // التمرير الآن سليم بسبب ضمان currentUserUid كنص أكيد
+                          return _buildBountyCard(context, msg, currentUserUid);
                         }
 
                         final bool isVIP = msg['isVIP'] ?? false;

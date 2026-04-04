@@ -1,20 +1,18 @@
+// المسار: lib/views/private_chat_view.dart
+
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import 'dart:async';
+import 'dart:convert'; // 🟢 تم إضافة هذه المكتبة لحل المشكلة!
 import '../providers/player_provider.dart';
-import '../widgets/top_bar.dart';
 
 class PrivateChatView extends StatefulWidget {
   final String targetUid;
   final String targetName;
   final String? targetPicUrl;
 
-  const PrivateChatView({
-    super.key,
-    required this.targetUid,
-    required this.targetName,
-    this.targetPicUrl,
-  });
+  const PrivateChatView({super.key, required this.targetUid, required this.targetName, this.targetPicUrl});
 
   @override
   State<PrivateChatView> createState() => _PrivateChatViewState();
@@ -23,151 +21,174 @@ class PrivateChatView extends StatefulWidget {
 class _PrivateChatViewState extends State<PrivateChatView> {
   final TextEditingController _controller = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  String? currentUserId;
-  String? chatId;
-
-  // حفظنا الستريم الخاص بالرسايل
-  late Stream<QuerySnapshot> _messagesStream;
+  late String chatId;
+  bool _isBurnMessage = false;
 
   @override
   void initState() {
     super.initState();
-
-    // نجهز الستريم من البداية بدون ما ننتظر الـ build
-    final player = Provider.of<PlayerProvider>(context, listen: false);
-    currentUserId = player.uid;
-
-    if (currentUserId != null) {
-      chatId = getChatId(currentUserId!, widget.targetUid);
-      _messagesStream = _firestore
-          .collection('private_chats')
-          .doc(chatId)
-          .collection('messages')
-          .orderBy('timestamp', descending: true)
-          .snapshots();
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _markAsRead();
-      });
-    }
+    final myUid = Provider.of<PlayerProvider>(context, listen: false).uid!;
+    chatId = myUid.compareTo(widget.targetUid) > 0 ? '${myUid}_${widget.targetUid}' : '${widget.targetUid}_$myUid';
   }
 
-  String getChatId(String uid1, String uid2) {
-    return uid1.hashCode <= uid2.hashCode ? '${uid1}_$uid2' : '${uid2}_$uid1';
-  }
+  void _sendMessage({String type = 'text', int? amount}) async {
+    String msgText = _controller.text.trim();
+    if (type == 'text' && msgText.isEmpty) return;
 
-  void _markAsRead() {
-    if (chatId != null && currentUserId != null) {
-      _firestore.collection('private_chats').doc(chatId).set({
-        'unread_$currentUserId': 0,
-      }, SetOptions(merge: true));
-    }
-  }
+    final myUid = Provider.of<PlayerProvider>(context, listen: false).uid!;
+    _controller.clear();
 
-  void _sendMessage(String currentUserUid) {
-    if (_controller.text.trim().isEmpty) return;
+    final chatRef = _firestore.collection('private_chats').doc(chatId);
+    final msgRef = chatRef.collection('messages').doc();
 
-    final id = getChatId(currentUserUid, widget.targetUid);
-    final msgText = _controller.text.trim();
-
-    _firestore.collection('private_chats').doc(id).collection('messages').add({
-      'senderId': currentUserUid,
-      'message': msgText,
+    Map<String, dynamic> messageData = {
+      'senderId': myUid,
+      'type': type,
+      'message': type == 'transfer' ? 'قام بتحويل \$$amount 💸' : msgText,
       'timestamp': FieldValue.serverTimestamp(),
-    });
+      'isRead': false,
+      'isBurn': _isBurnMessage,
+    };
 
-    _firestore.collection('private_chats').doc(id).set({
-      'participants': [currentUserUid, widget.targetUid],
-      'lastMessage': msgText,
+    if (type == 'transfer') messageData['amount'] = amount;
+
+    await msgRef.set(messageData);
+
+    await chatRef.set({
+      'participants': [myUid, widget.targetUid],
+      'lastMessage': type == 'transfer' ? 'تحويل مالي 💸' : (_isBurnMessage ? '💣 رسالة سرية' : msgText),
       'timestamp': FieldValue.serverTimestamp(),
       'unread_${widget.targetUid}': FieldValue.increment(1),
+      'unread_$myUid': 0,
     }, SetOptions(merge: true));
 
-    _controller.clear();
-    _markAsRead();
+    if (mounted) setState(() => _isBurnMessage = false);
+  }
+
+  void _quickTransfer() {
+    final player = Provider.of<PlayerProvider>(context, listen: false);
+    showDialog(
+        context: context,
+        builder: (c) {
+          TextEditingController amtCtrl = TextEditingController();
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              backgroundColor: Colors.grey[900],
+              title: const Text('تحويل سريع 💸', style: TextStyle(color: Colors.amber)),
+              content: TextField(
+                controller: amtCtrl,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(hintText: 'المبلغ..', filled: true, fillColor: Colors.black45),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                  onPressed: () async {
+                    int? amt = int.tryParse(amtCtrl.text.trim());
+                    if (amt != null && amt > 0 && amt <= player.cash) {
+                      player.removeCash(amt, reason: 'تحويل سريع لـ ${widget.targetName}');
+
+                      await _firestore.collection('players').doc(widget.targetUid).update({'cash': FieldValue.increment(amt)});
+
+                      _sendMessage(type: 'transfer', amount: amt);
+                      Navigator.pop(c);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرصيد غير كافي!')));
+                    }
+                  },
+                  child: const Text('أرسل', style: TextStyle(color: Colors.black)),
+                )
+              ],
+            ),
+          );
+        }
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // استخدمنا الـ Provider هنا عشان الواجهة (البار العلوي) فقط تتحدث
-    final player = Provider.of<PlayerProvider>(context);
-    final targetImageBytes = player.getDecodedImage(widget.targetPicUrl);
+    final myUid = Provider.of<PlayerProvider>(context, listen: false).uid!;
+
+    _firestore.collection('private_chats').doc(chatId).set({'unread_$myUid': 0}, SetOptions(merge: true));
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1D),
-      body: SafeArea(
+      appBar: AppBar(
+        backgroundColor: Colors.black87,
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundImage: widget.targetPicUrl != null ? MemoryImage(base64Decode(widget.targetPicUrl!)) : null,
+              child: widget.targetPicUrl == null ? const Icon(Icons.person) : null,
+            ),
+            const SizedBox(width: 10),
+            Text(widget.targetName, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 18)),
+          ],
+        ),
+        iconTheme: const IconThemeData(color: Colors.amber),
+      ),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
         child: Column(
           children: [
-            TopBar(
-                cash: player.cash,
-                gold: player.gold,
-                energy: player.energy,
-                maxEnergy: player.maxEnergy,
-                courage: player.courage,
-                maxCourage: player.maxCourage,
-                health: player.health,
-                maxHealth: player.maxHealth,
-                prestige: player.prestige,
-                maxPrestige: player.maxPrestige,
-                playerName: player.playerName,
-                profilePicUrl: player.profilePicUrl, // 🟢 إرسال الصورة هنا
-                level: player.crimeLevel,
-                currentXp: player.crimeXP,
-                maxXp: player.xpToNextLevel,
-                isVIP: player.isVIP
-            ),
-
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(color: Colors.black45, border: Border(bottom: BorderSide(color: Colors.white10))),
-              child: Row(
-                children: [
-                  IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
-                  const Spacer(),
-                  Text(widget.targetName, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(width: 12),
-                  CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.grey[800],
-                      backgroundImage: targetImageBytes != null ? MemoryImage(targetImageBytes) : null,
-                      child: targetImageBytes == null ? const Icon(Icons.person, color: Colors.white54) : null
-                  ),
-                ],
-              ),
-            ),
-
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: _messagesStream, // استخدمنا الستريم المحفوظ الثابت
+                stream: _firestore.collection('private_chats').doc(chatId).collection('messages').orderBy('timestamp', descending: true).snapshots(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.amber));
-                  final messages = snapshot.data!.docs;
-                  if (messages.isEmpty) return const Center(child: Text('لا توجد رسائل سابقة.. ابدأ المحادثة الآن!', style: TextStyle(color: Colors.white54)));
+                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+                  final msgs = snapshot.data!.docs;
 
                   return ListView.builder(
                     reverse: true,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: messages.length,
+                    itemCount: msgs.length,
                     itemBuilder: (context, index) {
-                      final msg = messages[index].data() as Map<String, dynamic>;
-                      final bool isMe = msg['senderId'] == player.uid;
+                      final doc = msgs[index];
+                      final msg = doc.data() as Map<String, dynamic>;
+                      bool isMe = msg['senderId'] == myUid;
+                      bool isRead = msg['isRead'] ?? false;
+                      bool isBurn = msg['isBurn'] ?? false;
+                      String type = msg['type'] ?? 'text';
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Row(
-                          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                          children: [
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: isMe ? const Color(0xFF1E3A2F) : const Color(0xFF2A2A2D),
-                                  borderRadius: BorderRadius.only(topLeft: const Radius.circular(15), topRight: const Radius.circular(15), bottomLeft: isMe ? const Radius.circular(15) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(15)),
-                                ),
-                                child: Text(msg['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 15), textDirection: TextDirection.rtl),
-                              ),
-                            ),
-                          ],
+                      if (!isMe && !isRead) {
+                        doc.reference.update({'isRead': true});
+                      }
+
+                      if (isBurn) {
+                        return BurnMessageBubble(
+                          message: msg['message'],
+                          isMe: isMe,
+                          isRead: isRead,
+                          docRef: doc.reference,
+                        );
+                      }
+
+                      if (type == 'transfer') {
+                        return TransferBubble(message: msg['message'], isMe: isMe);
+                      }
+
+                      return Align(
+                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isMe ? Colors.green[900] : Colors.grey[800],
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(msg['message'], style: const TextStyle(color: Colors.white, fontSize: 16)),
+                              if (isMe) ...[
+                                const SizedBox(height: 2),
+                                Icon(Icons.done_all, size: 14, color: isRead ? Colors.lightBlueAccent : Colors.white54),
+                              ]
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -178,17 +199,138 @@ class _PrivateChatViewState extends State<PrivateChatView> {
 
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(color: Color(0xFF1A1A1D), border: Border(top: BorderSide(color: Colors.white10))),
+              decoration: const BoxDecoration(color: Colors.black26),
               child: Row(
                 children: [
-                  Expanded(child: TextField(controller: _controller, style: const TextStyle(color: Colors.white), textDirection: TextDirection.rtl, onSubmitted: (_) => _sendMessage(currentUserId!), decoration: InputDecoration(hintText: 'اكتب رسالتك...', hintStyle: const TextStyle(color: Colors.white24), filled: true, fillColor: Colors.black45, border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10)))),
-                  const SizedBox(width: 10),
-                  GestureDetector(onTap: () => _sendMessage(currentUserId!), child: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.send, color: Colors.black, size: 20))),
+                  IconButton(
+                    icon: Icon(Icons.local_fire_department, color: _isBurnMessage ? Colors.redAccent : Colors.white54),
+                    onPressed: () {
+                      setState(() => _isBurnMessage = !_isBurnMessage);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isBurnMessage ? '💣 تم تفعيل وضع الرسائل القابلة للتدمير' : 'تم إيقاف وضع التدمير'), duration: const Duration(seconds: 1)));
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.attach_money, color: Colors.green),
+                    onPressed: _quickTransfer,
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: _isBurnMessage ? 'اكتب رسالة سرية لتدميرها...' : 'رسالة...',
+                        hintStyle: TextStyle(color: _isBurnMessage ? Colors.redAccent : Colors.white54),
+                        filled: true,
+                        fillColor: Colors.black45,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Colors.amber),
+                    onPressed: () => _sendMessage(),
+                  )
                 ],
               ),
-            ),
+            )
           ],
         ),
+      ),
+    );
+  }
+}
+
+class BurnMessageBubble extends StatefulWidget {
+  final String message;
+  final bool isMe;
+  final bool isRead;
+  final DocumentReference docRef;
+
+  const BurnMessageBubble({super.key, required this.message, required this.isMe, required this.isRead, required this.docRef});
+
+  @override
+  State<BurnMessageBubble> createState() => _BurnMessageBubbleState();
+}
+
+class _BurnMessageBubbleState extends State<BurnMessageBubble> {
+  int secondsLeft = 10;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.  initState();
+    if (widget.isRead) _startCountdown();
+  }
+
+  @override
+  void didUpdateWidget(covariant BurnMessageBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isRead && widget.isRead) _startCountdown();
+  }
+
+  void _startCountdown() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() => secondsLeft--);
+        if (secondsLeft <= 0) {
+          timer.cancel();
+          widget.docRef.delete();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(color: Colors.red[900], borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.whatshot, color: Colors.orangeAccent, size: 18),
+                const SizedBox(width: 5),
+                Text(widget.message, style: const TextStyle(color: Colors.white, fontSize: 16, fontStyle: FontStyle.italic)),
+              ],
+            ),
+            if (widget.isRead)
+              Text('تنفجر بعد: $secondsLeft ثواني', style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+            if (widget.isMe) Icon(Icons.done_all, size: 14, color: widget.isRead ? Colors.lightBlueAccent : Colors.white54),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TransferBubble extends StatelessWidget {
+  final String message;
+  final bool isMe;
+
+  const TransferBubble({super.key, required this.message, required this.isMe});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.center,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(color: Colors.amber.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)),
+        child: Text(message, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
       ),
     );
   }

@@ -117,7 +117,6 @@ class PlayerProvider with ChangeNotifier {
   int _gangWarWins = 0;
   Map<String, String> _territoryOwners = {};
 
-  // 🟢 النظام الجديد للجرائم (يعتمد على Map)
   Map<String, int> crimeSuccessCountsMap = {};
   List<Transaction> _transactions = [];
 
@@ -233,7 +232,6 @@ class PlayerProvider with ChangeNotifier {
     return _skill * (1.0 + multiplier);
   }
 
-
   Uint8List? getDecodedImage(String? base64Str) {
     if (base64Str == null || base64Str.isEmpty) return null;
     if (_decodedImagesCache.containsKey(base64Str)) return _decodedImagesCache[base64Str]!;
@@ -294,13 +292,21 @@ class PlayerProvider with ChangeNotifier {
     return null;
   }
 
+  // 🟢 التعديل الأول: دالة الأيدي تمت إضافة حماية لمنع التعليق اللانهائي
   Future<String> _generateUniqueGameId() async {
     String newId = '';
     bool isUnique = false;
-    while (!isUnique) {
+    int attempts = 0;
+    while (!isUnique && attempts < 5) {
+      attempts++;
       newId = (100000 + Random().nextInt(900000)).toString();
-      final check = await _firestore.collection('players').where('gameId', isEqualTo: newId).limit(1).get();
-      if (check.docs.isEmpty) {
+      try {
+        final check = await _firestore.collection('players').where('gameId', isEqualTo: newId).limit(1).get();
+        if (check.docs.isEmpty) {
+          isUnique = true;
+        }
+      } catch (e) {
+        // في حال انقطاع النت نعطي اللاعب الأيدي العشوائي ونفتح اللعبة بدل ما تعلق
         isUnique = true;
       }
     }
@@ -400,36 +406,44 @@ class PlayerProvider with ChangeNotifier {
     });
   }
 
+  // 🟢 التعديل الثاني والأهم: حماية دالة التشغيل بـ try-catch-finally
   Future<void> initializePlayerOnServer(String uid, String name) async {
     _uid = uid;
     _isLoading = true;
     notifyListeners();
 
     _playerDataSubscription?.cancel();
-    final initialDoc = await _firestore.collection('players').doc(uid).get();
 
-    if (initialDoc.exists) {
-      _applyFirestoreData(initialDoc.data()!);
-      if (_gameId == null) {
+    try {
+      final initialDoc = await _firestore.collection('players').doc(uid).get();
+
+      if (initialDoc.exists) {
+        _applyFirestoreData(initialDoc.data()!);
+        if (_gameId == null) {
+          _gameId = await _generateUniqueGameId();
+          await _syncWithFirestore();
+        }
+      } else if (name.isNotEmpty) {
+        _playerName = name;
+        _inventory['name_change_card'] = 1;
         _gameId = await _generateUniqueGameId();
         await _syncWithFirestore();
       }
-    } else if (name.isNotEmpty) {
-      _playerName = name;
-      _inventory['name_change_card'] = 1;
-      _gameId = await _generateUniqueGameId();
+    } catch (e) {
+      debugPrint("خطأ أثناء محاولة جلب بيانات اللاعب: $e");
+    } finally {
+      // 🟢 هذا السطر يضمن أن اللعبة تفتح (وتشيل شاشة التحميل) مهما كانت الظروف
       _isLoading = false;
-      await _syncWithFirestore();
+      notifyListeners();
     }
-
-    _isLoading = false;
-    notifyListeners();
 
     _playerDataSubscription = _firestore.collection('players').doc(uid).snapshots().listen((snapshot) {
       if (snapshot.exists && snapshot.metadata.hasPendingWrites == false) {
         _applyFirestoreData(snapshot.data()!);
         notifyListeners();
       }
+    }, onError: (error) {
+      debugPrint("خطأ في المزامنة المباشرة للبيانات: $error");
     });
   }
 
@@ -495,7 +509,6 @@ class PlayerProvider with ChangeNotifier {
     if (data['durability'] != null) _durability = Map<String, double>.from(data['durability'].map((k, v) => MapEntry(k, v.toDouble())));
     if (data['transactions'] != null) _transactions = (data['transactions'] as List).map((t) => Transaction.fromJson(Map<String, dynamic>.from(t))).toList();
 
-    // 🟢 نقل وحفظ البيانات لنظام الجرائم الجديد
     if (data['crimeSuccessCountsMap'] != null) {
       crimeSuccessCountsMap = Map<String, int>.from(data['crimeSuccessCountsMap']);
     } else if (data['crimeSuccessCounts'] != null) {
@@ -552,7 +565,7 @@ class PlayerProvider with ChangeNotifier {
         'gangContribution': _gangContribution,
         'gangWarWins': _gangWarWins,
         'territoryOwners': _territoryOwners,
-        'crimeSuccessCountsMap': crimeSuccessCountsMap, // 🟢 الحفظ هنا
+        'crimeSuccessCountsMap': crimeSuccessCountsMap,
         'contractEndTime': _contractEndTime?.toIso8601String(),
         'activeContractName': _activeContractName,
         'contractSalary': _contractSalary,
@@ -678,7 +691,6 @@ class PlayerProvider with ChangeNotifier {
 
   void addWorkXP(int amount) { _workXP += amount; if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; _showNotification("تمت ترقيتك للمستوى $_workLevel"); } _syncWithFirestore(); notifyListeners(); }
 
-  // 🟢 دالة زيادة الجرائم المحدثة لتعمل مع الـ ID
   void incrementCrimeSuccess(String crimeId) {
     crimeSuccessCountsMap[crimeId] = (crimeSuccessCountsMap[crimeId] ?? 0) + 1;
     _syncWithFirestore();
@@ -699,7 +711,7 @@ class PlayerProvider with ChangeNotifier {
   void startWorkContract(String name, int durationMinutes, int salaryPerMinute) { if (isUnderContract) return; _activeContractName = name; _contractSalary = salaryPerMinute; _lastContractRewardTime = DateTime.now(); _contractEndTime = DateTime.now().add(Duration(minutes: durationMinutes)); _syncWithFirestore(); notifyListeners(); }
 
   double get maxGymStats {
-    return 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0); // سقف موزون للبدايات
+    return 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0);
   }
 
   double get currentBaseStats {
@@ -856,12 +868,10 @@ class PlayerProvider with ChangeNotifier {
   void collectCraftedItem() { if (_isCrafting && _labEndTime != null && DateTime.now().isAfter(_labEndTime!)) { _isCrafting = false; _labEndTime = null; if (_craftingItemId != null) { _inventory[_craftingItemId!] = (_inventory[_craftingItemId!] ?? 0) + 1; _craftingItemId = null; } _syncWithFirestore(); notifyListeners(); } }
   void addInventoryItem(String itemId, int amount) { _inventory[itemId] = (_inventory[itemId] ?? 0) + amount; _syncWithFirestore(); notifyListeners(); }
 
-  // 🛠️ دالة المطور: فتح جميع الجرائم للاختبار
   void unlockAllCrimesForDev() {
     for (int catIndex = 0; catIndex < 20; catIndex++) {
       for (int crimeIndex = 0; crimeIndex < 20; crimeIndex++) {
         String crimeId = 'cat_${catIndex}_crime_$crimeIndex';
-        // نعطي كل جريمة 10 مرات نجاح عشان تفتح اللي بعدها وتفتح كل الفئات
         crimeSuccessCountsMap[crimeId] = 10;
       }
     }

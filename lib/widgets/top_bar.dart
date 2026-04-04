@@ -69,15 +69,14 @@ class TopBar extends StatelessWidget {
     String displayName = playerName.length > 13 ? '${playerName.substring(0, 13)}..' : playerName;
     final imageBytes = _getDecodedImage();
 
-    // 🟢 استشعار مساحة الحافة العلوية (النوتش) للتمدد بشكل كامل
+    // 🟢 التعديل هنا: قللنا المساحة العلوية (Top Padding) بشكل كبير لرفع الصف الأول للأعلى!
     double topPadding = MediaQuery.of(context).padding.top;
-    double safeTop = topPadding > 0 ? topPadding + 6 : 14;
+    double safeTop = topPadding > 10 ? topPadding - 10 : 2;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Container(
-        // 🟢 التعديل هنا: استخدام المساحة العلوية الذكية بدل الرقم الثابت
-        padding: EdgeInsets.only(top: safeTop, bottom: 8, left: 10, right: 10),
+        padding: EdgeInsets.only(top: safeTop, bottom: 6, left: 10, right: 10),
         decoration: BoxDecoration(
           color: Colors.black87,
           image: const DecorationImage(
@@ -102,7 +101,6 @@ class TopBar extends StatelessWidget {
                 Container(
                   width: 50,
                   height: 50,
-                  margin: const EdgeInsets.only(top: 4.0),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: const Color(0xFFE2C275), width: 2.5),
@@ -186,9 +184,10 @@ class TopBar extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            // 🟢 التعديل هنا: زدنا هذه المسافة قليلاً لكي لا ترتفع الموارد (الصف الثاني) وتظل مرتبة بمكانها
+            const SizedBox(height: 10),
 
-            // --- الصف الثاني: الموارد ---
+            // --- الصف الثاني: الموارد مع المؤقتات بالأسفل ---
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
