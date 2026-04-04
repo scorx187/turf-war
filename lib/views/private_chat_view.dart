@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
-import 'dart:convert'; // 🟢 تم إضافة هذه المكتبة لحل المشكلة!
+import 'dart:convert';
 import '../providers/player_provider.dart';
+import '../widgets/top_bar.dart';
+import 'player_profile_view.dart';
 
 class PrivateChatView extends StatefulWidget {
   final String targetUid;
@@ -44,7 +46,7 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     Map<String, dynamic> messageData = {
       'senderId': myUid,
       'type': type,
-      'message': type == 'transfer' ? 'قام بتحويل \$$amount 💸' : msgText,
+      'message': msgText,
       'timestamp': FieldValue.serverTimestamp(),
       'isRead': false,
       'isBurn': _isBurnMessage,
@@ -65,6 +67,7 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     if (mounted) setState(() => _isBurnMessage = false);
   }
 
+  // 🟢 التعديل هنا: استخدام Transaction لضمان وصول الإشعار للطرف الآخر
   void _quickTransfer() {
     final player = Provider.of<PlayerProvider>(context, listen: false);
     showDialog(
@@ -89,12 +92,45 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                   onPressed: () async {
                     int? amt = int.tryParse(amtCtrl.text.trim());
                     if (amt != null && amt > 0 && amt <= player.cash) {
-                      player.removeCash(amt, reason: 'تحويل سريع لـ ${widget.targetName}');
 
-                      await _firestore.collection('players').doc(widget.targetUid).update({'cash': FieldValue.increment(amt)});
+                      try {
+                        await _firestore.runTransaction((transaction) async {
+                          final senderRef = _firestore.collection('players').doc(player.uid);
+                          final receiverRef = _firestore.collection('players').doc(widget.targetUid);
 
-                      _sendMessage(type: 'transfer', amount: amt);
-                      Navigator.pop(c);
+                          final senderSnap = await transaction.get(senderRef);
+                          final receiverSnap = await transaction.get(receiverRef);
+
+                          if (!senderSnap.exists || !receiverSnap.exists) throw Exception("اللاعب غير موجود!");
+                          int senderCash = senderSnap.data()?['cash'] ?? 0;
+                          if (senderCash < amt) throw Exception("رصيدك لا يكفي!");
+                          int receiverCash = receiverSnap.data()?['cash'] ?? 0;
+
+                          transaction.update(senderRef, {'cash': senderCash - amt});
+
+                          // 🟢 إضافة التحويل إلى سجل الطرف المستلم لكي يظهر في الإشعارات
+                          List<dynamic> receiverTxs = receiverSnap.data()?['transactions'] ?? [];
+                          receiverTxs.insert(0, {
+                            'title': 'تحويل من ${player.playerName}',
+                            'amount': amt,
+                            'date': DateTime.now().toIso8601String(),
+                            'isPositive': true,
+                            'senderUid': player.uid,
+                          });
+                          if (receiverTxs.length > 20) receiverTxs.removeLast();
+
+                          transaction.update(receiverRef, {
+                            'cash': receiverCash + amt,
+                            'transactions': receiverTxs,
+                          });
+                        });
+
+                        player.removeCash(amt, reason: 'تحويل سريع لـ ${widget.targetName}');
+                        _sendMessage(type: 'transfer', amount: amt);
+                        if (mounted) Navigator.pop(c);
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشل التحويل!')));
+                      }
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرصيد غير كافي!')));
                     }
@@ -108,132 +144,258 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     );
   }
 
+  void _goToProfile(Map<String, dynamic> targetData) {
+    FocusScope.of(context).unfocus();
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            backgroundColor: const Color(0xFF1A1A1D),
+            body: SafeArea(
+              top: false,
+              child: Consumer<PlayerProvider>(
+                  builder: (context, player, child) {
+                    return Column(
+                      children: [
+                        TopBar(
+                            cash: player.cash,
+                            gold: player.gold,
+                            energy: player.energy,
+                            maxEnergy: player.maxEnergy,
+                            courage: player.courage,
+                            maxCourage: player.maxCourage,
+                            health: player.health,
+                            maxHealth: player.maxHealth,
+                            prestige: player.prestige,
+                            maxPrestige: player.maxPrestige,
+                            playerName: player.playerName,
+                            profilePicUrl: player.profilePicUrl,
+                            level: player.crimeLevel,
+                            currentXp: player.crimeXP,
+                            maxXp: player.xpToNextLevel,
+                            isVIP: player.isVIP
+                        ),
+                        Expanded(child: PlayerProfileView(
+                            targetUid: widget.targetUid,
+                            previewName: targetData['playerName'] ?? widget.targetName,
+                            previewPicUrl: targetData['profilePicUrl'] ?? widget.targetPicUrl,
+                            previewIsVIP: targetData['isVIP'] ?? false,
+                            onBack: () => Navigator.pop(context)
+                        )),
+                      ],
+                    );
+                  }
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final myUid = Provider.of<PlayerProvider>(context, listen: false).uid!;
 
     _firestore.collection('private_chats').doc(chatId).set({'unread_$myUid': 0}, SetOptions(merge: true));
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1D),
-      appBar: AppBar(
-        backgroundColor: Colors.black87,
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundImage: widget.targetPicUrl != null ? MemoryImage(base64Decode(widget.targetPicUrl!)) : null,
-              child: widget.targetPicUrl == null ? const Icon(Icons.person) : null,
-            ),
-            const SizedBox(width: 10),
-            Text(widget.targetName, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 18)),
-          ],
-        ),
-        iconTheme: const IconThemeData(color: Colors.amber),
-      ),
-      body: Directionality(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        if (FocusManager.instance.primaryFocus?.hasFocus ?? false) {
+          FocusManager.instance.primaryFocus?.unfocus();
+        } else {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Directionality(
         textDirection: TextDirection.rtl,
-        child: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('private_chats').doc(chatId).collection('messages').orderBy('timestamp', descending: true).snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        child: Scaffold(
+          backgroundColor: const Color(0xFF1A1A1D),
+          appBar: AppBar(
+            backgroundColor: Colors.black87,
+            titleSpacing: 0,
+            title: StreamBuilder<DocumentSnapshot>(
+              stream: _firestore.collection('players').doc(widget.targetUid).snapshots(),
+              builder: (context, snapshot) {
+                String name = widget.targetName;
+                String? pic = widget.targetPicUrl;
+                String bio = '';
+                bool isVIP = false;
+                String statusText = 'غير متصل';
+                Color statusColor = Colors.white54;
+                Map<String, dynamic> targetData = {};
 
-                  final msgs = snapshot.data!.docs;
+                if (snapshot.hasData && snapshot.data!.exists) {
+                  targetData = snapshot.data!.data() as Map<String, dynamic>;
+                  name = targetData['playerName'] ?? name;
+                  pic = targetData['profilePicUrl'] ?? pic;
+                  bio = targetData['bio'] ?? '';
+                  isVIP = targetData['isVIP'] == true;
 
-                  return ListView.builder(
-                    reverse: true,
-                    itemCount: msgs.length,
-                    itemBuilder: (context, index) {
-                      final doc = msgs[index];
-                      final msg = doc.data() as Map<String, dynamic>;
-                      bool isMe = msg['senderId'] == myUid;
-                      bool isRead = msg['isRead'] ?? false;
-                      bool isBurn = msg['isBurn'] ?? false;
-                      String type = msg['type'] ?? 'text';
+                  if (targetData['lastUpdate'] != null) {
+                    DateTime lastUpdate = (targetData['lastUpdate'] as Timestamp).toDate();
+                    final diff = DateTime.now().difference(lastUpdate);
+                    if (diff.inMinutes < 5) {
+                      statusText = 'متصل الآن';
+                      statusColor = Colors.greenAccent;
+                    } else if (diff.inHours < 1) {
+                      statusText = 'آخر ظهور منذ ${diff.inMinutes} دقيقة';
+                    } else if (diff.inDays < 1) {
+                      statusText = 'آخر ظهور منذ ${diff.inHours} ساعة';
+                    } else {
+                      statusText = 'آخر ظهور منذ ${diff.inDays} يوم';
+                    }
+                  }
+                }
 
-                      if (!isMe && !isRead) {
-                        doc.reference.update({'isRead': true});
-                      }
+                final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(pic);
 
-                      if (isBurn) {
-                        return BurnMessageBubble(
-                          message: msg['message'],
-                          isMe: isMe,
-                          isRead: isRead,
-                          docRef: doc.reference,
-                        );
-                      }
-
-                      if (type == 'transfer') {
-                        return TransferBubble(message: msg['message'], isMe: isMe);
-                      }
-
-                      return Align(
-                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isMe ? Colors.green[900] : Colors.grey[800],
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(msg['message'], style: const TextStyle(color: Colors.white, fontSize: 16)),
-                              if (isMe) ...[
-                                const SizedBox(height: 2),
-                                Icon(Icons.done_all, size: 14, color: isRead ? Colors.lightBlueAccent : Colors.white54),
-                              ]
-                            ],
-                          ),
+                return GestureDetector(
+                  onTap: () => _goToProfile(targetData),
+                  child: Row(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: isVIP ? Border.all(color: Colors.amberAccent, width: 1.5) : null,
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
+                        child: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.grey[800],
+                          backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
+                          child: imageBytes == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, color: isVIP ? Colors.amber : Colors.white54, size: 20) : null,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(name, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            if (bio.isNotEmpty)
+                              Text(bio, style: const TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(statusText, style: TextStyle(color: statusColor, fontFamily: 'Changa', fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
+            iconTheme: const IconThemeData(color: Colors.amber),
+          ),
+          body: Column(
+            children: [
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: _firestore.collection('private_chats').doc(chatId).collection('messages').orderBy('timestamp', descending: true).snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(color: Colors.black26),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.local_fire_department, color: _isBurnMessage ? Colors.redAccent : Colors.white54),
-                    onPressed: () {
-                      setState(() => _isBurnMessage = !_isBurnMessage);
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isBurnMessage ? '💣 تم تفعيل وضع الرسائل القابلة للتدمير' : 'تم إيقاف وضع التدمير'), duration: const Duration(seconds: 1)));
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.attach_money, color: Colors.green),
-                    onPressed: _quickTransfer,
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: _isBurnMessage ? 'اكتب رسالة سرية لتدميرها...' : 'رسالة...',
-                        hintStyle: TextStyle(color: _isBurnMessage ? Colors.redAccent : Colors.white54),
-                        filled: true,
-                        fillColor: Colors.black45,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                    final msgs = snapshot.data!.docs;
+
+                    return ListView.builder(
+                      reverse: true,
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                      itemCount: msgs.length,
+                      itemBuilder: (context, index) {
+                        final doc = msgs[index];
+                        final msg = doc.data() as Map<String, dynamic>;
+                        bool isMe = msg['senderId'] == myUid;
+                        bool isRead = msg['isRead'] ?? false;
+                        bool isBurn = msg['isBurn'] ?? false;
+                        String type = msg['type'] ?? 'text';
+
+                        if (!isMe && !isRead) {
+                          doc.reference.update({'isRead': true});
+                        }
+
+                        if (isBurn) {
+                          return BurnMessageBubble(
+                            message: msg['message'],
+                            isMe: isMe,
+                            isRead: isRead,
+                            docRef: doc.reference,
+                          );
+                        }
+
+                        if (type == 'transfer') {
+                          // 🟢 التعديل هنا: التفريق بين المرسل والمستلم نصياً
+                          String transferMsg = isMe ? 'قمت بتحويل \$${msg['amount']} 💸' : 'قام ${widget.targetName} بتحويل \$${msg['amount']} 💸';
+                          return TransferBubble(message: transferMsg, isMe: isMe);
+                        }
+
+                        return Align(
+                          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isMe ? Colors.green[900] : Colors.grey[800],
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(msg['message'], style: const TextStyle(color: Colors.white, fontSize: 16)),
+                                if (isMe) ...[
+                                  const SizedBox(height: 2),
+                                  Icon(Icons.done_all, size: 14, color: isRead ? Colors.lightBlueAccent : Colors.white54),
+                                ]
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(color: Colors.black26),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.local_fire_department, color: _isBurnMessage ? Colors.redAccent : Colors.white54),
+                      onPressed: () {
+                        setState(() => _isBurnMessage = !_isBurnMessage);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isBurnMessage ? '💣 تم تفعيل وضع الرسائل القابلة للتدمير' : 'تم إيقاف وضع التدمير'), duration: const Duration(seconds: 1)));
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.attach_money, color: Colors.green),
+                      onPressed: _quickTransfer,
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: _isBurnMessage ? 'اكتب رسالة سرية لتدميرها...' : 'رسالة...',
+                          hintStyle: TextStyle(color: _isBurnMessage ? Colors.redAccent : Colors.white54),
+                          filled: true,
+                          fillColor: Colors.black45,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.send, color: Colors.amber),
-                    onPressed: () => _sendMessage(),
-                  )
-                ],
-              ),
-            )
-          ],
+                    IconButton(
+                      icon: const Icon(Icons.send, color: Colors.amber),
+                      onPressed: () => _sendMessage(),
+                    )
+                  ],
+                ),
+              )
+            ],
+          ),
         ),
       ),
     );
@@ -258,7 +420,7 @@ class _BurnMessageBubbleState extends State<BurnMessageBubble> {
 
   @override
   void initState() {
-    super.  initState();
+    super.initState();
     if (widget.isRead) _startCountdown();
   }
 

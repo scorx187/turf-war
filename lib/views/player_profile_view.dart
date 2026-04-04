@@ -145,6 +145,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: Colors.grey[900], title: const Text("تحذير نهائي ⚠️", style: TextStyle(color: Colors.white), textAlign: TextAlign.right), content: const Text("هل أنت متأكد من مسح كافة بياناتك؟ لا يمكن التراجع.", style: TextStyle(color: Colors.white70), textAlign: TextAlign.right), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("إلغاء", style: TextStyle(color: Colors.blue))), TextButton(onPressed: () { player.resetPlayerData(); Navigator.pop(context); }, child: const Text("نعم، امسح كل شيء", style: TextStyle(color: Colors.red)))]));
   }
 
+  // 🟢 التعديل هنا: يرسل الإشعار للطرف الآخر حتى لو تم التحويل من بروفايله 🟢
   void _showTransferDialog(PlayerProvider player) {
     TextEditingController amountController = TextEditingController();
     bool isTransferring = false;
@@ -182,15 +183,34 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       await firestore.runTransaction((transaction) async {
                         final senderRef = firestore.collection('players').doc(player.uid);
                         final receiverRef = firestore.collection('players').doc(widget.targetUid);
+
                         final senderSnap = await transaction.get(senderRef);
                         final receiverSnap = await transaction.get(receiverRef);
+
                         if (!senderSnap.exists || !receiverSnap.exists) throw Exception("اللاعب غير موجود!");
                         int senderCash = senderSnap.data()?['cash'] ?? 0;
                         if (senderCash < amount) throw Exception("رصيدك لا يكفي!");
                         int receiverCash = receiverSnap.data()?['cash'] ?? 0;
+
                         transaction.update(senderRef, {'cash': senderCash - amount});
-                        transaction.update(receiverRef, {'cash': receiverCash + amount});
+
+                        // إضافة التحويل لقائمة الطرف المستلم عشان يظهر له في الإشعارات
+                        List<dynamic> receiverTxs = receiverSnap.data()?['transactions'] ?? [];
+                        receiverTxs.insert(0, {
+                          'title': 'تحويل من ${player.playerName}',
+                          'amount': amount,
+                          'date': DateTime.now().toIso8601String(),
+                          'isPositive': true,
+                          'senderUid': player.uid,
+                        });
+                        if (receiverTxs.length > 20) receiverTxs.removeLast();
+
+                        transaction.update(receiverRef, {
+                          'cash': receiverCash + amount,
+                          'transactions': receiverTxs
+                        });
                       });
+
                       player.removeCash(amount, reason: 'تحويل مالي إلى ${playerData!['playerName']}');
                       if (mounted) { Navigator.pop(c); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تحويل \$$amount بنجاح! 💸'), backgroundColor: Colors.green)); Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); }
                     } catch (e) {
@@ -207,7 +227,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     );
   }
 
-  // 🟢 [دالة وضع المكافأة في الشات العام (البطاقات السرية)] 🟢
   void _showBountyDialog(PlayerProvider player) {
     TextEditingController amountController = TextEditingController();
     bool isAnonymous = false;
@@ -247,7 +266,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                     ),
                   ),
                   const SizedBox(height: 15),
-                  // البطاقة السرية
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withOpacity(0.5))),
@@ -472,7 +490,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                     Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(backgroundColor: Colors.black, body: SafeArea(child: PvpBattleView(enemyData: playerData!, onBack: () => Navigator.pop(context))))));
                   }),
                   _buildActionBtn(Icons.attach_money, 'تحويل', Colors.amber, () => _showTransferDialog(player)),
-                  // 🟢 الزر الجديد الخاص بالمكافآت (Bounty) 🟢
                   _buildActionBtn(Icons.track_changes, 'مكافأة', Colors.deepOrange, () => _showBountyDialog(player)),
                   _buildActionBtn(Icons.card_giftcard, 'هدية', Colors.pinkAccent, () {}),
                   _buildActionBtn(Icons.favorite, 'زواج', Colors.redAccent, () {}),
