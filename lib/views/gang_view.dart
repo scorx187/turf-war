@@ -9,6 +9,7 @@ import 'gang_donation_view.dart';
 import 'gang_management_view.dart';
 import 'gang_skills_view.dart';
 import 'gang_store_view.dart';
+import 'gang_raids_view.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 
@@ -282,7 +283,8 @@ class _GangViewState extends State<GangView> {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => GangSkillsView(gangName: player.gangName!)));
                 }),
                 _buildGridItem(icon: Icons.local_fire_department, title: 'الغارات', color: Colors.orangeAccent, onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الغارات المشتركة قريباً!', style: TextStyle(fontFamily: 'Changa'))));
+                  audio.playEffect('click.mp3');
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const GangRaidsView()));
                 }),
                 _buildGridItem(icon: Icons.shopping_cart, title: 'المتجر', color: Colors.amber, onTap: () {
                   audio.playEffect('click.mp3');

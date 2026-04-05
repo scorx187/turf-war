@@ -26,7 +26,6 @@ class _HospitalViewState extends State<HospitalView> {
   }
 
   void _startCountdown() {
-    // 🟢 الـ Timer هذا يحدث الشاشة كل ثانية عشان ينزل العداد بسلاسة 🟢
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         final player = Provider.of<PlayerProvider>(context, listen: false);
@@ -37,12 +36,10 @@ class _HospitalViewState extends State<HospitalView> {
             _secondsLeft = diff > 0 ? diff : 0;
           });
 
-          // إذا انتهى الوقت، المفروض البروفايدر يطلعه، بس كاحتياط نوقف العداد
           if (_secondsLeft <= 0) {
             timer.cancel();
           }
         } else {
-          // لو تعالج، نوقف التايمر ونصفر العداد
           setState(() {
             _secondsLeft = 0;
           });
@@ -63,10 +60,10 @@ class _HospitalViewState extends State<HospitalView> {
     final player = Provider.of<PlayerProvider>(context);
     final audio = Provider.of<AudioProvider>(context, listen: false);
 
-    // تحديث مبدئي إذا التايمر لسه ما لقط القيمة
-    if (player.isHospitalized && player.hospitalReleaseTime != null && _secondsLeft == 0) {
-      _secondsLeft = player.hospitalReleaseTime!.difference(DateTime.now()).inSeconds;
-      if (_secondsLeft < 0) _secondsLeft = 0;
+    if (player.health > 0 && !player.isHospitalized && widget.onBack != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onBack!();
+      });
     }
 
     int missingHealth = player.maxHealth - player.health;
@@ -92,7 +89,6 @@ class _HospitalViewState extends State<HospitalView> {
               ),
               const SizedBox(height: 10),
 
-              // 🟢 استخدام المتغير اللحظي _secondsLeft 🟢
               if (player.isHospitalized && _secondsLeft > 0)
                 Text(
                   'الوقت المتبقي للخروج: ${(_secondsLeft / 60).floor()} دقيقة و ${_secondsLeft % 60} ثانية',
@@ -107,9 +103,9 @@ class _HospitalViewState extends State<HospitalView> {
 
               Text(
                 player.isHospitalized
-                    ? 'إصابتك بالغة، يجب أن تنتظر أو تدفع للتسرع.'
+                    ? 'إصابتك بالغة، يجب أن تنتظر أو تدفع للتسرع.\n(يمكنك الضغط على الشات في الأسفل للتحدث مع المرضى)'
                     : 'صحتك الحالية: ${player.health} / ${player.maxHealth}',
-                style: const TextStyle(color: Colors.white54, fontSize: 16, fontFamily: 'Changa'),
+                style: const TextStyle(color: Colors.white54, fontSize: 14, fontFamily: 'Changa', height: 1.5),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
@@ -180,7 +176,6 @@ class _HospitalViewState extends State<HospitalView> {
                         player.useItem('medkit');
                       } else if (player.cash >= 2000) {
                         audio.playEffect('click.mp3');
-                        // 🟢 تصحيح الخطأ القديم (حذفنا isConsumable)
                         player.buyItem('medkit', 2000);
                         player.useItem('medkit');
                       } else {

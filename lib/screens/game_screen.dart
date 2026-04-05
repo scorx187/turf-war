@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/top_bar.dart';
-import '../widgets/bottom_navbar.dart';
 import '../views/lucky_wheel_view.dart';
 import '../views/crime_view.dart';
 import '../views/bank_view.dart';
@@ -32,6 +31,112 @@ import '../views/private_chat_list_view.dart';
 import '../views/friends_view.dart';
 import 'dart:async';
 import 'dart:math';
+
+// 🟢 دمجنا BottomNavBar هنا مباشرة عشان نتحكم بشكله إذا اللاعب بالمستشفى 🟢
+class BottomNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final Function(int) onItemTapped;
+  final bool isHospitalized; // متغير لمعرفة إذا اللاعب مريض
+
+  const BottomNavBar({
+    super.key,
+    required this.selectedIndex,
+    required this.onItemTapped,
+    this.isHospitalized = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        image: const DecorationImage(
+          image: AssetImage('assets/images/ui/bottom_navbar_bg.png'),
+          fit: BoxFit.cover,
+        ),
+        border: const Border(
+          top: BorderSide(color: Color(0xFF856024), width: 2),
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 10, offset: const Offset(0, -5)),
+        ],
+      ),
+      padding: const EdgeInsets.only(top: 4, bottom: 26),
+      child: SafeArea(
+        bottom: true,
+        child: Directionality(
+          textDirection: TextDirection.rtl, // لضمان اليمين واليسار
+          child: Row(
+            // 🟢 إذا كان مريض، نخلي الزر يمين (start)، وإذا سليم نوزعهم بالتساوي 🟢
+            mainAxisAlignment: isHospitalized ? MainAxisAlignment.start : MainAxisAlignment.spaceEvenly,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: isHospitalized
+                ? [
+              // زر الشات فقط ويكون على اليمين مع شوي بادينج
+              Padding(
+                padding: const EdgeInsets.only(right: 30.0),
+                child: _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
+              )
+            ]
+                : [
+              _buildNavItem(0, 'assets/images/icons/inventory.png', 'المخزن'),
+              _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
+              _buildNavItem(2, 'assets/images/icons/map.png', 'الخريطة'),
+              _buildNavItem(3, 'assets/images/icons/crime.png', 'الجرائم'),
+              _buildNavItem(4, 'assets/images/icons/news.png', 'الأخبار'),
+              _buildNavItem(5, 'assets/images/icons/profile.png', 'الزعيم'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, String imagePath, String label) {
+    bool isSelected = selectedIndex == index;
+
+    return GestureDetector(
+      onTap: () => onItemTapped(index),
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.6), blurRadius: 10, spreadRadius: 1)] : [],
+              border: isSelected ? Border.all(color: const Color(0xFFC5A059), width: 1.5) : null,
+            ),
+            child: Opacity(
+              opacity: isSelected ? 1.0 : 0.75,
+              child: ClipOval(
+                child: Image.asset(
+                  imagePath,
+                  width: isSelected ? 39 : 35,
+                  height: isSelected ? 39 : 35,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.red, size: 30),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Changa',
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? const Color(0xFFE2C275) : Colors.grey[400],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -89,15 +194,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _precacheImages() {
-    final images = [
-      'assets/images/top_nav_bg.png',
-      'assets/images/ui/bottom_navbar_bg.png',
-      'assets/images/city_map.jpg',
-      'assets/images/ui/crime_bg.jpg',
-    ];
-    for (var path in images) {
-      precacheImage(AssetImage(path), context);
-    }
+    final images = ['assets/images/top_nav_bg.png', 'assets/images/ui/bottom_navbar_bg.png', 'assets/images/city_map.jpg', 'assets/images/ui/crime_bg.jpg'];
+    for (var path in images) { precacheImage(AssetImage(path), context); }
   }
 
   @override
@@ -145,36 +243,18 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: Colors.grey[900],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-            side: const BorderSide(color: Colors.amber, width: 2),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber, width: 2)),
           title: const Text('القائمة السريعة', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold), textAlign: TextAlign.center),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildMenuOption(Icons.notifications, 'الإشعارات', () {
-                Navigator.pop(c);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsView()));
-              }),
+              _buildMenuOption(Icons.notifications, 'الإشعارات', () { Navigator.pop(c); Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsView())); }),
               const Divider(color: Colors.white10),
-
-              _buildMenuOption(Icons.message, 'الرسائل', () {
-                Navigator.pop(c);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivateChatListView()));
-              }),
+              _buildMenuOption(Icons.message, 'الرسائل', () { Navigator.pop(c); Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivateChatListView())); }),
               const Divider(color: Colors.white10),
-
-              _buildMenuOption(Icons.group, 'الأصدقاء', () {
-                Navigator.pop(c);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsView()));
-              }),
+              _buildMenuOption(Icons.group, 'الأصدقاء', () { Navigator.pop(c); Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsView())); }),
               const Divider(color: Colors.white10),
-
-              _buildMenuOption(Icons.settings, 'الإعدادات', () {
-                Navigator.pop(c);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('سيتم برمجة الإعدادات قريباً!', style: TextStyle(fontFamily: 'Changa'))));
-              }),
+              _buildMenuOption(Icons.settings, 'الإعدادات', () { Navigator.pop(c); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('سيتم برمجة الإعدادات قريباً!', style: TextStyle(fontFamily: 'Changa')))); }),
             ],
           ),
         ),
@@ -183,12 +263,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildMenuOption(IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.amber, size: 28),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 18, fontWeight: FontWeight.bold)),
-      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
-      onTap: onTap,
-    );
+    return ListTile(leading: Icon(icon, color: Colors.amber, size: 28), title: Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 18, fontWeight: FontWeight.bold)), trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16), onTap: onTap);
   }
 
   @override
@@ -199,11 +274,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       return GameLoadingView(
         isDataLoaded: !player.isLoading,
         onVisualLoadingComplete: () {
-          if (mounted) {
-            setState(() {
-              _visualLoadingComplete = true;
-            });
-          }
+          if (mounted) { setState(() => _visualLoadingComplete = true); }
         },
       );
     }
@@ -215,28 +286,20 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         child: Column(
           children: [
             TopBar(
-                cash: player.cash,
-                gold: player.gold,
-                energy: player.energy,
-                maxEnergy: player.maxEnergy,
-                courage: player.courage,
-                maxCourage: player.maxCourage,
-                health: player.health,
-                maxHealth: player.maxHealth,
-                prestige: player.prestige,
-                maxPrestige: player.maxPrestige,
-                playerName: player.playerName,
-                profilePicUrl: player.profilePicUrl,
-                level: player.crimeLevel,
-                currentXp: player.crimeXP,
-                maxXp: player.xpToNextLevel,
-                isVIP: player.isVIP
+                cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy,
+                courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth,
+                prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName,
+                profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP,
+                maxXp: player.xpToNextLevel, isVIP: player.isVIP
             ),
             Expanded(child: _buildConditionalContent(player)),
           ],
         ),
       ),
-      bottomNavigationBar: _selectedIndex == 5
+      // 🟢 إذا اللاعب بالسجن نلغي النافبار، إذا بالمستشفى نعرض نسخة المستشفى 🟢
+      bottomNavigationBar: player.isInPrison
+          ? const SizedBox.shrink()
+          : (_selectedIndex == 5 && !player.isHospitalized
           ? BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.black,
@@ -255,27 +318,38 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       )
           : BottomNavBar(
         selectedIndex: _selectedIndex,
+        isHospitalized: player.isHospitalized, // نرسل حالة المريض
         onItemTapped: (index) {
-          if (player.isInPrison || player.isHospitalized) return;
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+
+          if (player.isHospitalized) {
+            // لو كان بالمستشفى وضغط زر الشات (index 1)، نبدل بين المستشفى والشات
+            if (index == 1) {
+              setState(() => _selectedIndex = _selectedIndex == 1 ? 2 : 1);
+            }
+            return;
+          }
+
           setState(() {
             _selectedIndex = index;
-            _activeArea = 'الخريطة';
+            if (index == 2) _activeArea = 'الخريطة';
           });
         },
-      ),
+      )),
     );
   }
 
   Widget _buildConditionalContent(PlayerProvider player) {
     if (player.isInPrison) return PrisonView(prisonReleaseTime: player.prisonReleaseTime, cash: player.cash, onBailPaid: () { player.payBail(); });
+    // 🟢 الشات يقدر يفتحه حتى لو كان مريض! 🟢
+    if (_selectedIndex == 1) return const ChatView();
     if (player.isHospitalized) return HospitalView(onBack: () => setState(() => _activeArea = 'الخريطة'));
+
     return _buildMainContent(player);
   }
 
   Widget _buildMainContent(PlayerProvider player) {
     if (_selectedIndex == 0) return const InventoryView();
-    if (_selectedIndex == 1) return const ChatView(); // 🟢 هنا ما نحتاج onBack لأنها تتبدل عادي
 
     if (_selectedIndex == 3) {
       return CrimeView(
@@ -284,7 +358,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           final audio = Provider.of<AudioProvider>(context, listen: false);
           audio.playEffect('click.mp3');
           player.addCash(reward, reason: "نجاح مهمة إجرامية");
-
           if (crimeId.startsWith('cat_3_') || crimeId.startsWith('cat_6_')) {
             if(Random().nextDouble() < 0.3) {
               player.addInventoryItem('stolen_car', 1);
@@ -313,7 +386,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
 
-    // الأماكن القديمة اللي تتبدل داخل الخريطة بس
     if (_activeArea == 'المطار') return AirportView(gold: player.gold, onTravel: (cost) => player.removeGold(cost), onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'البنك') return BankView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'عجلة الحظ') return LuckyWheelView(cash: player.cash, maxEnergy: player.maxEnergy, maxCourage: player.maxCourage, onCashChanged: (val) => val > 0 ? player.addCash(val, reason: "عجلة الحظ") : player.removeCash(val.abs(), reason: "خسارة عجلة حظ"), onGoldChanged: (val) => player.addGold(val), onEnergyChanged: (val) => player.setEnergy(val), onCourageChanged: (val) => player.setCourage(val), onBack: () => setState(() => _activeArea = 'الخريطة'));
@@ -325,10 +397,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_activeArea == 'ساحة القتال') return ArenaView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'ساحة اللاعبين') return PvpListView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'العقارات') return RealEstateView(onBack: () => setState(() => _activeArea = 'الخريطة'));
-
-    // 🟢 التعديل الأهم هنا: إزالة العصابات من التبديل الداخلي 🟢
-    // إذا ضغط العصابات بتم فتحها كشاشة جديدة بالكامل في دالة _buildMapHotspot
-
     if (_activeArea == 'التشليح') return ChopShopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'المختبر السري') return LaboratoryView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'الورشة') return WorkshopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
@@ -439,7 +507,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         onTap: () {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
 
-          // 🟢 التعديل السحري هنا: إذا ضغط "العصابات"، افتحها كشاشة كاملة وتختفي القائمة السفلية
           if (areaName == 'العصابات') {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const GangView()));
           } else {
@@ -451,12 +518,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           child: Center(
             child: Text(
               areaName,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  backgroundColor: Colors.black54,
-                  fontSize: 24
-              ),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, backgroundColor: Colors.black54, fontSize: 24),
               textAlign: TextAlign.center,
             ),
           ),
@@ -466,16 +528,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 }
 
-// ----------------- كود شاشة التحميل تحته كما هو بدون تغيير -----------------
 class GameLoadingView extends StatefulWidget {
   final bool isDataLoaded;
   final VoidCallback onVisualLoadingComplete;
 
-  const GameLoadingView({
-    super.key,
-    required this.isDataLoaded,
-    required this.onVisualLoadingComplete,
-  });
+  const GameLoadingView({super.key, required this.isDataLoaded, required this.onVisualLoadingComplete});
 
   @override
   State<GameLoadingView> createState() => _GameLoadingViewState();
@@ -489,29 +546,19 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(seconds: 3));
     _controller.forward();
-
     _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed && widget.isDataLoaded) {
-        widget.onVisualLoadingComplete();
-      }
+      if (status == AnimationStatus.completed && widget.isDataLoaded) widget.onVisualLoadingComplete();
     });
   }
 
   @override
   void didUpdateWidget(GameLoadingView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!oldWidget.isDataLoaded && widget.isDataLoaded) {
-      if (_controller.isCompleted) {
-        widget.onVisualLoadingComplete();
-      }
-    }
+    if (!oldWidget.isDataLoaded && widget.isDataLoaded && _controller.isCompleted) widget.onVisualLoadingComplete();
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  void dispose() { _controller.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -519,53 +566,15 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/turfwar_loading_screen.jpg',
-              fit: BoxFit.cover,
-              alignment: const Alignment(0.0, -0.2),
-            ),
-          ),
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black54, Colors.black45, Colors.black],
-                  stops: [0.0, 0.4, 1.0],
-                ),
-              ),
-            ),
-          ),
+          Positioned.fill(child: Image.asset('assets/images/turfwar_loading_screen.jpg', fit: BoxFit.cover, alignment: const Alignment(0.0, -0.2))),
+          Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black54, Colors.black45, Colors.black], stops: [0.0, 0.4, 1.0])))),
           SafeArea(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const Text(
-                  'حرب النفوذ',
-                  style: TextStyle(
-                    fontFamily: 'Changa',
-                    color: Colors.white,
-                    fontSize: 56,
-                    fontWeight: FontWeight.w900,
-                    shadows: [
-                      Shadow(blurRadius: 15, color: Color(0xFFFFD700), offset: Offset(0, 0)),
-                      Shadow(blurRadius: 4, color: Color(0xFFB8860B), offset: Offset(2, 2)),
-                      Shadow(blurRadius: 15, color: Colors.black, offset: Offset(4, 4)),
-                    ],
-                  ),
-                ),
+                const Text('حرب النفوذ', style: TextStyle(fontFamily: 'Changa', color: Colors.white, fontSize: 56, fontWeight: FontWeight.w900, shadows: [Shadow(blurRadius: 15, color: Color(0xFFFFD700)), Shadow(blurRadius: 4, color: Color(0xFFB8860B), offset: Offset(2, 2)), Shadow(blurRadius: 15, color: Colors.black, offset: Offset(4, 4))])),
                 const SizedBox(height: 15),
-                const Text(
-                  'جاري التحميل',
-                  style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2.0
-                  ),
-                ),
+                const Text('جاري التحميل', style: TextStyle(color: Colors.white54, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
                 const SizedBox(height: 40),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 50.0),
@@ -574,36 +583,9 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
                     builder: (context, child) {
                       return Column(
                         children: [
-                          Container(
-                            decoration: BoxDecoration(
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFB30000).withOpacity(0.5),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ]
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(5),
-                              child: LinearProgressIndicator(
-                                value: _controller.value,
-                                backgroundColor: Colors.black45,
-                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB30000)),
-                                minHeight: 10,
-                              ),
-                            ),
-                          ),
+                          Container(decoration: BoxDecoration(boxShadow: [BoxShadow(color: const Color(0xFFB30000).withOpacity(0.5), blurRadius: 10, offset: const Offset(0, 2))]), child: ClipRRect(borderRadius: BorderRadius.circular(5), child: LinearProgressIndicator(value: _controller.value, backgroundColor: Colors.black45, valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB30000)), minHeight: 10))),
                           const SizedBox(height: 12),
-                          Text(
-                            '${(_controller.value * 100).toInt()}%',
-                            style: const TextStyle(
-                                color: Color(0xFFB30000),
-                                fontWeight: FontWeight.w900,
-                                fontSize: 22,
-                                fontStyle: FontStyle.italic
-                            ),
-                          )
+                          Text('${(_controller.value * 100).toInt()}%', style: const TextStyle(color: Color(0xFFB30000), fontWeight: FontWeight.w900, fontSize: 22, fontStyle: FontStyle.italic))
                         ],
                       );
                     },
