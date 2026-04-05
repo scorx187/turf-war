@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'firebase_options.dart';
 import 'screens/game_screen.dart';
@@ -60,7 +61,7 @@ class MyGame extends StatelessWidget {
   }
 }
 
-// 🧱 ويدجت الخلفية المشتركة (هنا كان الخطأ وتم إصلاحه)
+// 🧱 ويدجت الخلفية المشتركة
 class GameBackgroundScaffold extends StatelessWidget {
   final Widget child;
   final bool showOverlay;
@@ -80,7 +81,6 @@ class GameBackgroundScaffold extends StatelessWidget {
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       body: Stack(
         children: [
-          // 1. رسم الصورة
           Positioned.fill(
             child: Image.asset(
               'assets/images/turfwar_loading_screen.jpg',
@@ -88,7 +88,6 @@ class GameBackgroundScaffold extends StatelessWidget {
               alignment: const Alignment(0.0, -0.2),
             ),
           ),
-          // 2. رسم الفلتر المتدرج (الظل)
           if (showOverlay)
             Positioned.fill(
               child: Container(
@@ -106,7 +105,6 @@ class GameBackgroundScaffold extends StatelessWidget {
                 ),
               ),
             ),
-          // 3. 🟢 رسم المحتوى (الأزرار واسم اللعبة وغيرها) هنا كان مفقود!
           Positioned.fill(
             child: SafeArea(
               child: child,
@@ -134,6 +132,12 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+
+      // 🟢 إيقاف التخزين المحلي لمنع اللعب أوفلاين (مكافحة الغش) 🟢
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: false,
+      );
+
       setState(() {
         _initialized = true;
         _error = false;
@@ -195,24 +199,40 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
+  Widget _loading() => const GameBackgroundScaffold(
+    showOverlay: false,
+    child: Center(child: CircularProgressIndicator(color: GameColors.primary)),
+  );
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const GameBackgroundScaffold(
-            showOverlay: false,
-            child: Center(child: CircularProgressIndicator(color: GameColors.primary)),
-          );
-        }
+      builder: (context, authSnapshot) {
+        if (authSnapshot.connectionState == ConnectionState.waiting) return _loading();
 
-        if (snapshot.hasData) {
-          final player = Provider.of<PlayerProvider>(context, listen: false);
-          if (player.uid == null) {
-            player.initializePlayerOnServer(snapshot.data!.uid, snapshot.data!.displayName ?? "");
-          }
-          return const GameScreen();
+        if (authSnapshot.hasData) {
+          final user = authSnapshot.data!;
+
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('players').doc(user.uid).snapshots(),
+            builder: (context, docSnapshot) {
+              if (docSnapshot.connectionState == ConnectionState.waiting) return _loading();
+
+              if (docSnapshot.hasData && docSnapshot.data!.exists) {
+                // ✅ اللاعب موجود: يدخل اللعبة مباشرة
+                final player = Provider.of<PlayerProvider>(context, listen: false);
+                if (player.uid == null) {
+                  player.initializePlayerOnServer(user.uid, "");
+                }
+                return const GameScreen();
+              } else {
+                // ❌ اللاعب غير موجود: تحويله لشاشة اختيار الاسم
+                if (user.isAnonymous) return _loading();
+                return ChooseNameScreen(user: user);
+              }
+            },
+          );
         }
 
         return const LoginScreen();
@@ -263,13 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
           idToken: googleAuth.idToken,
         );
 
-        final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-
-        final player = Provider.of<PlayerProvider>(context, listen: false);
-        await player.initializePlayerOnServer(
-            userCredential.user!.uid,
-            googleUser.displayName ?? "لاعب جوجل"
-        );
+        await FirebaseAuth.instance.signInWithCredential(credential);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('خطأ في تسجيل الدخول بحساب Google')));
@@ -348,6 +362,91 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 50),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ChooseNameScreen extends StatefulWidget {
+  final User user;
+  const ChooseNameScreen({super.key, required this.user});
+
+  @override
+  State<ChooseNameScreen> createState() => _ChooseNameScreenState();
+}
+
+class _ChooseNameScreenState extends State<ChooseNameScreen> {
+  final _nameController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.text = widget.user.displayName ?? '';
+  }
+
+  void _confirmName() async {
+    String chosenName = _nameController.text.trim();
+    if (chosenName.isEmpty || chosenName.length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الاسم يجب أن يكون 3 حروف على الأقل!')));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final player = Provider.of<PlayerProvider>(context, listen: false);
+      await player.initializePlayerOnServer(widget.user.uid, chosenName);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء حفظ الاسم')));
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GameBackgroundScaffold(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 30),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.account_circle, size: 100, color: GameColors.primary),
+              const SizedBox(height: 20),
+              const Text('أهلاً بك في عالم الجريمة', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              const Text('اختر اسماً يعرفك به الجميع في "ملاذ"\nهذا الاسم سيظهر للزعماء الآخرين.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 14)),
+              const SizedBox(height: 40),
+              TextField(
+                controller: _nameController,
+                maxLength: 14,
+                style: const TextStyle(color: GameColors.primary, fontSize: 18, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+                decoration: InputDecoration(
+                  counterText: "",
+                  hintText: 'أدخل اسمك...',
+                  hintStyle: const TextStyle(color: Colors.white24),
+                  filled: true,
+                  fillColor: Colors.black45,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: GameColors.primary, width: 2)),
+                ),
+              ),
+              const SizedBox(height: 40),
+              if (_isLoading)
+                const CircularProgressIndicator(color: GameColors.primary)
+              else
+                GameActionButton(
+                  onPressed: _confirmName,
+                  label: 'تأكيد الدخول',
+                  isPrimary: true,
+                ),
+            ],
           ),
         ),
       ),

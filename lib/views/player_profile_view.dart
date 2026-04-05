@@ -87,6 +87,12 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     }
   }
 
+  // 🟢 دالة إضافة الفواصل للأرقام 🟢
+  String _formatWithCommas(int number) {
+    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return number.toString().replaceAllMapped(reg, (Match match) => '${match[1]},');
+  }
+
   Future<void> _pickImage(PlayerProvider player) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 25);
@@ -163,7 +169,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('الرصيد المتاح: \$${player.cash}', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 16)),
+                  // 🟢 التعديل هنا: الفواصل وعكس علامة الدولار 🟢
+                  Text('الرصيد المتاح: ${_formatWithCommas(player.cash)} \$', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 16)),
                   const SizedBox(height: 15),
                   TextField(controller: amountController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontFamily: 'Changa'), textAlign: TextAlign.center, decoration: InputDecoration(hintText: 'أدخل المبلغ هنا...', hintStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: Colors.black45, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.amber)))),
                   if (isTransferring) ...[const SizedBox(height: 20), const CircularProgressIndicator(color: Colors.amber)]
@@ -212,7 +219,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       });
 
                       player.removeCash(amount, reason: 'تحويل مالي إلى ${playerData!['playerName']}');
-                      if (mounted) { Navigator.pop(c); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تحويل \$$amount بنجاح! 💸'), backgroundColor: Colors.green)); Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); }
+                      if (mounted) { Navigator.pop(c); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تحويل ${_formatWithCommas(amount)} \$ بنجاح! 💸'), backgroundColor: Colors.green)); Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); }
                     } catch (e) {
                       setDialogState(() => isTransferring = false);
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء التحويل!'), backgroundColor: Colors.red));
@@ -249,7 +256,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                 children: [
                   const Text('سيتم نشر إعلان في شات المدينة لكل اللاعبين للهجوم على هذا الهدف.', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12), textAlign: TextAlign.center),
                   const SizedBox(height: 15),
-                  Text('الكاش المتاح: \$${player.cash}', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 13)),
+                  // 🟢 التعديل هنا: الفواصل وعكس علامة الدولار 🟢
+                  Text('الكاش المتاح: ${_formatWithCommas(player.cash)} \$', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 13)),
                   const SizedBox(height: 10),
                   TextField(
                     controller: amountController,

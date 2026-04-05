@@ -28,8 +28,9 @@ import '../views/workshop_view.dart';
 import '../views/prison_view.dart';
 import '../views/player_profile_view.dart';
 import '../views/notifications_view.dart';
-// 🟢 استيراد شاشة الخاص المستقلة
 import '../views/private_chat_list_view.dart';
+// 🟢 استيراد شاشة الأصدقاء
+import '../views/friends_view.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -129,7 +130,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             Expanded(child: Text(message, style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 14)))
           ]),
           duration: const Duration(seconds: 3),
-          backgroundColor: message.contains('🎭') ? Colors.blueAccent.withValues(alpha:0.9) : (isWarning ? Colors.redAccent.withValues(alpha:0.9) : Colors.green.withValues(alpha:0.9)),
+          backgroundColor: message.contains('🎭') ? Colors.blueAccent.withOpacity(0.9) : (isWarning ? Colors.redAccent.withOpacity(0.9) : Colors.green.withOpacity(0.9)),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           margin: const EdgeInsets.all(15),
@@ -138,6 +139,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
+  // 🟢 التعديل هنا: إضافة الأصدقاء للقائمة السريعة
   void _showQuickMenuDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -159,10 +161,16 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               }),
               const Divider(color: Colors.white10),
 
-              // 🟢 ربط زر الرسائل عشان يفتح شاشة الخاص المستقلة مباشرة!
               _buildMenuOption(Icons.message, 'الرسائل', () {
                 Navigator.pop(c);
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivateChatListView()));
+              }),
+              const Divider(color: Colors.white10),
+
+              // 🟢 زر الأصدقاء
+              _buildMenuOption(Icons.group, 'الأصدقاء', () {
+                Navigator.pop(c);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsView()));
               }),
               const Divider(color: Colors.white10),
 
@@ -242,7 +250,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
           setState(() => _profileTabIndex = index);
         },
-        // 🟢 تم تنظيف القائمة السفلية للزعيم وإزالة الرسائل منها لتكون مستقلة
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.group), label: 'الأصدقاء'),
           BottomNavigationBarItem(icon: Icon(Icons.psychology), label: 'المهارات'),

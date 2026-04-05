@@ -76,78 +76,100 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     final player = Provider.of<PlayerProvider>(context, listen: false);
     showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (c) {
           TextEditingController amtCtrl = TextEditingController();
-          return Directionality(
-            textDirection: TextDirection.rtl,
-            child: AlertDialog(
-              backgroundColor: Colors.grey[900],
-              title: const Text('تحويل سريع 💸', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('الكاش المتاح: ${_formatWithCommas(player.cash)}\$', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 15)),
-                  const SizedBox(height: 15),
-                  TextField(
-                    controller: amtCtrl,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: Colors.white, fontFamily: 'Changa'),
-                    decoration: const InputDecoration(hintText: 'المبلغ..', filled: true, fillColor: Colors.black45),
+          bool isProcessing = false; // 🟢 متغير لحماية زر الإرسال من الضغط المتكرر
+
+          return StatefulBuilder(
+              builder: (context, setDialogState) {
+                return Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: AlertDialog(
+                    backgroundColor: Colors.grey[900],
+                    title: const Text('تحويل سريع 💸', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('الكاش المتاح: ${_formatWithCommas(player.cash)}\$', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 15)),
+                        const SizedBox(height: 15),
+                        TextField(
+                          controller: amtCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: Colors.white, fontFamily: 'Changa'),
+                          decoration: const InputDecoration(hintText: 'المبلغ..', filled: true, fillColor: Colors.black45),
+                        ),
+                        // 🟢 عرض دائرة التحميل بدل الزر إذا كان قيد المعالجة
+                        if (isProcessing) ...[
+                          const SizedBox(height: 20),
+                          const CircularProgressIndicator(color: Colors.amber),
+                        ]
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                          onPressed: isProcessing ? null : () => Navigator.pop(c),
+                          child: const Text('إلغاء', style: TextStyle(fontFamily: 'Changa', color: Colors.white54))
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                        // 🟢 تعطيل الزر إذا كان قيد المعالجة
+                        onPressed: isProcessing ? null : () async {
+                          int? amt = int.tryParse(amtCtrl.text.trim());
+                          if (amt != null && amt > 0 && amt <= player.cash) {
+
+                            // تفعيل حالة التحميل لتعطيل الزر
+                            setDialogState(() => isProcessing = true);
+
+                            try {
+                              await _firestore.runTransaction((transaction) async {
+                                final senderRef = _firestore.collection('players').doc(player.uid);
+                                final receiverRef = _firestore.collection('players').doc(widget.targetUid);
+
+                                final senderSnap = await transaction.get(senderRef);
+                                final receiverSnap = await transaction.get(receiverRef);
+
+                                if (!senderSnap.exists || !receiverSnap.exists) throw Exception("اللاعب غير موجود!");
+                                int senderCash = senderSnap.data()?['cash'] ?? 0;
+                                if (senderCash < amt) throw Exception("رصيدك لا يكفي!");
+                                int receiverCash = receiverSnap.data()?['cash'] ?? 0;
+
+                                transaction.update(senderRef, {'cash': senderCash - amt});
+
+                                List<dynamic> receiverTxs = receiverSnap.data()?['transactions'] ?? [];
+                                receiverTxs.insert(0, {
+                                  'title': 'تحويل من ${player.playerName}',
+                                  'amount': amt,
+                                  'date': DateTime.now().toIso8601String(),
+                                  'isPositive': true,
+                                  'senderUid': player.uid,
+                                });
+                                if (receiverTxs.length > 20) receiverTxs.removeLast();
+
+                                transaction.update(receiverRef, {
+                                  'cash': receiverCash + amt,
+                                  'transactions': receiverTxs,
+                                });
+                              });
+
+                              player.removeCash(amt, reason: 'تحويل سريع لـ ${widget.targetName}');
+                              _sendMessage(type: 'transfer', amount: amt);
+                              if (mounted) Navigator.pop(c);
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشل التحويل!')));
+                              // إذا فشل، نرجع الزر لطبيعته
+                              setDialogState(() => isProcessing = false);
+                            }
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرصيد غير كافي أو المبلغ غير صالح!')));
+                          }
+                        },
+                        child: const Text('أرسل', style: TextStyle(color: Colors.black, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                      )
+                    ],
                   ),
-                ],
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء', style: TextStyle(fontFamily: 'Changa', color: Colors.white54))),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-                  onPressed: () async {
-                    int? amt = int.tryParse(amtCtrl.text.trim());
-                    if (amt != null && amt > 0 && amt <= player.cash) {
-                      try {
-                        await _firestore.runTransaction((transaction) async {
-                          final senderRef = _firestore.collection('players').doc(player.uid);
-                          final receiverRef = _firestore.collection('players').doc(widget.targetUid);
-
-                          final senderSnap = await transaction.get(senderRef);
-                          final receiverSnap = await transaction.get(receiverRef);
-
-                          if (!senderSnap.exists || !receiverSnap.exists) throw Exception("اللاعب غير موجود!");
-                          int senderCash = senderSnap.data()?['cash'] ?? 0;
-                          if (senderCash < amt) throw Exception("رصيدك لا يكفي!");
-                          int receiverCash = receiverSnap.data()?['cash'] ?? 0;
-
-                          transaction.update(senderRef, {'cash': senderCash - amt});
-
-                          List<dynamic> receiverTxs = receiverSnap.data()?['transactions'] ?? [];
-                          receiverTxs.insert(0, {
-                            'title': 'تحويل من ${player.playerName}',
-                            'amount': amt,
-                            'date': DateTime.now().toIso8601String(),
-                            'isPositive': true,
-                            'senderUid': player.uid,
-                          });
-                          if (receiverTxs.length > 20) receiverTxs.removeLast();
-
-                          transaction.update(receiverRef, {
-                            'cash': receiverCash + amt,
-                            'transactions': receiverTxs,
-                          });
-                        });
-
-                        player.removeCash(amt, reason: 'تحويل سريع لـ ${widget.targetName}');
-                        _sendMessage(type: 'transfer', amount: amt);
-                        if (mounted) Navigator.pop(c);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشل التحويل!')));
-                      }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرصيد غير كافي!')));
-                    }
-                  },
-                  child: const Text('أرسل', style: TextStyle(color: Colors.black, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-                )
-              ],
-            ),
+                );
+              }
           );
         }
     );
@@ -204,7 +226,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
           appBar: AppBar(
             backgroundColor: Colors.black87,
             titleSpacing: 0,
-            // 🟢 التعديل هنا: زر الرجوع أصبح في اليمين (مدمج مع الصورة) نفس الواتساب 🟢
             leadingWidth: 40,
             leading: IconButton(
               padding: EdgeInsets.zero,
@@ -366,13 +387,17 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                       icon: Icon(Icons.local_fire_department, color: _isBurnMessage ? Colors.redAccent : Colors.white54),
                       onPressed: () {
                         setState(() => _isBurnMessage = !_isBurnMessage);
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isBurnMessage ? '💣 تم تفعيل وضع الرسائل القابلة للتدمير' : 'تم إيقاف وضع التدمير'), duration: const Duration(seconds: 1)));
+                        // 🟢 التعديل الأول: حذفنا إظهار الـ SnackBar المزعج عند تفعيل الرسائل المؤقتة
                       },
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.attach_money, color: Colors.green),
-                      onPressed: _quickTransfer,
-                    ),
+
+                    // 🟢 التعديل الثاني: إخفاء زر التحويل إذا كان وضع الرسالة المؤقتة مُفعلاً
+                    if (!_isBurnMessage)
+                      IconButton(
+                        icon: const Icon(Icons.attach_money, color: Colors.green),
+                        onPressed: _quickTransfer,
+                      ),
+
                     Expanded(
                       child: TextField(
                         controller: _controller,

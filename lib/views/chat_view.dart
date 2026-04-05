@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../widgets/top_bar.dart';
 import 'player_profile_view.dart';
@@ -23,10 +22,9 @@ class _ChatViewState extends State<ChatView> {
   late Stream<QuerySnapshot> _chatStream;
   final ScrollController _scrollController = ScrollController();
 
-  static List<QueryDocumentSnapshot>? _cachedMessages;
-  static Map<String, dynamic>? _cachedAdminMsg;
+  Map<String, dynamic>? _cachedAdminMsg;
 
-  int _messageLimit = 8;
+  int _messageLimit = 20;
   bool _isFetchingMore = false;
   bool _hasMore = true;
 
@@ -48,7 +46,7 @@ class _ChatViewState extends State<ChatView> {
 
     setState(() {
       _isFetchingMore = true;
-      _messageLimit += 10;
+      _messageLimit += 20;
       _setupStreamOnly();
     });
   }
@@ -202,7 +200,11 @@ class _ChatViewState extends State<ChatView> {
     );
   }
 
+  // 🟢 تم حل مشكلة رمشة الصورة هنا 🟢
   Widget _buildBountyCard(BuildContext context, Map<String, dynamic> msg, String currentUserUid) {
+    final playerProv = Provider.of<PlayerProvider>(context, listen: false);
+    final imageBytes = playerProv.getDecodedImage(msg['targetPicUrl']);
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       padding: const EdgeInsets.all(12),
@@ -232,8 +234,8 @@ class _ChatViewState extends State<ChatView> {
                 CircleAvatar(
                   radius: 25,
                   backgroundColor: Colors.grey[800],
-                  backgroundImage: msg['targetPicUrl'] != null ? MemoryImage(base64Decode(msg['targetPicUrl'])) : null,
-                  child: msg['targetPicUrl'] == null ? const Icon(Icons.person, color: Colors.white54) : null,
+                  backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
+                  child: imageBytes == null ? const Icon(Icons.person, color: Colors.white54) : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -261,7 +263,6 @@ class _ChatViewState extends State<ChatView> {
 
                     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.amber)));
 
-                    final playerProv = Provider.of<PlayerProvider>(context, listen: false);
                     final enemyData = await playerProv.getPlayerById(msg['targetUid']);
 
                     if (context.mounted) {
@@ -307,135 +308,125 @@ class _ChatViewState extends State<ChatView> {
             child: const Text('شات المدينة أونلاين 🌐', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center)
         ),
 
+        if (_cachedAdminMsg != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.15),
+              border: Border(bottom: BorderSide(color: Colors.amber.withOpacity(0.5), width: 1)),
+            ),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Row(
+                children: [
+                  const Icon(Icons.campaign, color: Colors.amber, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _cachedAdminMsg!['message'] ?? '',
+                      style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _chatStream,
             builder: (context, snapshot) {
               if (snapshot.hasError) return const Center(child: Text('خطأ في الاتصال', style: TextStyle(color: Colors.redAccent)));
 
-              if (snapshot.hasData) {
-                _cachedMessages = snapshot.data!.docs;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    _isFetchingMore = false;
-                    _hasMore = _cachedMessages!.length >= _messageLimit;
-                  }
-                });
-              }
-
-              if (_cachedMessages == null) {
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator(color: Colors.amber));
               }
 
-              if (_cachedMessages!.isEmpty) {
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return const Center(child: Text('لا توجد رسائل...', style: TextStyle(color: Colors.white54)));
               }
 
-              final messages = _cachedMessages!;
-              // 🟢 التعديل هنا: وضعنا ?? '' لضمان عدم وجود قيمة null
+              final messages = snapshot.data!.docs;
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _isFetchingMore = false;
+                  _hasMore = messages.length >= _messageLimit;
+                }
+              });
+
               final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid ?? '';
 
-              return Column(
-                children: [
-                  if (_cachedAdminMsg != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.15),
-                        border: Border(bottom: BorderSide(color: Colors.amber.withOpacity(0.5), width: 1)),
-                      ),
-                      child: Directionality(
-                        textDirection: TextDirection.rtl,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.campaign, color: Colors.amber, size: 24),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _cachedAdminMsg!['message'] ?? '',
-                                style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
+              return ListView.builder(
+                controller: _scrollController,
+                reverse: true,
+                padding: const EdgeInsets.all(12),
+                itemCount: messages.length + (_hasMore ? 1 : 0),
+                itemBuilder: (context, index) {
+
+                  if (index == messages.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(15.0),
+                      child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2.5))),
+                    );
+                  }
+
+                  final msg = messages[index].data() as Map<String, dynamic>;
+                  final String msgType = msg['type'] ?? 'player';
+
+                  if (msgType == 'admin') {
+                    return const SizedBox.shrink();
+                  } else if (msgType == 'system') {
+                    return _buildSystemBroadcast('النظام', msg['message'] ?? '', Colors.redAccent, Icons.gavel);
+                  }
+                  else if (msgType == 'bounty') {
+                    return _buildBountyCard(context, msg, currentUserUid);
+                  }
+
+                  final bool isVIP = msg['isVIP'] ?? false;
+                  final String senderUid = msg['uid'] ?? '';
+                  final bool isMe = senderUid == currentUserUid;
+                  final String senderName = msg['user'] ?? 'مجهول';
+                  final String? picUrl = msg['profilePicUrl'];
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Row(
+                        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
+                          if (!isMe) const SizedBox(width: 8),
+                          Flexible(
+                            child: Directionality(
+                              textDirection: TextDirection.rtl,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isMe ? const Color(0xFF1E3A2F) : const Color(0xFF2A2A2D),
+                                  borderRadius: BorderRadius.only(topLeft: const Radius.circular(15), topRight: const Radius.circular(15), bottomLeft: isMe ? const Radius.circular(15) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(15)),
+                                  border: Border.all(color: isMe ? Colors.green.withOpacity(0.3) : Colors.white10),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(isMe ? 'أنت' : senderName, style: TextStyle(color: isMe ? Colors.greenAccent : (isVIP ? Colors.amber : Colors.white70), fontWeight: FontWeight.bold, fontSize: 13)),
+                                    const SizedBox(height: 4),
+                                    Text(msg['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.3)),
+                                  ],
+                                ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          if (isMe) const SizedBox(width: 8),
+                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
+                        ],
                       ),
                     ),
-
-                  Expanded(
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      reverse: true,
-                      padding: const EdgeInsets.all(12),
-                      itemCount: messages.length + (_hasMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-
-                        if (index == messages.length) {
-                          return const Padding(
-                            padding: EdgeInsets.all(15.0),
-                            child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2.5))),
-                          );
-                        }
-
-                        final msg = messages[index].data() as Map<String, dynamic>;
-                        final String msgType = msg['type'] ?? 'player';
-
-                        if (msgType == 'admin') {
-                          return const SizedBox.shrink();
-                        } else if (msgType == 'system') {
-                          return _buildSystemBroadcast('النظام', msg['message'] ?? '', Colors.redAccent, Icons.gavel);
-                        }
-                        else if (msgType == 'bounty') {
-                          // التمرير الآن سليم بسبب ضمان currentUserUid كنص أكيد
-                          return _buildBountyCard(context, msg, currentUserUid);
-                        }
-
-                        final bool isVIP = msg['isVIP'] ?? false;
-                        final String senderUid = msg['uid'] ?? '';
-                        final bool isMe = senderUid == currentUserUid;
-                        final String senderName = msg['user'] ?? 'مجهول';
-                        final String? picUrl = msg['profilePicUrl'];
-
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Directionality(
-                            textDirection: TextDirection.ltr,
-                            child: Row(
-                              mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
-                                if (!isMe) const SizedBox(width: 8),
-                                Flexible(
-                                  child: Directionality(
-                                    textDirection: TextDirection.rtl,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: isMe ? const Color(0xFF1E3A2F) : const Color(0xFF2A2A2D),
-                                        borderRadius: BorderRadius.only(topLeft: const Radius.circular(15), topRight: const Radius.circular(15), bottomLeft: isMe ? const Radius.circular(15) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(15)),
-                                        border: Border.all(color: isMe ? Colors.green.withOpacity(0.3) : Colors.white10),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(isMe ? 'أنت' : senderName, style: TextStyle(color: isMe ? Colors.greenAccent : (isVIP ? Colors.amber : Colors.white70), fontWeight: FontWeight.bold, fontSize: 13)),
-                                          const SizedBox(height: 4),
-                                          Text(msg['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.3)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (isMe) const SizedBox(width: 8),
-                                if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+                  );
+                },
               );
             },
           ),
@@ -446,9 +437,26 @@ class _ChatViewState extends State<ChatView> {
           decoration: const BoxDecoration(color: Color(0xFF1A1A1D), border: Border(top: BorderSide(color: Colors.white10))),
           child: Row(
             children: [
-              Expanded(child: TextField(controller: _controller, style: const TextStyle(color: Colors.white), onSubmitted: (_) => _sendMessage(), decoration: InputDecoration(hintText: 'اكتب رسالة للجميع...', hintStyle: const TextStyle(color: Colors.white24), filled: true, fillColor: Colors.black45, border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10)))),
+              Expanded(
+                  child: TextField(
+                      controller: _controller,
+                      style: const TextStyle(color: Colors.white),
+                      onSubmitted: (_) => _sendMessage(),
+                      decoration: InputDecoration(
+                          hintText: 'اكتب رسالة للجميع...',
+                          hintStyle: const TextStyle(color: Colors.white24),
+                          filled: true,
+                          fillColor: Colors.black45,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10)
+                      )
+                  )
+              ),
               const SizedBox(width: 10),
-              GestureDetector(onTap: _sendMessage, child: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.send, color: Colors.black, size: 20))),
+              GestureDetector(
+                  onTap: _sendMessage,
+                  child: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.send, color: Colors.black, size: 20))
+              ),
             ],
           ),
         ),

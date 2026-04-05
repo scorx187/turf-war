@@ -13,7 +13,6 @@ class BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 95,
       decoration: BoxDecoration(
         color: Colors.black87,
         image: const DecorationImage(
@@ -31,18 +30,22 @@ class BottomNavBar extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.only(bottom: 20, top: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _buildNavItem(0, 'assets/images/icons/inventory.png', 'المخزن'),
-          _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
-          _buildNavItem(2, 'assets/images/icons/map.png', 'الخريطة'),
-          _buildNavItem(3, 'assets/images/icons/crime.png', 'الجرائم'),
-          _buildNavItem(4, 'assets/images/icons/news.png', 'الأخبار'),
-          _buildNavItem(5, 'assets/images/icons/profile.png', 'الزعيم'),
-        ],
+      // 👇 التعديل هنا: رفعنا الأزرار أكثر بزيادة الـ bottom إلى 28 وتقليل الـ top إلى 2
+      padding: const EdgeInsets.only(top: 4, bottom: 26),
+      child: SafeArea(
+        bottom: true,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _buildNavItem(0, 'assets/images/icons/inventory.png', 'المخزن'),
+            _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
+            _buildNavItem(2, 'assets/images/icons/map.png', 'الخريطة'),
+            _buildNavItem(3, 'assets/images/icons/crime.png', 'الجرائم'),
+            _buildNavItem(4, 'assets/images/icons/news.png', 'الأخبار'),
+            _buildNavItem(5, 'assets/images/icons/profile.png', 'الزعيم'),
+          ],
+        ),
       ),
     );
   }
@@ -54,9 +57,9 @@ class BottomNavBar extends StatelessWidget {
       onTap: () => onItemTapped(index),
       behavior: HitTestBehavior.opaque,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 👇 غيرنا AnimatedContainer إلى Container عادي عشان يختفي فوراً بدون تأخير 👇
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(

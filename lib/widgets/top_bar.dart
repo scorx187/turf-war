@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import '../providers/audio_provider.dart';
+// 🟢 استيراد شاشة المتجر الجديدة
+import '../views/store_view.dart';
 
 class TopBar extends StatelessWidget {
   final int cash;
@@ -69,7 +73,6 @@ class TopBar extends StatelessWidget {
     String displayName = playerName.length > 13 ? '${playerName.substring(0, 13)}..' : playerName;
     final imageBytes = _getDecodedImage();
 
-    // 🟢 التعديل هنا: قللنا المساحة العلوية (Top Padding) بشكل كبير لرفع الصف الأول للأعلى!
     double topPadding = MediaQuery.of(context).padding.top;
     double safeTop = topPadding > 10 ? topPadding - 10 : 2;
 
@@ -166,28 +169,40 @@ class TopBar extends StatelessWidget {
 
                       const SizedBox(width: 10),
 
+                      // 🟢 تم ربط الكاش بفتح المتجر (قسم الكاش index 0)
                       _buildTopUpResource(
-                        iconPath: 'assets/images/icons/cash.png',
-                        value: _formatWithCommas(cash),
-                        bgImagePath: 'assets/images/ui/cash_bg.png',
-                        plusImagePath: 'assets/images/icons/plus.png',
+                          context: context,
+                          iconPath: 'assets/images/icons/cash.png',
+                          value: _formatWithCommas(cash),
+                          bgImagePath: 'assets/images/ui/cash_bg.png',
+                          plusImagePath: 'assets/images/icons/plus.png',
+                          onTap: () {
+                            Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreView(initialTab: 0)));
+                          }
                       ),
                       const SizedBox(width: 6),
+
+                      // 🟢 تم ربط الذهب بفتح المتجر (قسم الذهب index 1)
                       _buildTopUpResource(
-                        iconPath: 'assets/images/icons/gold.png',
-                        value: _formatWithCommas(gold),
-                        bgImagePath: 'assets/images/ui/gold_bg.png',
-                        plusImagePath: 'assets/images/icons/plus.png',
+                          context: context,
+                          iconPath: 'assets/images/icons/gold.png',
+                          value: _formatWithCommas(gold),
+                          bgImagePath: 'assets/images/ui/gold_bg.png',
+                          plusImagePath: 'assets/images/icons/plus.png',
+                          onTap: () {
+                            Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreView(initialTab: 1)));
+                          }
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            // 🟢 التعديل هنا: زدنا هذه المسافة قليلاً لكي لا ترتفع الموارد (الصف الثاني) وتظل مرتبة بمكانها
             const SizedBox(height: 10),
 
-            // --- الصف الثاني: الموارد مع المؤقتات بالأسفل ---
+            // --- الصف الثاني: الموارد ---
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -288,45 +303,49 @@ class TopBar extends StatelessWidget {
     );
   }
 
-  Widget _buildTopUpResource({required String iconPath, required String value, required String bgImagePath, required String plusImagePath}) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          width: 95,
-          height: 28,
-          padding: const EdgeInsets.only(right: 4, left: 10, top: 2, bottom: 2),
-          decoration: BoxDecoration(
-            image: DecorationImage(image: AssetImage(bgImagePath), fit: BoxFit.fill),
-            borderRadius: BorderRadius.circular(6),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 4, offset: const Offset(0, 2))],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Image.asset(iconPath, width: 18, height: 18, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 18)),
-              const SizedBox(width: 2),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 3.0),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                        value,
-                        style: const TextStyle(fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 4)])
+  // 🟢 إضافة GestureDetector للضغط على الزر
+  Widget _buildTopUpResource({required BuildContext context, required String iconPath, required String value, required String bgImagePath, required String plusImagePath, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 95,
+            height: 28,
+            padding: const EdgeInsets.only(right: 4, left: 10, top: 2, bottom: 2),
+            decoration: BoxDecoration(
+              image: DecorationImage(image: AssetImage(bgImagePath), fit: BoxFit.fill),
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 4, offset: const Offset(0, 2))],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Image.asset(iconPath, width: 18, height: 18, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 18)),
+                const SizedBox(width: 2),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 3.0),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                          value,
+                          style: const TextStyle(fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 4)])
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        Positioned(
-          left: -5, top: -5,
-          child: Image.asset(plusImagePath, width: 14, height: 14, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle), child: const Icon(Icons.add, size: 10, color: Colors.white))),
-        ),
-      ],
+          Positioned(
+            left: -5, top: -5,
+            child: Image.asset(plusImagePath, width: 14, height: 14, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle), child: const Icon(Icons.add, size: 10, color: Colors.white))),
+          ),
+        ],
+      ),
     );
   }
 
@@ -389,9 +408,10 @@ class TopBar extends StatelessWidget {
             ],
           ),
         ),
-
-        if (totalSeconds > 0)
-          StatTimerText(initialSeconds: totalSeconds),
+        SizedBox(
+          height: 18,
+          child: StatTimerText(initialSeconds: totalSeconds),
+        ),
       ],
     );
   }
@@ -460,7 +480,7 @@ class _StatTimerTextState extends State<StatTimerText> {
 
   @override
   Widget build(BuildContext context) {
-    if (seconds <= 0) return const SizedBox.shrink();
+    if (seconds <= 0) return const Text('');
 
     int m = seconds ~/ 60;
     int s = seconds % 60;

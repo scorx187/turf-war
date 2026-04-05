@@ -159,72 +159,6 @@ class PlayerProvider with ChangeNotifier {
     return _skill * (1.0 + multiplier);
   }
 
-  Uint8List? getDecodedImage(String? base64Str) {
-    if (base64Str == null || base64Str.isEmpty) return null;
-    if (_decodedImagesCache.containsKey(base64Str)) return _decodedImagesCache[base64Str]!;
-    try {
-      final bytes = base64Decode(base64Str);
-      _decodedImagesCache[base64Str] = bytes;
-      return bytes;
-    } catch (e) { return null; }
-  }
-
-  final Map<String, Map<String, dynamic>> _playersCache = {};
-  final Map<String, DateTime> _playersCacheTime = {};
-
-  Future<Map<String, dynamic>?> getPlayerById(String uid) async {
-    if (_playersCache.containsKey(uid) && _playersCacheTime.containsKey(uid)) {
-      if (DateTime.now().difference(_playersCacheTime[uid]!).inMinutes < 5) return _playersCache[uid];
-    }
-    try {
-      DocumentSnapshot cacheDoc = await _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.cache));
-      if (cacheDoc.exists) {
-        Map<String, dynamic> data = cacheDoc.data() as Map<String, dynamic>;
-        data['uid'] = cacheDoc.id;
-        _playersCache[uid] = data;
-        _playersCacheTime[uid] = DateTime.now();
-
-        _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.server)).then((serverDoc) {
-          if (serverDoc.exists) {
-            Map<String, dynamic> serverData = serverDoc.data() as Map<String, dynamic>;
-            serverData['uid'] = serverDoc.id;
-            _playersCache[uid] = serverData;
-            _playersCacheTime[uid] = DateTime.now();
-          }
-        });
-        return data;
-      }
-    } catch (e) {}
-
-    try {
-      DocumentSnapshot serverDoc = await _firestore.collection('players').doc(uid).get(const GetOptions(source: Source.server));
-      if (serverDoc.exists) {
-        Map<String, dynamic> data = serverDoc.data() as Map<String, dynamic>;
-        data['uid'] = serverDoc.id;
-        _playersCache[uid] = data;
-        _playersCacheTime[uid] = DateTime.now();
-        return data;
-      }
-    } catch (e) {}
-
-    return null;
-  }
-
-  Future<String> _generateUniqueGameId() async {
-    String newId = '';
-    bool isUnique = false;
-    int attempts = 0;
-    while (!isUnique && attempts < 5) {
-      attempts++;
-      newId = (100000 + Random().nextInt(900000)).toString();
-      try {
-        final check = await _firestore.collection('players').where('gameId', isEqualTo: newId).limit(1).get();
-        if (check.docs.isEmpty) isUnique = true;
-      } catch (e) { isUnique = true; }
-    }
-    return newId;
-  }
-
   String? get uid => _uid;
   int get cash => _cash;
   int get gold => _gold;
@@ -302,6 +236,46 @@ class PlayerProvider with ChangeNotifier {
     _listenToGameConfig();
   }
 
+  Uint8List? getDecodedImage(String? base64Str) {
+    if (base64Str == null || base64Str.isEmpty) return null;
+    if (_decodedImagesCache.containsKey(base64Str)) return _decodedImagesCache[base64Str]!;
+    try {
+      final bytes = base64Decode(base64Str);
+      _decodedImagesCache[base64Str] = bytes;
+      return bytes;
+    } catch (e) { return null; }
+  }
+
+  // 🟢 التحديث الأهم: قراءة بيانات اللاعبين الآخرين من السيرفر مباشرة لتظهر حالة الاتصال الحقيقية (أونلاين/أوفلاين)
+  Future<Map<String, dynamic>?> getPlayerById(String targetUid) async {
+    try {
+      DocumentSnapshot serverDoc = await _firestore.collection('players').doc(targetUid).get(const GetOptions(source: Source.server));
+      if (serverDoc.exists) {
+        Map<String, dynamic> data = serverDoc.data() as Map<String, dynamic>;
+        data['uid'] = serverDoc.id;
+        return data;
+      }
+    } catch (e) {
+      debugPrint("خطأ في جلب بيانات اللاعب: $e");
+    }
+    return null;
+  }
+
+  Future<String> _generateUniqueGameId() async {
+    String newId = '';
+    bool isUnique = false;
+    int attempts = 0;
+    while (!isUnique && attempts < 5) {
+      attempts++;
+      newId = (100000 + Random().nextInt(900000)).toString();
+      try {
+        final check = await _firestore.collection('players').where('gameId', isEqualTo: newId).limit(1).get();
+        if (check.docs.isEmpty) isUnique = true;
+      } catch (e) { isUnique = true; }
+    }
+    return newId;
+  }
+
   void _listenToGameConfig() {
     _firestore.collection('config').doc('game_settings').snapshots().listen((doc) {
       if (doc.exists) {
@@ -325,12 +299,14 @@ class PlayerProvider with ChangeNotifier {
         _applyFirestoreData(initialDoc.data()!);
         if (_gameId == null) {
           _gameId = await _generateUniqueGameId();
+          _isLoading = false;
           await _syncWithFirestore();
         }
       } else if (name.isNotEmpty) {
         _playerName = name;
         _inventory['name_change_card'] = 1;
         _gameId = await _generateUniqueGameId();
+        _isLoading = false;
         await _syncWithFirestore();
       }
     } catch (e) {} finally {
@@ -421,7 +397,9 @@ class PlayerProvider with ChangeNotifier {
     if (_uid == null || _isLoading) return;
     try {
       await _firestore.collection('players').doc(_uid).set({
-        'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl, 'currentCity': _currentCity, 'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _maxHealth, 'happiness': _happiness, 'strength': _strength, 'defense': _defense, 'skill': _skill, 'speed': _speed, 'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(),
+        'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl,
+        'currentCity': _currentCity,
+        'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _maxHealth, 'happiness': _happiness, 'strength': _strength, 'defense': _defense, 'skill': _skill, 'speed': _speed, 'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(),
       }, SetOptions(merge: true));
     } catch (e) {}
   }
@@ -561,7 +539,6 @@ class PlayerProvider with ChangeNotifier {
   void updateName(String newName) { if (_inventory.containsKey('name_change_card') && _inventory['name_change_card']! > 0) { _playerName = newName; _inventory['name_change_card'] = _inventory['name_change_card']! - 1; if (_inventory['name_change_card'] == 0) _inventory.remove('name_change_card'); _syncWithFirestore(); notifyListeners(); } }
   void startPrisonTimer(int minutes) { _isInPrison = true; _prisonReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
 
-  // 🟢 تعديل شراء الأداة من السوق عشان يدعم الخصائص الاضافية
   void buyItem(String itemId, int price, {bool isConsumable = false, String currency = 'cash'}) { bool canBuy = currency == 'cash' ? _cash >= price : _gold >= price; if (canBuy) { if (currency == 'cash') _cash -= price; else _gold -= price; _inventory[itemId] = (_inventory[itemId] ?? 0) + 1; _syncWithFirestore(); notifyListeners(); } }
 
   void useItem(String itemId) {
@@ -668,7 +645,7 @@ class PlayerProvider with ChangeNotifier {
   void addInventoryItem(String itemId, int amount) { _inventory[itemId] = (_inventory[itemId] ?? 0) + amount; _syncWithFirestore(); notifyListeners(); }
   void unlockAllCrimesForDev() { for (int catIndex = 0; catIndex < 20; catIndex++) { for (int crimeIndex = 0; crimeIndex < 20; crimeIndex++) { String crimeId = 'cat_${catIndex}_crime_$crimeIndex'; crimeSuccessCountsMap[crimeId] = 10; } } _syncWithFirestore(); notifyListeners(); _showNotification("🛠️ (أداة المطور): تم فتح جميع الجرائم بنجاح!"); }
 
-  // 🟢 نظام الصداقة 🟢
+  // 🟢 نظام الأصدقاء 🟢
   Future<void> sendFriendRequest(String tUid) async {
     if (_uid == null || _uid == tUid) return;
     try {
