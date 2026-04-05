@@ -58,6 +58,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'creditScore': player.creditScore,
         'gangName': player.gangName,
         'currentCity': player.currentCity,
+        'isHospitalized': player.isHospitalized, // 🟢 تم الإضافة
+        'isInPrison': player.isInPrison,         // 🟢 تم الإضافة
       };
     } else {
       playerData = {
@@ -72,6 +74,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'workLevel': 0,
         'creditScore': 0,
         'currentCity': 'ملاذ',
+        'isHospitalized': false,
+        'isInPrison': false,
       };
       _loadData();
     }
@@ -87,7 +91,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     }
   }
 
-  // 🟢 دالة إضافة الفواصل للأرقام 🟢
   String _formatWithCommas(int number) {
     RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
     return number.toString().replaceAllMapped(reg, (Match match) => '${match[1]},');
@@ -169,8 +172,15 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 🟢 التعديل هنا: الفواصل وعكس علامة الدولار 🟢
-                  Text('الرصيد المتاح: ${_formatWithCommas(player.cash)} \$', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 16)),
+                  // 🟢 التعديل هنا: تثبيت علامة الدولار على يسار الرقم 🟢
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    textDirection: TextDirection.rtl,
+                    children: [
+                      const Text('الرصيد المتاح: ', style: TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 16)),
+                      Text('\$${_formatWithCommas(player.cash)}', textDirection: TextDirection.ltr, style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                   const SizedBox(height: 15),
                   TextField(controller: amountController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontFamily: 'Changa'), textAlign: TextAlign.center, decoration: InputDecoration(hintText: 'أدخل المبلغ هنا...', hintStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: Colors.black45, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.amber)))),
                   if (isTransferring) ...[const SizedBox(height: 20), const CircularProgressIndicator(color: Colors.amber)]
@@ -219,7 +229,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       });
 
                       player.removeCash(amount, reason: 'تحويل مالي إلى ${playerData!['playerName']}');
-                      if (mounted) { Navigator.pop(c); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تحويل ${_formatWithCommas(amount)} \$ بنجاح! 💸'), backgroundColor: Colors.green)); Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); }
+                      if (mounted) { Navigator.pop(c); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تحويل \$${_formatWithCommas(amount)} بنجاح! 💸', textDirection: TextDirection.rtl), backgroundColor: Colors.green)); Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); }
                     } catch (e) {
                       setDialogState(() => isTransferring = false);
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء التحويل!'), backgroundColor: Colors.red));
@@ -256,8 +266,15 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                 children: [
                   const Text('سيتم نشر إعلان في شات المدينة لكل اللاعبين للهجوم على هذا الهدف.', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12), textAlign: TextAlign.center),
                   const SizedBox(height: 15),
-                  // 🟢 التعديل هنا: الفواصل وعكس علامة الدولار 🟢
-                  Text('الكاش المتاح: ${_formatWithCommas(player.cash)} \$', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 13)),
+                  // 🟢 التعديل هنا: تثبيت علامة الدولار على يسار الرقم 🟢
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    textDirection: TextDirection.rtl,
+                    children: [
+                      const Text('الكاش المتاح: ', style: TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 13)),
+                      Text('\$${_formatWithCommas(player.cash)}', textDirection: TextDirection.ltr, style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 13, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: amountController,
@@ -383,6 +400,28 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       if (DateTime.now().difference(lastUpdate).inMinutes < 5) isOnline = true;
     }
 
+    // 🟢 التعديل هنا: تحديد حالة المكان وتغيير النص والألوان 🟢
+    bool isHosp = playerData!['isHospitalized'] == true;
+    bool isPris = playerData!['isInPrison'] == true;
+    String currentCity = playerData!['currentCity'] ?? 'ملاذ';
+
+    String locationText = '📍 $currentCity';
+    Color locColor = Colors.tealAccent;
+    Color locBg = Colors.teal.withOpacity(0.2);
+    Color locBorder = Colors.teal.withOpacity(0.4);
+
+    if (isHosp) {
+      locationText = '🏥 مستشفى $currentCity';
+      locColor = Colors.redAccent;
+      locBg = Colors.red.withOpacity(0.2);
+      locBorder = Colors.red.withOpacity(0.4);
+    } else if (isPris) {
+      locationText = '🔒 سجن $currentCity';
+      locColor = Colors.grey;
+      locBg = Colors.grey.withOpacity(0.2);
+      locBorder = Colors.grey.withOpacity(0.4);
+    }
+
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -423,7 +462,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                             children: [
                               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withOpacity(0.5))), child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))),
                               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withOpacity(0.4))), child: Text('ID: ${playerData!['gameId'] ?? '------'}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1))),
-                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.teal.withOpacity(0.4))), child: Text('📍 ${playerData!['currentCity'] ?? 'ملاذ'}', style: const TextStyle(color: Colors.tealAccent, fontSize: 12, fontWeight: FontWeight.bold))),
+                              // 🟢 التعديل هنا: استخدام متغيرات المكان المحدثة (مستشفى، سجن، مدينة)
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: locBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: locBorder)), child: Text(locationText, style: TextStyle(color: locColor, fontSize: 12, fontWeight: FontWeight.bold))),
                             ],
                           ),
                         ],
@@ -437,10 +477,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
           ),
           const SizedBox(height: 10),
 
-          if (playerData!['isHospitalized'] == true)
-            Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red.withOpacity(0.5))), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.local_hospital, color: Colors.redAccent), SizedBox(width: 8), Text('هذا اللاعب يتعالج في المستشفى حالياً 🏥', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold))])),
-          if (playerData!['isInPrison'] == true)
-            Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.withOpacity(0.5))), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.lock, color: Colors.grey), SizedBox(width: 8), Text('هذا اللاعب يقضي عقوبة في السجن 🔒', style: TextStyle(color: Colors.grey, fontFamily: 'Changa', fontWeight: FontWeight.bold))])),
+          // تم حذف الرسائل المنبثقة لأنها صارت واضحة عند اسم المدينة 🏥🔒
 
           const SizedBox(height: 15),
 
@@ -506,10 +543,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       return;
                     }
 
-                    bool isHosp = playerData!['isHospitalized'] == true;
-                    bool isPris = playerData!['isInPrison'] == true;
-                    String targetCity = playerData!['currentCity'] ?? 'ملاذ';
-
                     if (isHosp) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اللاعب في المستشفى 🏥، لا يمكنك الهجوم عليه!', style: TextStyle(fontFamily: 'Changa'))));
                       return;
@@ -518,8 +551,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اللاعب يقبع في السجن 🔒، لا يمكنك الوصول إليه!', style: TextStyle(fontFamily: 'Changa'))));
                       return;
                     }
-                    if (player.currentCity != targetCity) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('أنت في ${player.currentCity} والهدف في $targetCity ✈️! يجب أن تسافر إليه أولاً.', style: const TextStyle(fontFamily: 'Changa'))));
+                    if (player.currentCity != currentCity) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('أنت في ${player.currentCity} والهدف في $currentCity ✈️! يجب أن تسافر إليه أولاً.', style: const TextStyle(fontFamily: 'Changa'))));
                       return;
                     }
 

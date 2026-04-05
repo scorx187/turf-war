@@ -7,6 +7,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:io'; // 🟢 ضروري جداً لفحص الإنترنت الحقيقي
+import 'dart:async'; // 🟢 ضروري للمؤقت الزمني
 import 'firebase_options.dart';
 import 'screens/game_screen.dart';
 import 'providers/player_provider.dart';
@@ -95,11 +97,7 @@ class GameBackgroundScaffold extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black54,
-                      Colors.black12,
-                      Colors.black87,
-                    ],
+                    colors: [Colors.black54, Colors.black12, Colors.black87],
                     stops: [0.0, 0.3, 1.0],
                   ),
                 ),
@@ -116,6 +114,7 @@ class GameBackgroundScaffold extends StatelessWidget {
   }
 }
 
+// 🟢 التحديث الجذري هنا: حارس الشبكة الصارم (Kill-Switch) 🟢
 class FirebaseInitWrapper extends StatefulWidget {
   const FirebaseInitWrapper({super.key});
 
@@ -126,34 +125,83 @@ class FirebaseInitWrapper extends StatefulWidget {
 class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
   bool _initialized = false;
   bool _error = false;
+  Timer? _networkTimer;
 
-  void _initializeFirebase() async {
+  // دالة تفحص الإنترنت الحقيقي (مو بس الواي فاي شغال)
+  Future<bool> _checkInternet() async {
+    try {
+      final result = await InternetAddress.lookup('google.com');
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } on SocketException catch (_) {
+      return false; // فشل الاتصال = مافي نت
+    }
+  }
+
+  void _initializeApp() async {
+    setState(() {
+      _error = false;
+      _initialized = false;
+    });
+
+    // 1. فحص النت أولاً قبل أي شيء
+    bool hasInternet = await _checkInternet();
+    if (!hasInternet) {
+      setState(() => _error = true);
+      _startNetworkMonitoring(); // نشغل المراقب عشان يرجع يشبك لوحده
+      return;
+    }
+
+    // 2. تهيئة فايربيس مع منع الكاش نهائياً
     try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
 
-      // 🟢 إيقاف التخزين المحلي لمنع اللعب أوفلاين (مكافحة الغش) 🟢
       FirebaseFirestore.instance.settings = const Settings(
-        persistenceEnabled: false,
+        persistenceEnabled: false, // تعطيل اللعب أوفلاين تماماً
       );
 
       setState(() {
         _initialized = true;
         _error = false;
       });
+      _startNetworkMonitoring(); // بدء المراقبة المستمرة
     } catch (e) {
       debugPrint("Firebase initialization failed: $e");
-      setState(() {
-        _error = true;
-      });
+      setState(() => _error = true);
     }
+  }
+
+  // 🟢 المراقب الدائم: يشتغل كل 3 ثواني 🟢
+  void _startNetworkMonitoring() {
+    _networkTimer?.cancel();
+    _networkTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      bool hasInternet = await _checkInternet();
+      if (mounted) {
+        if (!hasInternet && !_error) {
+          // إذا طفى النت فجأة، ارميه لشاشة الخطأ فوراً
+          setState(() => _error = true);
+        } else if (hasInternet && _error && _initialized) {
+          // إذا رجع النت وكان الفايربيس شغال، اخفي شاشة الخطأ
+          setState(() => _error = false);
+        } else if (hasInternet && _error && !_initialized) {
+          // إذا رجع النت وكان الفايربيس لسه ما اشتغل، شغله
+          _initializeApp();
+        }
+      }
+    });
   }
 
   @override
   void initState() {
     super.initState();
-    _initializeFirebase();
+    _initializeApp();
+  }
+
+  @override
+  void dispose() {
+    _networkTimer?.cancel(); // إيقاف المراقب عند الخروج
+    super.dispose();
   }
 
   @override
@@ -169,10 +217,15 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
               children: [
                 const Icon(Icons.wifi_off, size: 100, color: Colors.redAccent),
                 const SizedBox(height: 25),
-                const Text("لا يوجد اتصال بالسيرفر!", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                const Text("لا يوجد اتصال بالإنترنت!", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                const SizedBox(height: 10),
+                const Text("اللعبة تتطلب اتصال دائم ومستقر بالسيرفر.\nيُرجى التحقق من الشبكة.", style: TextStyle(color: Colors.white70, fontSize: 14, fontFamily: 'Changa'), textAlign: TextAlign.center),
                 const SizedBox(height: 40),
                 GameActionButton(
-                  onPressed: _initializeFirebase,
+                  onPressed: () {
+                    setState(() { _error = false; _initialized = false; });
+                    _initializeApp();
+                  },
                   icon: Icons.refresh,
                   label: "إعادة المحاولة",
                 ),
@@ -220,14 +273,12 @@ class AuthWrapper extends StatelessWidget {
               if (docSnapshot.connectionState == ConnectionState.waiting) return _loading();
 
               if (docSnapshot.hasData && docSnapshot.data!.exists) {
-                // ✅ اللاعب موجود: يدخل اللعبة مباشرة
                 final player = Provider.of<PlayerProvider>(context, listen: false);
                 if (player.uid == null) {
                   player.initializePlayerOnServer(user.uid, "");
                 }
                 return const GameScreen();
               } else {
-                // ❌ اللاعب غير موجود: تحويله لشاشة اختيار الاسم
                 if (user.isAnonymous) return _loading();
                 return ChooseNameScreen(user: user);
               }
@@ -254,7 +305,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loginAnonymously() async {
     if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال اسمك أولاً')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال اسمك أولاً', style: TextStyle(fontFamily: 'Changa'))));
       return;
     }
     setState(() => _isLoading = true);
@@ -263,7 +314,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final player = Provider.of<PlayerProvider>(context, listen: false);
       await player.initializePlayerOnServer(userCredential.user!.uid, _nameController.text.trim());
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الدخول كزائر: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الدخول كزائر: $e', style: const TextStyle(fontFamily: 'Changa'))));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -286,7 +337,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await FirebaseAuth.instance.signInWithCredential(credential);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('خطأ في تسجيل الدخول بحساب Google')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('خطأ في تسجيل الدخول بحساب Google', style: TextStyle(fontFamily: 'Changa'))));
       debugPrint("Google Sign-In Error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -321,19 +372,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 10),
                 const Text(
                   'أحكم السيطرة على المدينة...',
-                  style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.normal),
+                  style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.normal, fontFamily: 'Changa'),
                 ),
                 const SizedBox(height: 60),
 
                 TextField(
                   controller: _nameController,
                   maxLength: 14,
-                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'Changa'),
                   decoration: InputDecoration(
                     counterText: "",
                     prefixIcon: const Icon(Icons.person_outline, color: GameColors.primary),
                     hintText: 'ادخل اسمك المستعار...',
-                    hintStyle: const TextStyle(color: Colors.white30),
+                    hintStyle: const TextStyle(color: Colors.white30, fontFamily: 'Changa'),
                     filled: true,
                     fillColor: Colors.black45,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
@@ -390,7 +441,7 @@ class _ChooseNameScreenState extends State<ChooseNameScreen> {
   void _confirmName() async {
     String chosenName = _nameController.text.trim();
     if (chosenName.isEmpty || chosenName.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الاسم يجب أن يكون 3 حروف على الأقل!')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الاسم يجب أن يكون 3 حروف على الأقل!', style: TextStyle(fontFamily: 'Changa'))));
       return;
     }
 
@@ -401,7 +452,7 @@ class _ChooseNameScreenState extends State<ChooseNameScreen> {
       await player.initializePlayerOnServer(widget.user.uid, chosenName);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء حفظ الاسم')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء حفظ الاسم', style: TextStyle(fontFamily: 'Changa'))));
         setState(() => _isLoading = false);
       }
     }
@@ -418,19 +469,19 @@ class _ChooseNameScreenState extends State<ChooseNameScreen> {
             children: [
               const Icon(Icons.account_circle, size: 100, color: GameColors.primary),
               const SizedBox(height: 20),
-              const Text('أهلاً بك في عالم الجريمة', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+              const Text('أهلاً بك في عالم الجريمة', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
               const SizedBox(height: 10),
-              const Text('اختر اسماً يعرفك به الجميع في "ملاذ"\nهذا الاسم سيظهر للزعماء الآخرين.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 14)),
+              const Text('اختر اسماً يعرفك به الجميع في "ملاذ"\nهذا الاسم سيظهر للزعماء الآخرين.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 14, fontFamily: 'Changa')),
               const SizedBox(height: 40),
               TextField(
                 controller: _nameController,
                 maxLength: 14,
-                style: const TextStyle(color: GameColors.primary, fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: GameColors.primary, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Changa'),
                 textAlign: TextAlign.center,
                 decoration: InputDecoration(
                   counterText: "",
                   hintText: 'أدخل اسمك...',
-                  hintStyle: const TextStyle(color: Colors.white24),
+                  hintStyle: const TextStyle(color: Colors.white24, fontFamily: 'Changa'),
                   filled: true,
                   fillColor: Colors.black45,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
@@ -502,9 +553,10 @@ class GameActionButton extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: isPrimary ? 20 : 18,
-              fontWeight: FontWeight.bold,
-              color: textColor,
+                fontSize: isPrimary ? 20 : 18,
+                fontWeight: FontWeight.bold,
+                color: textColor,
+                fontFamily: 'Changa'
             ),
           ),
         ],

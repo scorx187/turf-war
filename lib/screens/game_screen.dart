@@ -29,7 +29,6 @@ import '../views/prison_view.dart';
 import '../views/player_profile_view.dart';
 import '../views/notifications_view.dart';
 import '../views/private_chat_list_view.dart';
-// 🟢 استيراد شاشة الأصدقاء
 import '../views/friends_view.dart';
 import 'dart:async';
 import 'dart:math';
@@ -139,7 +138,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
-  // 🟢 التعديل هنا: إضافة الأصدقاء للقائمة السريعة
   void _showQuickMenuDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -167,7 +165,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               }),
               const Divider(color: Colors.white10),
 
-              // 🟢 زر الأصدقاء
               _buildMenuOption(Icons.group, 'الأصدقاء', () {
                 Navigator.pop(c);
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsView()));
@@ -278,7 +275,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   Widget _buildMainContent(PlayerProvider player) {
     if (_selectedIndex == 0) return const InventoryView();
-    if (_selectedIndex == 1) return ChatView();
+    if (_selectedIndex == 1) return const ChatView(); // 🟢 هنا ما نحتاج onBack لأنها تتبدل عادي
 
     if (_selectedIndex == 3) {
       return CrimeView(
@@ -316,6 +313,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
 
+    // الأماكن القديمة اللي تتبدل داخل الخريطة بس
     if (_activeArea == 'المطار') return AirportView(gold: player.gold, onTravel: (cost) => player.removeGold(cost), onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'البنك') return BankView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'عجلة الحظ') return LuckyWheelView(cash: player.cash, maxEnergy: player.maxEnergy, maxCourage: player.maxCourage, onCashChanged: (val) => val > 0 ? player.addCash(val, reason: "عجلة الحظ") : player.removeCash(val.abs(), reason: "خسارة عجلة حظ"), onGoldChanged: (val) => player.addGold(val), onEnergyChanged: (val) => player.setEnergy(val), onCourageChanged: (val) => player.setCourage(val), onBack: () => setState(() => _activeArea = 'الخريطة'));
@@ -327,7 +325,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_activeArea == 'ساحة القتال') return ArenaView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'ساحة اللاعبين') return PvpListView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'العقارات') return RealEstateView(onBack: () => setState(() => _activeArea = 'الخريطة'));
-    if (_activeArea == 'العصابات') return GangView(onBack: () => setState(() => _activeArea = 'الخريطة'));
+
+    // 🟢 التعديل الأهم هنا: إزالة العصابات من التبديل الداخلي 🟢
+    // إذا ضغط العصابات بتم فتحها كشاشة جديدة بالكامل في دالة _buildMapHotspot
+
     if (_activeArea == 'التشليح') return ChopShopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'المختبر السري') return LaboratoryView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'الورشة') return WorkshopView(onBack: () => setState(() => _activeArea = 'الخريطة'));
@@ -437,7 +438,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       child: GestureDetector(
         onTap: () {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-          setState(() => _activeArea = areaName);
+
+          // 🟢 التعديل السحري هنا: إذا ضغط "العصابات"، افتحها كشاشة كاملة وتختفي القائمة السفلية
+          if (areaName == 'العصابات') {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const GangView()));
+          } else {
+            setState(() => _activeArea = areaName);
+          }
         },
         child: Container(
           color: debugColor.withOpacity(0.5),
@@ -459,6 +466,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 }
 
+// ----------------- كود شاشة التحميل تحته كما هو بدون تغيير -----------------
 class GameLoadingView extends StatefulWidget {
   final bool isDataLoaded;
   final VoidCallback onVisualLoadingComplete;

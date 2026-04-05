@@ -6,7 +6,6 @@ import 'dart:typed_data';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import '../providers/audio_provider.dart';
-// 🟢 استيراد شاشة المتجر الجديدة
 import '../views/store_view.dart';
 
 class TopBar extends StatelessWidget {
@@ -74,12 +73,13 @@ class TopBar extends StatelessWidget {
     final imageBytes = _getDecodedImage();
 
     double topPadding = MediaQuery.of(context).padding.top;
-    double safeTop = topPadding > 10 ? topPadding - 10 : 2;
+    double safeTop = topPadding > 10 ? topPadding - 5 : 2;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Container(
-        padding: EdgeInsets.only(top: safeTop, bottom: 6, left: 10, right: 10),
+        // 🟢 تقليل مسافات الحواف لتصغير المساحة الكلية
+        padding: EdgeInsets.only(top: safeTop, bottom: 4, left: 8, right: 8),
         decoration: BoxDecoration(
           color: Colors.black87,
           image: const DecorationImage(
@@ -88,10 +88,10 @@ class TopBar extends StatelessWidget {
             colorFilter: ColorFilter.mode(Colors.black45, BlendMode.darken),
           ),
           border: const Border(
-            bottom: BorderSide(color: Color(0xFF856024), width: 2.5),
+            bottom: BorderSide(color: Color(0xFF856024), width: 2.0), // تصغير سُمك الحدود
           ),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.9), blurRadius: 12, offset: const Offset(0, 4)),
+            BoxShadow(color: Colors.black.withOpacity(0.9), blurRadius: 10, offset: const Offset(0, 3)),
           ],
         ),
         child: Column(
@@ -101,19 +101,20 @@ class TopBar extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // 🟢 تصغير صورة الزعيم من 50 إلى 40
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFE2C275), width: 2.5),
+                    border: Border.all(color: const Color(0xFFE2C275), width: 2.0),
                     gradient: const RadialGradient(
                       colors: [Color(0xFF856024), Colors.black],
                       center: Alignment.topLeft,
                       radius: 1.2,
                     ),
                     boxShadow: [
-                      BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.6), blurRadius: 10, spreadRadius: 1),
+                      BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.6), blurRadius: 8, spreadRadius: 1),
                     ],
                   ),
                   child: ClipOval(
@@ -121,15 +122,15 @@ class TopBar extends StatelessWidget {
                         ? Image.memory(
                       imageBytes,
                       fit: BoxFit.cover,
-                      width: 50,
-                      height: 50,
+                      width: 40,
+                      height: 40,
                       gaplessPlayback: true,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white70, size: 30),
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white70, size: 24),
                     )
-                        : const Icon(Icons.person, color: Colors.white70, size: 30),
+                        : const Icon(Icons.person, color: Colors.white70, size: 24),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8), // تصغير المسافة
 
                 Expanded(
                   child: Row(
@@ -146,7 +147,7 @@ class TopBar extends StatelessWidget {
                                   displayName,
                                   style: const TextStyle(
                                     fontFamily: 'Changa',
-                                    fontSize: 16,
+                                    fontSize: 14, // 🟢 تصغير خط الاسم
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
                                     shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
@@ -155,21 +156,21 @@ class TopBar extends StatelessWidget {
                               ),
                             ),
                             if (isVIP) ...[
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 3),
                               Image.asset(
                                 'assets/images/icons/vip.png',
-                                height: 18,
+                                height: 14, // 🟢 تصغير أيقونة VIP
                                 fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.stars, color: Colors.amber, size: 18),
+                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.stars, color: Colors.amber, size: 14),
                               ),
                             ],
                           ],
                         ),
                       ),
 
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 6), // تقليل مسافة المنتصف
 
-                      // 🟢 تم ربط الكاش بفتح المتجر (قسم الكاش index 0)
+                      // 🟢 تصغير أزرار الكاش والذهب
                       _buildTopUpResource(
                           context: context,
                           iconPath: 'assets/images/icons/cash.png',
@@ -181,9 +182,8 @@ class TopBar extends StatelessWidget {
                             Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreView(initialTab: 0)));
                           }
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 5),
 
-                      // 🟢 تم ربط الذهب بفتح المتجر (قسم الذهب index 1)
                       _buildTopUpResource(
                           context: context,
                           iconPath: 'assets/images/icons/gold.png',
@@ -200,9 +200,9 @@ class TopBar extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6), // تصغير المسافة بين الصفوف
 
-            // --- الصف الثاني: الموارد ---
+            // --- الصف الثاني: الموارد (تم تصغير المربعات والنصوص) ---
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -215,17 +215,17 @@ class TopBar extends StatelessWidget {
                 Expanded(child: _buildResourceChip('الشهامة', 'assets/images/icons/prestige.png', '${_formatCompact(prestige)}/${_formatCompact(maxPrestige)}', progress: prProgress, barColor: Colors.deepOrangeAccent, totalSeconds: prSeconds)),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2), // تصغير المسافة
 
             // --- الصف الثالث: خط اللفل ---
             Row(
               children: [
                 Image.asset(
                   'assets/images/icons/lv.png',
-                  width: 24,
-                  height: 24,
+                  width: 18, // 🟢 تصغير نجمة اللفل
+                  height: 18,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.star, color: Colors.amber, size: 24),
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.star, color: Colors.amber, size: 18),
                 ),
                 const SizedBox(width: 4),
                 Padding(
@@ -234,22 +234,22 @@ class TopBar extends StatelessWidget {
                     '$level',
                     style: const TextStyle(
                       fontFamily: 'Changa',
-                      fontSize: 18,
+                      fontSize: 15, // 🟢 تصغير رقم اللفل
                       fontWeight: FontWeight.w900,
                       color: Color(0xFFE2C275),
                       shadows: [Shadow(color: Colors.black, blurRadius: 4)],
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
 
                 Expanded(
                   child: Container(
-                    height: 18,
+                    height: 14, // 🟢 تصغير ارتفاع شريط اللفل
                     decoration: BoxDecoration(
                       color: Colors.black,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF856024), width: 1.5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF856024), width: 1.0),
                       boxShadow: [
                         BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 4, offset: const Offset(0, 2)),
                       ],
@@ -266,7 +266,7 @@ class TopBar extends StatelessWidget {
                                 gradient: const LinearGradient(
                                   colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
                                 ),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(6),
                                 boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.8), blurRadius: 6)],
                               ),
                             ),
@@ -274,12 +274,12 @@ class TopBar extends StatelessWidget {
                         ),
                         Center(
                           child: Padding(
-                            padding: const EdgeInsets.only(top: 2.0),
+                            padding: const EdgeInsets.only(top: 1.0),
                             child: Text(
                               '${_formatCompact(currentXp)} / ${_formatCompact(maxXp)}',
                               style: const TextStyle(
                                 fontFamily: 'Changa',
-                                fontSize: 11,
+                                fontSize: 9, // 🟢 تصغير خط الـ XP
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                                 height: 1.0,
@@ -303,7 +303,7 @@ class TopBar extends StatelessWidget {
     );
   }
 
-  // 🟢 إضافة GestureDetector للضغط على الزر
+  // 🟢 تم تصغير كل القيم هنا بشكل متناسق 🟢
   Widget _buildTopUpResource({required BuildContext context, required String iconPath, required String value, required String bgImagePath, required String plusImagePath, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -311,28 +311,28 @@ class TopBar extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: 95,
-            height: 28,
-            padding: const EdgeInsets.only(right: 4, left: 10, top: 2, bottom: 2),
+            width: 80, // تم التصغير من 95
+            height: 24, // تم التصغير من 28
+            padding: const EdgeInsets.only(right: 4, left: 8, top: 2, bottom: 2),
             decoration: BoxDecoration(
               image: DecorationImage(image: AssetImage(bgImagePath), fit: BoxFit.fill),
-              borderRadius: BorderRadius.circular(6),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 4, offset: const Offset(0, 2))],
+              borderRadius: BorderRadius.circular(5),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 3, offset: const Offset(0, 1))],
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Image.asset(iconPath, width: 18, height: 18, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 18)),
+                Image.asset(iconPath, width: 14, height: 14, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 14)),
                 const SizedBox(width: 2),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 3.0),
+                    padding: const EdgeInsets.only(top: 2.0),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerRight,
                       child: Text(
                           value,
-                          style: const TextStyle(fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 4)])
+                          style: const TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2)])
                       ),
                     ),
                   ),
@@ -341,23 +341,24 @@ class TopBar extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: -5, top: -5,
-            child: Image.asset(plusImagePath, width: 14, height: 14, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle), child: const Icon(Icons.add, size: 10, color: Colors.white))),
+            left: -4, top: -4,
+            child: Image.asset(plusImagePath, width: 12, height: 12, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle), child: const Icon(Icons.add, size: 8, color: Colors.white))),
           ),
         ],
       ),
     );
   }
 
+  // 🟢 تم تصغير الأيقونات والنصوص وأشرطة الموارد 🟢
   Widget _buildResourceChip(String title, String imagePath, String value, {double? progress, Color? barColor, int totalSeconds = 0}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.55),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(5),
             border: Border.all(color: Colors.white12, width: 1),
           ),
           child: Column(
@@ -368,28 +369,28 @@ class TopBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Image.asset(imagePath, width: 24, height: 24, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 24)),
-                  const SizedBox(width: 4),
+                  Image.asset(imagePath, width: 18, height: 18, fit: BoxFit.contain, errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline, color: Colors.red, size: 18)),
+                  const SizedBox(width: 3),
                   Flexible(
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(title, style: const TextStyle(fontFamily: 'Changa', fontSize: 11, color: Colors.white70)),
+                      child: Text(title, style: const TextStyle(fontFamily: 'Changa', fontSize: 9, color: Colors.white70)),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(value, style: const TextStyle(fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
+                  child: Text(value, style: const TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
                 ),
               ),
               if (progress != null && barColor != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Container(
                   width: double.infinity,
-                  height: 3,
+                  height: 2.5, // تصغير شريط التعبئة
                   alignment: Alignment.centerRight,
                   decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(2)),
                   child: FractionallySizedBox(
@@ -399,7 +400,7 @@ class TopBar extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: barColor,
                         borderRadius: BorderRadius.circular(2),
-                        boxShadow: [BoxShadow(color: barColor.withOpacity(0.8), blurRadius: 4)],
+                        boxShadow: [BoxShadow(color: barColor.withOpacity(0.8), blurRadius: 3)],
                       ),
                     ),
                   ),
@@ -409,7 +410,7 @@ class TopBar extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 18,
+          height: 16, // مساحة العداد الزمني صغرت
           child: StatTimerText(initialSeconds: totalSeconds),
         ),
       ],
@@ -492,12 +493,12 @@ class _StatTimerTextState extends State<StatTimerText> {
           timeText,
           style: const TextStyle(
               color: Colors.white,
-              fontSize: 11,
+              fontSize: 10, // 🟢 تصغير خط العداد الزمني
               fontWeight: FontWeight.bold,
               fontFamily: 'Changa',
-              letterSpacing: 1.0,
+              letterSpacing: 0.5,
               shadows: [
-                Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))
+                Shadow(color: Colors.black, blurRadius: 3, offset: Offset(1, 1))
               ]
           )
       ),

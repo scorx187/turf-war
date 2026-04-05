@@ -31,6 +31,9 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     super.initState();
     final myUid = Provider.of<PlayerProvider>(context, listen: false).uid!;
     chatId = myUid.compareTo(widget.targetUid) > 0 ? '${myUid}_${widget.targetUid}' : '${widget.targetUid}_$myUid';
+
+    // 🟢 التعديل الأهم: تصفير العداد مرة واحدة فقط عند فتح الشاشة لتخفيف الضغط على اللعبة 🟢
+    _firestore.collection('private_chats').doc(chatId).set({'unread_$myUid': 0}, SetOptions(merge: true));
   }
 
   String _formatWithCommas(int number) {
@@ -51,7 +54,7 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     Map<String, dynamic> messageData = {
       'senderId': myUid,
       'type': type,
-      'message': type == 'transfer' ? 'قام بتحويل ${_formatWithCommas(amount ?? 0)}\$ 💸' : msgText,
+      'message': type == 'transfer' ? 'قام بتحويل \$${_formatWithCommas(amount ?? 0)} 💸' : msgText,
       'timestamp': FieldValue.serverTimestamp(),
       'isRead': false,
       'isBurn': _isBurnMessage,
@@ -79,7 +82,7 @@ class _PrivateChatViewState extends State<PrivateChatView> {
         barrierDismissible: false,
         builder: (c) {
           TextEditingController amtCtrl = TextEditingController();
-          bool isProcessing = false; // 🟢 متغير لحماية زر الإرسال من الضغط المتكرر
+          bool isProcessing = false;
 
           return StatefulBuilder(
               builder: (context, setDialogState) {
@@ -91,7 +94,14 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('الكاش المتاح: ${_formatWithCommas(player.cash)}\$', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 15)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          textDirection: TextDirection.rtl,
+                          children: [
+                            const Text('الكاش المتاح: ', style: TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 15)),
+                            Text('\$${_formatWithCommas(player.cash)}', textDirection: TextDirection.ltr, style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 15, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                         const SizedBox(height: 15),
                         TextField(
                           controller: amtCtrl,
@@ -99,7 +109,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                           style: const TextStyle(color: Colors.white, fontFamily: 'Changa'),
                           decoration: const InputDecoration(hintText: 'المبلغ..', filled: true, fillColor: Colors.black45),
                         ),
-                        // 🟢 عرض دائرة التحميل بدل الزر إذا كان قيد المعالجة
                         if (isProcessing) ...[
                           const SizedBox(height: 20),
                           const CircularProgressIndicator(color: Colors.amber),
@@ -113,14 +122,10 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                       ),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-                        // 🟢 تعطيل الزر إذا كان قيد المعالجة
                         onPressed: isProcessing ? null : () async {
                           int? amt = int.tryParse(amtCtrl.text.trim());
                           if (amt != null && amt > 0 && amt <= player.cash) {
-
-                            // تفعيل حالة التحميل لتعطيل الزر
                             setDialogState(() => isProcessing = true);
-
                             try {
                               await _firestore.runTransaction((transaction) async {
                                 final senderRef = _firestore.collection('players').doc(player.uid);
@@ -157,7 +162,6 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                               if (mounted) Navigator.pop(c);
                             } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشل التحويل!')));
-                              // إذا فشل، نرجع الزر لطبيعته
                               setDialogState(() => isProcessing = false);
                             }
                           } else {
@@ -215,210 +219,214 @@ class _PrivateChatViewState extends State<PrivateChatView> {
   Widget build(BuildContext context) {
     final myUid = Provider.of<PlayerProvider>(context, listen: false).uid!;
 
-    _firestore.collection('private_chats').doc(chatId).set({'unread_$myUid': 0}, SetOptions(merge: true));
+    // 🟢 التعديل الأهم: اختطاف زر الرجوع في الأندرويد باستخدام WillPopScope للرجوع بأمان 🟢
+    return WillPopScope(
+      onWillPop: () async {
+        FocusScope.of(context).unfocus(); // إغلاق الكيبورد أولاً
+        Navigator.of(context).pop();      // العودة للشاشة السابقة بأمان
+        return false; // نمنع النظام من التصرف من رأسه وإغلاق التطبيق
+      },
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            backgroundColor: const Color(0xFF1A1A1D),
+            appBar: AppBar(
+              backgroundColor: Colors.black87,
+              titleSpacing: 0,
+              leadingWidth: 40,
+              leading: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.arrow_back_ios, color: Colors.amber, size: 22),
+                onPressed: () {
+                  FocusScope.of(context).unfocus();
+                  Navigator.of(context).pop();
+                },
+              ),
+              title: StreamBuilder<DocumentSnapshot>(
+                stream: _firestore.collection('players').doc(widget.targetUid).snapshots(),
+                builder: (context, snapshot) {
+                  String name = widget.targetName;
+                  String? pic = widget.targetPicUrl;
+                  String bio = '';
+                  bool isVIP = false;
+                  String statusText = 'غير متصل';
+                  Color statusColor = Colors.white54;
+                  Map<String, dynamic> targetData = {};
 
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Directionality(
-        textDirection: TextDirection.rtl,
-        child: Scaffold(
-          backgroundColor: const Color(0xFF1A1A1D),
-          appBar: AppBar(
-            backgroundColor: Colors.black87,
-            titleSpacing: 0,
-            leadingWidth: 40,
-            leading: IconButton(
-              padding: EdgeInsets.zero,
-              icon: const Icon(Icons.arrow_back_ios, color: Colors.amber, size: 22),
-              onPressed: () {
-                FocusScope.of(context).unfocus();
-                Navigator.of(context).pop();
-              },
-            ),
-            title: StreamBuilder<DocumentSnapshot>(
-              stream: _firestore.collection('players').doc(widget.targetUid).snapshots(),
-              builder: (context, snapshot) {
-                String name = widget.targetName;
-                String? pic = widget.targetPicUrl;
-                String bio = '';
-                bool isVIP = false;
-                String statusText = 'غير متصل';
-                Color statusColor = Colors.white54;
-                Map<String, dynamic> targetData = {};
+                  if (snapshot.hasData && snapshot.data!.exists) {
+                    targetData = snapshot.data!.data() as Map<String, dynamic>;
+                    name = targetData['playerName'] ?? name;
+                    pic = targetData['profilePicUrl'] ?? pic;
+                    bio = targetData['bio'] ?? '';
+                    isVIP = targetData['isVIP'] == true;
 
-                if (snapshot.hasData && snapshot.data!.exists) {
-                  targetData = snapshot.data!.data() as Map<String, dynamic>;
-                  name = targetData['playerName'] ?? name;
-                  pic = targetData['profilePicUrl'] ?? pic;
-                  bio = targetData['bio'] ?? '';
-                  isVIP = targetData['isVIP'] == true;
+                    if (targetData['lastUpdate'] != null) {
+                      DateTime lastUpdate = (targetData['lastUpdate'] as Timestamp).toDate();
+                      final diff = DateTime.now().difference(lastUpdate);
 
-                  if (targetData['lastUpdate'] != null) {
-                    DateTime lastUpdate = (targetData['lastUpdate'] as Timestamp).toDate();
-                    final diff = DateTime.now().difference(lastUpdate);
-
-                    if (diff.inMinutes <= 1) {
-                      statusText = 'متصل الآن';
-                      statusColor = Colors.greenAccent;
-                    } else if (diff.inHours < 1) {
-                      statusText = 'آخر ظهور منذ ${diff.inMinutes} دقيقة';
-                    } else if (diff.inDays < 1) {
-                      statusText = 'آخر ظهور منذ ${diff.inHours} ساعة';
-                    } else {
-                      statusText = 'آخر ظهور منذ ${diff.inDays} يوم';
+                      if (diff.inMinutes <= 1) {
+                        statusText = 'متصل الآن';
+                        statusColor = Colors.greenAccent;
+                      } else if (diff.inHours < 1) {
+                        statusText = 'آخر ظهور منذ ${diff.inMinutes} دقيقة';
+                      } else if (diff.inDays < 1) {
+                        statusText = 'آخر ظهور منذ ${diff.inHours} ساعة';
+                      } else {
+                        statusText = 'آخر ظهور منذ ${diff.inDays} يوم';
+                      }
                     }
                   }
-                }
 
-                final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(pic);
+                  final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(pic);
 
-                return GestureDetector(
-                  onTap: () => _goToProfile(targetData),
+                  return GestureDetector(
+                    onTap: () => _goToProfile(targetData),
+                    child: Row(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: isVIP ? Border.all(color: Colors.amberAccent, width: 1.5) : null,
+                          ),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Colors.grey[800],
+                            backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
+                            child: imageBytes == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, color: isVIP ? Colors.amber : Colors.white54, size: 20) : null,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(name, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              if (bio.isNotEmpty)
+                                Text(bio, style: const TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(statusText, style: TextStyle(color: statusColor, fontFamily: 'Changa', fontSize: 10)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            body: Column(
+              children: [
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: _firestore.collection('private_chats').doc(chatId).collection('messages').orderBy('timestamp', descending: true).snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+                      final msgs = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        reverse: true,
+                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                        itemCount: msgs.length,
+                        itemBuilder: (context, index) {
+                          final doc = msgs[index];
+                          final msg = doc.data() as Map<String, dynamic>;
+                          bool isMe = msg['senderId'] == myUid;
+                          bool isRead = msg['isRead'] ?? false;
+                          bool isBurn = msg['isBurn'] ?? false;
+                          String type = msg['type'] ?? 'text';
+
+                          if (!isMe && !isRead) {
+                            doc.reference.update({'isRead': true});
+                            // 🟢 تصفير العداد فقط إذا وصلتك رسالة جديدة وأنت فاتح الشاشة
+                            _firestore.collection('private_chats').doc(chatId).set({'unread_$myUid': 0}, SetOptions(merge: true));
+                          }
+
+                          if (isBurn) {
+                            return BurnMessageBubble(
+                              message: msg['message'],
+                              isMe: isMe,
+                              isRead: isRead,
+                              docRef: doc.reference,
+                            );
+                          }
+
+                          if (type == 'transfer') {
+                            int amount = msg['amount'] ?? 0;
+                            String formattedAmount = _formatWithCommas(amount);
+
+                            String transferMsg = isMe ? 'قمت بتحويل \$${formattedAmount} 💸' : 'قام ${widget.targetName} بتحويل \$${formattedAmount} 💸';
+
+                            return TransferBubble(message: transferMsg, isMe: isMe);
+                          }
+
+                          return Align(
+                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isMe ? Colors.green[900] : Colors.grey[800],
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(msg['message'], style: const TextStyle(color: Colors.white, fontSize: 16)),
+                                  if (isMe) ...[
+                                    const SizedBox(height: 2),
+                                    Icon(Icons.done_all, size: 14, color: isRead ? Colors.lightBlueAccent : Colors.white54),
+                                  ]
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(color: Colors.black26),
                   child: Row(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: isVIP ? Border.all(color: Colors.amberAccent, width: 1.5) : null,
-                        ),
-                        child: CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Colors.grey[800],
-                          backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
-                          child: imageBytes == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, color: isVIP ? Colors.amber : Colors.white54, size: 20) : null,
-                        ),
+                      IconButton(
+                        icon: Icon(Icons.local_fire_department, color: _isBurnMessage ? Colors.redAccent : Colors.white54),
+                        onPressed: () {
+                          setState(() => _isBurnMessage = !_isBurnMessage);
+                        },
                       ),
-                      const SizedBox(width: 10),
+                      if (!_isBurnMessage)
+                        IconButton(
+                          icon: const Icon(Icons.attach_money, color: Colors.green),
+                          onPressed: _quickTransfer,
+                        ),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(name, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            if (bio.isNotEmpty)
-                              Text(bio, style: const TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            Text(statusText, style: TextStyle(color: statusColor, fontFamily: 'Changa', fontSize: 10)),
-                          ],
+                        child: TextField(
+                          controller: _controller,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: _isBurnMessage ? 'اكتب رسالة سرية لتدميرها...' : 'رسالة...',
+                            hintStyle: TextStyle(color: _isBurnMessage ? Colors.redAccent : Colors.white54),
+                            filled: true,
+                            fillColor: Colors.black45,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                          ),
                         ),
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.send, color: Colors.amber),
+                        onPressed: () => _sendMessage(),
+                      )
                     ],
                   ),
-                );
-              },
+                )
+              ],
             ),
-          ),
-          body: Column(
-            children: [
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: _firestore.collection('private_chats').doc(chatId).collection('messages').orderBy('timestamp', descending: true).snapshots(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-
-                    final msgs = snapshot.data!.docs;
-
-                    return ListView.builder(
-                      reverse: true,
-                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                      itemCount: msgs.length,
-                      itemBuilder: (context, index) {
-                        final doc = msgs[index];
-                        final msg = doc.data() as Map<String, dynamic>;
-                        bool isMe = msg['senderId'] == myUid;
-                        bool isRead = msg['isRead'] ?? false;
-                        bool isBurn = msg['isBurn'] ?? false;
-                        String type = msg['type'] ?? 'text';
-
-                        if (!isMe && !isRead) {
-                          doc.reference.update({'isRead': true});
-                        }
-
-                        if (isBurn) {
-                          return BurnMessageBubble(
-                            message: msg['message'],
-                            isMe: isMe,
-                            isRead: isRead,
-                            docRef: doc.reference,
-                          );
-                        }
-
-                        if (type == 'transfer') {
-                          int amount = msg['amount'] ?? 0;
-                          String formattedAmount = _formatWithCommas(amount);
-
-                          String transferMsg = isMe ? 'قمت بتحويل $formattedAmount\$ 💸' : 'قام ${widget.targetName} بتحويل $formattedAmount\$ 💸';
-
-                          return TransferBubble(message: transferMsg, isMe: isMe);
-                        }
-
-                        return Align(
-                          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isMe ? Colors.green[900] : Colors.grey[800],
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(msg['message'], style: const TextStyle(color: Colors.white, fontSize: 16)),
-                                if (isMe) ...[
-                                  const SizedBox(height: 2),
-                                  Icon(Icons.done_all, size: 14, color: isRead ? Colors.lightBlueAccent : Colors.white54),
-                                ]
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(color: Colors.black26),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.local_fire_department, color: _isBurnMessage ? Colors.redAccent : Colors.white54),
-                      onPressed: () {
-                        setState(() => _isBurnMessage = !_isBurnMessage);
-                        // 🟢 التعديل الأول: حذفنا إظهار الـ SnackBar المزعج عند تفعيل الرسائل المؤقتة
-                      },
-                    ),
-
-                    // 🟢 التعديل الثاني: إخفاء زر التحويل إذا كان وضع الرسالة المؤقتة مُفعلاً
-                    if (!_isBurnMessage)
-                      IconButton(
-                        icon: const Icon(Icons.attach_money, color: Colors.green),
-                        onPressed: _quickTransfer,
-                      ),
-
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: _isBurnMessage ? 'اكتب رسالة سرية لتدميرها...' : 'رسالة...',
-                          hintStyle: TextStyle(color: _isBurnMessage ? Colors.redAccent : Colors.white54),
-                          filled: true,
-                          fillColor: Colors.black45,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.send, color: Colors.amber),
-                      onPressed: () => _sendMessage(),
-                    )
-                  ],
-                ),
-              )
-            ],
           ),
         ),
       ),
@@ -516,7 +524,10 @@ class TransferBubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(color: Colors.amber.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)),
-        child: Text(message, style: const TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 14, fontWeight: FontWeight.bold)),
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Text(message, style: const TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 14, fontWeight: FontWeight.bold)),
+        ),
       ),
     );
   }
