@@ -7,6 +7,8 @@ import '../widgets/top_bar.dart';
 import 'gang_members_view.dart';
 import 'gang_donation_view.dart';
 import 'gang_management_view.dart';
+import 'gang_skills_view.dart';
+import 'gang_store_view.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 
@@ -276,13 +278,15 @@ class _GangViewState extends State<GangView> {
                   _showWarsBottomSheet(player, audio);
                 }),
                 _buildGridItem(icon: Icons.psychology, title: 'المهارات', color: Colors.purpleAccent, onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('شجرة مهارات العصابة قريباً!', style: TextStyle(fontFamily: 'Changa'))));
+                  audio.playEffect('click.mp3');
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => GangSkillsView(gangName: player.gangName!)));
                 }),
                 _buildGridItem(icon: Icons.local_fire_department, title: 'الغارات', color: Colors.orangeAccent, onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الغارات المشتركة قريباً!', style: TextStyle(fontFamily: 'Changa'))));
                 }),
                 _buildGridItem(icon: Icons.shopping_cart, title: 'المتجر', color: Colors.amber, onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('متجر العصابة السري قريباً!', style: TextStyle(fontFamily: 'Changa'))));
+                  audio.playEffect('click.mp3');
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const GangStoreView()));
                 }),
                 _buildGridItem(icon: Icons.volunteer_activism, title: 'التبرع', color: Colors.greenAccent, onTap: () {
                   audio.playEffect('click.mp3');
