@@ -80,34 +80,44 @@ class _GangRaidsViewState extends State<GangRaidsView> {
     setState(() => _isExecuting = true);
     audio.playEffect('attack.mp3');
 
+    // خصم الموارد محلياً
     player.setEnergy(player.energy - raidEnergy);
     player.setCourage(player.courage - raidCourage);
+
+    BuildContext? loadingDialogContext;
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (c) => Center(
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(15), border: Border.all(color: raid['color'], width: 2)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: raid['color']),
-              const SizedBox(height: 15),
-              Text('جاري اقتحام [ ${raid['name']} ]... 🧨', style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 16, decoration: TextDecoration.none)),
-              const SizedBox(height: 5),
-              const Text('يتم تبادل إطلاق النار...', style: TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 12, decoration: TextDecoration.none)),
-            ],
+      builder: (c) {
+        loadingDialogContext = c;
+        return Center(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(15), border: Border.all(color: raid['color'], width: 2)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: raid['color']),
+                const SizedBox(height: 15),
+                Text('جاري اقتحام [ ${raid['name']} ]... 🧨', style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 16, decoration: TextDecoration.none)),
+                const SizedBox(height: 5),
+                const Text('يتم تبادل إطلاق النار...', style: TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 12, decoration: TextDecoration.none)),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     await Future.delayed(const Duration(seconds: 3));
 
     if (!mounted) return;
-    Navigator.pop(context);
+
+    // إغلاق نافذة التحميل بأمان تام
+    if (loadingDialogContext != null) {
+      Navigator.pop(loadingDialogContext!);
+    }
 
     int successChance = 50;
     if (_gangTotalPower >= raidReqPower) {
@@ -125,19 +135,21 @@ class _GangRaidsViewState extends State<GangRaidsView> {
       int gangCut = (raidReward * 0.1).toInt();
       player.contributeToGang(gangCut);
 
-      _showResultDialog('نصر كاسح! 🚩', 'نجحت الغارة وحطمنا دفاعاتهم. غنمنا \$${_formatWithCommas(raidReward)} كاش، وتم تحويل 10% منها لصندوق العصابة!', Colors.green);
+      // نمرر isLoss: false لأننا فزنا
+      _showResultDialog('نصر كاسح! 🚩', 'نجحت الغارة وحطمنا دفاعاتهم. غنمنا \$${_formatWithCommas(raidReward)} كاش، وتم تحويل 10% منها لصندوق العصابة!', Colors.green, isLoss: false);
     } else {
       audio.playEffect('attack.mp3');
       player.setHealth(0);
 
-      _showResultDialog('كمين محكم! 💀', 'كانت دفاعاتهم أقوى من المتوقع، تكبدنا خسائر فادحة وأنت الآن في المستشفى تتلقى العلاج.', Colors.redAccent);
+      // 🟢 التعديل الأهم: نمرر isLoss: true عشان نضمن الطرد للمستشفى بدون ما نعتمد على قراءة السيرفر
+      _showResultDialog('كمين محكم! 💀', 'كانت دفاعاتهم أقوى من المتوقع، تكبدنا خسائر فادحة وأنت الآن في المستشفى تتلقى العلاج.', Colors.redAccent, isLoss: true);
     }
 
     setState(() => _isExecuting = false);
   }
 
-  // 🟢 التعديل السحري هنا: فصلنا إغلاق الرسالة عن الطرد للمستشفى عشان يشتغل كل مرة 🟢
-  void _showResultDialog(String title, String message, Color color) {
+  // 🟢 استقبال حالة الخسارة مباشرة من الدالة بدل قراءتها من الـ Provider
+  void _showResultDialog(String title, String message, Color color, {required bool isLoss}) {
     showDialog(
         context: context,
         barrierDismissible: false,
@@ -152,17 +164,12 @@ class _GangRaidsViewState extends State<GangRaidsView> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: color),
                 onPressed: () {
-                  // 1. نقفل الرسالة المنبثقة أول شيء
+                  // 1. قفل الرسالة المنبثقة
                   Navigator.pop(c);
 
-                  // 2. نتأكد إذا الزعيم مات
-                  if (Provider.of<PlayerProvider>(context, listen: false).health <= 0) {
-                    // 3. نعطي فلاتر 100 ملي ثانية يستوعب إنه قفل الرسالة، بعدها نمسح الشاشات ونسحبه للمستشفى
-                    Future.delayed(const Duration(milliseconds: 100), () {
-                      if (mounted) {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                      }
-                    });
+                  // 2. الانتقال الفوري والمؤكد للخريطة/المستشفى لو كانت الغارة خاسرة
+                  if (isLoss) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
                   }
                 },
                 child: const Text('حسناً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
