@@ -7,12 +7,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'dart:io'; // 🟢 ضروري جداً لفحص الإنترنت الحقيقي
-import 'dart:async'; // 🟢 ضروري للمؤقت الزمني
+import 'dart:io';
+import 'dart:async';
 import 'firebase_options.dart';
 import 'screens/game_screen.dart';
 import 'providers/player_provider.dart';
 import 'providers/audio_provider.dart';
+import 'providers/market_provider.dart'; // 🟢 تم استدعاء ملف السوق الجديد
 
 // 🔥 تعريف الألوان الخاصة باللعبة هنا لسهولة الوصول إليها
 class GameColors {
@@ -36,6 +37,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => AudioProvider()),
+        ChangeNotifierProvider(create: (_) => MarketProvider()), // 🟢 تم تفعيل مزود السوق
       ],
       child: const MyGame(),
     ),
@@ -114,7 +116,6 @@ class GameBackgroundScaffold extends StatelessWidget {
   }
 }
 
-// 🟢 التحديث الجذري هنا: حارس الشبكة الصارم (Kill-Switch) 🟢
 class FirebaseInitWrapper extends StatefulWidget {
   const FirebaseInitWrapper({super.key});
 
@@ -127,13 +128,12 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
   bool _error = false;
   Timer? _networkTimer;
 
-  // دالة تفحص الإنترنت الحقيقي (مو بس الواي فاي شغال)
   Future<bool> _checkInternet() async {
     try {
       final result = await InternetAddress.lookup('google.com');
       return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
     } on SocketException catch (_) {
-      return false; // فشل الاتصال = مافي نت
+      return false;
     }
   }
 
@@ -143,49 +143,43 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
       _initialized = false;
     });
 
-    // 1. فحص النت أولاً قبل أي شيء
     bool hasInternet = await _checkInternet();
     if (!hasInternet) {
       setState(() => _error = true);
-      _startNetworkMonitoring(); // نشغل المراقب عشان يرجع يشبك لوحده
+      _startNetworkMonitoring();
       return;
     }
 
-    // 2. تهيئة فايربيس مع منع الكاش نهائياً
     try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
 
       FirebaseFirestore.instance.settings = const Settings(
-        persistenceEnabled: false, // تعطيل اللعب أوفلاين تماماً
+        persistenceEnabled: false,
       );
 
       setState(() {
         _initialized = true;
         _error = false;
       });
-      _startNetworkMonitoring(); // بدء المراقبة المستمرة
+      _startNetworkMonitoring();
     } catch (e) {
       debugPrint("Firebase initialization failed: $e");
       setState(() => _error = true);
     }
   }
 
-  // 🟢 المراقب الدائم: يشتغل كل 3 ثواني 🟢
   void _startNetworkMonitoring() {
     _networkTimer?.cancel();
     _networkTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       bool hasInternet = await _checkInternet();
       if (mounted) {
         if (!hasInternet && !_error) {
-          // إذا طفى النت فجأة، ارميه لشاشة الخطأ فوراً
           setState(() => _error = true);
         } else if (hasInternet && _error && _initialized) {
-          // إذا رجع النت وكان الفايربيس شغال، اخفي شاشة الخطأ
           setState(() => _error = false);
         } else if (hasInternet && _error && !_initialized) {
-          // إذا رجع النت وكان الفايربيس لسه ما اشتغل، شغله
           _initializeApp();
         }
       }
@@ -200,7 +194,7 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
 
   @override
   void dispose() {
-    _networkTimer?.cancel(); // إيقاف المراقب عند الخروج
+    _networkTimer?.cancel();
     super.dispose();
   }
 

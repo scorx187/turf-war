@@ -1,11 +1,14 @@
+// المسار: lib/views/inventory_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
+import '../utils/game_data.dart'; // 🟢 استدعاء مستودع البيانات
 
 class InventoryView extends StatelessWidget {
   const InventoryView({super.key});
 
-  // --- 🧠 مولد العتاد الذكي للمخزن (يسحب الأرقام الحقيقية) ---
+  // --- 🧠 مولد العتاد الذكي للمخزن (يسحب الأرقام من GameData) ---
   List<Map<String, dynamic>> _generateEquipment(PlayerProvider player) {
     List<Map<String, dynamic>> equipment = [];
     final rarities = [
@@ -36,13 +39,14 @@ class InventoryView extends StatelessWidget {
     for (var r in rarities) {
       for (var w in weaponTypes) {
         String itemId = 'w_${r['id']}_${w['id']}';
-        int strVal = ((player.weaponStats[itemId]?['str'] ?? 0.0) * 100).toInt();
-        int spdVal = ((player.weaponStats[itemId]?['spd'] ?? 0.0) * 100).toInt();
+        // 🟢 التعديل: سحب الأرقام من GameData
+        int strVal = ((GameData.weaponStats[itemId]?['str'] ?? 0.0) * 100).toInt();
+        int spdVal = ((GameData.weaponStats[itemId]?['spd'] ?? 0.0) * 100).toInt();
 
         equipment.add({
           'id': itemId,
           'name': '${w['name']} ${r['name']}',
-          'description': 'قوة: +$strVal%\nسرعة: +$spdVal%', // سطرين للوصف
+          'description': 'قوة: +$strVal%\nسرعة: +$spdVal%',
           'icon': w['icon'],
           'color': r['color'],
           'type': 'weapon',
@@ -50,13 +54,14 @@ class InventoryView extends StatelessWidget {
       }
       for (var a in armorTypes) {
         String itemId = 'a_${r['id']}_${a['id']}';
-        int defVal = ((player.armorStats[itemId]?['def'] ?? 0.0) * 100).toInt();
-        int sklVal = ((player.armorStats[itemId]?['skl'] ?? 0.0) * 100).toInt();
+        // 🟢 التعديل: سحب الأرقام من GameData
+        int defVal = ((GameData.armorStats[itemId]?['def'] ?? 0.0) * 100).toInt();
+        int sklVal = ((GameData.armorStats[itemId]?['skl'] ?? 0.0) * 100).toInt();
 
         equipment.add({
           'id': itemId,
           'name': '${a['name']} ${r['name']}',
-          'description': 'دفاع: +$defVal%\nمهارة: +$sklVal%', // سطرين للوصف
+          'description': 'دفاع: +$defVal%\nمهارة: +$sklVal%',
           'icon': a['icon'],
           'color': r['color'],
           'type': 'armor',
@@ -72,10 +77,8 @@ class InventoryView extends StatelessWidget {
 
     // --- قاعدة بيانات الأدوات الشاملة ---
     final List<Map<String, dynamic>> allPossibleItems = [
-      // 1. إضافة الـ 60 قطعة المدمجة مع الأرقام الحقيقية
       ..._generateEquipment(player),
 
-      // 2. الأسلحة والدروع القديمة
       {'id': 'dagger', 'name': 'خنجر كلاسيكي', 'description': 'قوة: +15%\nسرعة: +25%', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon'},
       {'id': 'revolver', 'name': 'مسدس كلاسيكي', 'description': 'قوة: +40%\nسرعة: +40%', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon'},
       {'id': 'katana', 'name': 'كاتانا كلاسيكي', 'description': 'قوة: +90%\nسرعة: +60%', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon'},
@@ -88,7 +91,6 @@ class InventoryView extends StatelessWidget {
       {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +190%', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor'},
       {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'دفاع: +175%\nمهارة: +175%', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor'},
 
-      // 3. عتاد الجرائم والمستهلكات
       {'id': 'black_mask', 'name': 'قناع أسود', 'description': '35% هرب من السجن', 'icon': Icons.theater_comedy, 'color': Colors.black, 'type': 'mask'},
       {'id': 'silicon_mask', 'name': 'قناع سيليكون', 'description': '55% هرب من السجن', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent, 'type': 'mask'},
       {'id': 'crowbar', 'name': 'عتلة فولاذية', 'description': 'تخفض فشل السطو 5%', 'icon': Icons.hardware, 'color': Colors.grey, 'type': 'crime_tool'},
@@ -115,7 +117,6 @@ class InventoryView extends StatelessWidget {
       {'id': 'smoke_bomb', 'name': 'قنبلة دخانية', 'description': 'هروب فوري من السجن', 'icon': Icons.air, 'color': Colors.grey, 'type': 'consumable'},
     ];
 
-    // تصفية العناصر بناءً على المخزن والتبويبات
     final weapons = allPossibleItems.where((item) => item['type'] == 'weapon' && player.inventory.containsKey(item['id'])).toList();
     final defense = allPossibleItems.where((item) => (item['type'] == 'armor' || item['type'] == 'mask') && player.inventory.containsKey(item['id'])).toList();
     final crimeTools = allPossibleItems.where((item) => item['type'] == 'crime_tool' && player.inventory.containsKey(item['id'])).toList();
@@ -310,10 +311,10 @@ class InventoryView extends StatelessWidget {
         title: const Text('تغيير اسم اللاعب 📛', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: TextField(
             controller: nameController,
-            maxLength: 14, // 🟢 حماية بطاقة تغيير الاسم
+            maxLength: 14,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
-                counterText: "", // 🟢 إخفاء العداد
+                counterText: "",
                 hintText: 'الاسم الجديد...',
                 hintStyle: TextStyle(color: Colors.white24)
             )

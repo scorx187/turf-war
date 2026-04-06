@@ -1,6 +1,9 @@
+// المسار: lib/views/black_market_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
+import '../utils/game_data.dart'; // 🟢 استدعاء مستودع البيانات
 import 'package:intl/intl.dart';
 
 class BlackMarketView extends StatelessWidget {
@@ -8,7 +11,7 @@ class BlackMarketView extends StatelessWidget {
 
   const BlackMarketView({super.key, required this.onBack});
 
-  // --- 🧠 مولد العتاد الذكي (يسحب الأرقام مباشرة من الـ Provider) ---
+  // --- 🧠 مولد العتاد الذكي (يسحب الأرقام من مستودع GameData) ---
   List<Map<String, dynamic>> _generateEquipment(PlayerProvider player) {
     List<Map<String, dynamic>> equipment = [];
     final rarities = [
@@ -39,14 +42,14 @@ class BlackMarketView extends StatelessWidget {
     for (var r in rarities) {
       for (var w in weaponTypes) {
         String itemId = 'w_${r['id']}_${w['id']}';
-        // جلب الأرقام الحقيقية وتحويلها لنسبة مئوية
-        int strVal = ((player.weaponStats[itemId]?['str'] ?? 0.0) * 100).toInt();
-        int spdVal = ((player.weaponStats[itemId]?['spd'] ?? 0.0) * 100).toInt();
+        // 🟢 التعديل: سحب الأرقام من GameData
+        int strVal = ((GameData.weaponStats[itemId]?['str'] ?? 0.0) * 100).toInt();
+        int spdVal = ((GameData.weaponStats[itemId]?['spd'] ?? 0.0) * 100).toInt();
 
         equipment.add({
           'id': itemId,
           'name': '${w['name']} ${r['name']}',
-          'description': 'قوة: +$strVal%\nسرعة: +$spdVal%', // سطرين للوصف
+          'description': 'قوة: +$strVal%\nسرعة: +$spdVal%',
           'price': r['price'],
           'currency': r['curr'],
           'icon': w['icon'],
@@ -57,14 +60,14 @@ class BlackMarketView extends StatelessWidget {
       }
       for (var a in armorTypes) {
         String itemId = 'a_${r['id']}_${a['id']}';
-        // جلب الأرقام الحقيقية وتحويلها لنسبة مئوية
-        int defVal = ((player.armorStats[itemId]?['def'] ?? 0.0) * 100).toInt();
-        int sklVal = ((player.armorStats[itemId]?['skl'] ?? 0.0) * 100).toInt();
+        // 🟢 التعديل: سحب الأرقام من GameData
+        int defVal = ((GameData.armorStats[itemId]?['def'] ?? 0.0) * 100).toInt();
+        int sklVal = ((GameData.armorStats[itemId]?['skl'] ?? 0.0) * 100).toInt();
 
         equipment.add({
           'id': itemId,
           'name': '${a['name']} ${r['name']}',
-          'description': 'دفاع: +$defVal%\nمهارة: +$sklVal%', // سطرين للوصف
+          'description': 'دفاع: +$defVal%\nمهارة: +$sklVal%',
           'price': r['price'],
           'currency': r['curr'],
           'icon': a['icon'],
@@ -83,24 +86,20 @@ class BlackMarketView extends StatelessWidget {
 
     // --- قائمة بضاعة المتجر الكاملة ---
     final List<Map<String, dynamic>> items = [
-      // 1. توليد العتاد الجديد تلقائياً مع تمرير player لجلب الأرقام
       ..._generateEquipment(player),
 
-      // 2. الأسلحة القديمة
       {'id': 'dagger', 'name': 'خنجر كلاسيكي', 'description': 'قوة: +15%\nسرعة: +25%', 'price': 1500, 'currency': 'cash', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon', 'isConsumable': false},
       {'id': 'revolver', 'name': 'مسدس كلاسيكي', 'description': 'قوة: +40%\nسرعة: +40%', 'price': 15000, 'currency': 'cash', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon', 'isConsumable': false},
       {'id': 'katana', 'name': 'كاتانا كلاسيكي', 'description': 'قوة: +90%\nسرعة: +60%', 'price': 85000, 'currency': 'cash', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon', 'isConsumable': false},
       {'id': 'shotgun', 'name': 'شوزن كلاسيكي', 'description': 'قوة: +190%\nسرعة: +60%', 'price': 250000, 'currency': 'cash', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon', 'isConsumable': false},
       {'id': 'sniper', 'name': 'قناصة كلاسيكية', 'description': 'قوة: +270%\nسرعة: +80%', 'price': 1200, 'currency': 'gold', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon', 'isConsumable': false},
 
-      // 3. الدروع القديمة
       {'id': 'riot_shield', 'name': 'درع شغب كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +20%', 'price': 3000, 'currency': 'cash', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor', 'isConsumable': false},
       {'id': 'kevlar_vest', 'name': 'سترة كلاسيكية', 'description': 'دفاع: +75%\nمهارة: +75%', 'price': 25000, 'currency': 'cash', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor', 'isConsumable': false},
       {'id': 'steel_armor', 'name': 'فولاذ كلاسيكي', 'description': 'دفاع: +190%\nمهارة: +60%', 'price': 120000, 'currency': 'cash', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor', 'isConsumable': false},
       {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +190%', 'price': 500000, 'currency': 'cash', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor', 'isConsumable': false},
       {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'دفاع: +175%\nمهارة: +175%', 'price': 2500, 'currency': 'gold', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor', 'isConsumable': false},
 
-      // 4. الأقنعة وعتاد الجرائم والمستهلكات
       {'id': 'black_mask', 'name': 'قناع أسود', 'description': 'مطلوب لسرقة السيارات ويهربك 35%', 'price': 15000, 'currency': 'cash', 'icon': Icons.theater_comedy, 'color': Colors.black, 'type': 'mask', 'isConsumable': false},
       {'id': 'silicon_mask', 'name': 'قناع سيليكون', 'description': 'مطلوب لسطو البنك ويهربك 55%', 'price': 120000, 'currency': 'cash', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent, 'type': 'mask', 'isConsumable': false},
       {'id': 'crowbar', 'name': 'عتلة فولاذية', 'description': 'تخفض فشل السطو 5%', 'price': 2500, 'currency': 'cash', 'icon': Icons.hardware, 'color': Colors.grey, 'type': 'crime_tool', 'isConsumable': false},

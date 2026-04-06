@@ -32,7 +32,7 @@ import '../views/friends_view.dart';
 import 'dart:async';
 import 'dart:math';
 
-// 🟢 دمجنا BottomNavBar هنا مباشرة عشان نتحكم بشكله إذا اللاعب بالمستشفى أو السجن 🟢
+// 🟢 النافبار السفلي الأساسي
 class BottomNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
@@ -294,7 +294,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           ],
         ),
       ),
-      bottomNavigationBar: (player.isInPrison || player.isHospitalized)
+
+      // 🟢 التعديل هنا: إخفاء النافبار الأساسي إذا كنت في شاشة العقارات 🟢
+      bottomNavigationBar: (_selectedIndex == 2 && _activeArea == 'العقارات')
+          ? null
+          : (player.isInPrison || player.isHospitalized)
           ? BottomNavBar(
         selectedIndex: _selectedIndex,
         isHospitalized: true,
@@ -338,7 +342,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildConditionalContent(PlayerProvider player) {
-    // 🟢 التعديل السحري هنا: حطينا الشات أول شيء عشان يغطي على السجن والمستشفى ويقدر اللاعب يفتحه! 🟢
     if (_selectedIndex == 1) return const ChatView();
     if (player.isInPrison) return const PrisonView();
     if (player.isHospitalized) return HospitalView(onBack: () => setState(() => _activeArea = 'الخريطة'));

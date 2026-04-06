@@ -1,6 +1,9 @@
+// المسار: lib/views/bank_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/market_provider.dart'; // 🟢 تم إضافة السوق هنا
 import 'package:intl/intl.dart';
 
 class BankView extends StatefulWidget {
@@ -47,6 +50,7 @@ class _BankViewState extends State<BankView> {
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
+    final market = Provider.of<MarketProvider>(context); // 🟢 جلب بيانات السوق
 
     return DefaultTabController(
       length: 4,
@@ -82,7 +86,7 @@ class _BankViewState extends State<BankView> {
                 _buildMainOperations(player),
                 _buildTransactionHistory(player),
                 _buildLoanSection(player),
-                _buildGoldMarket(player),
+                _buildGoldMarket(player, market), // 🟢 إرسال السوق لهذي الدالة
               ],
             ),
           ),
@@ -281,9 +285,10 @@ class _BankViewState extends State<BankView> {
     );
   }
 
-  Widget _buildGoldMarket(PlayerProvider player) {
-    bool isPriceUp = player.goldPrice >= player.oldGoldPrice;
-    int maxBuyable = (player.cash / player.goldPrice).floor();
+  // 🟢 دالة بورصة الذهب معدلة لتقرأ من MarketProvider
+  Widget _buildGoldMarket(PlayerProvider player, MarketProvider market) {
+    bool isPriceUp = market.goldPrice >= market.oldGoldPrice;
+    int maxBuyable = (player.cash / market.goldPrice).floor();
     int buyAmt = _goldBuySliderValue.toInt();
     int sellAmt = _goldSellSliderValue.toInt();
 
@@ -304,7 +309,7 @@ class _BankViewState extends State<BankView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('${player.goldPrice} كاش',
+                    Text('${market.goldPrice} كاش',
                         style: const TextStyle(color: Colors.amber, fontSize: 36, fontWeight: FontWeight.bold)),
                     Icon(
                       isPriceUp ? Icons.arrow_upward : Icons.arrow_downward,
@@ -314,7 +319,7 @@ class _BankViewState extends State<BankView> {
                   ],
                 ),
                 Text(
-                  'التغير: ${isPriceUp ? '+' : ''}${player.goldPrice - player.oldGoldPrice}',
+                  'التغير: ${isPriceUp ? '+' : ''}${market.goldPrice - market.oldGoldPrice}',
                   style: TextStyle(color: isPriceUp ? Colors.green : Colors.red, fontSize: 14),
                 ),
                 const Divider(color: Colors.white24),
@@ -338,12 +343,12 @@ class _BankViewState extends State<BankView> {
               if (v > maxBuyable) v = maxBuyable;
               setState(() => _goldBuySliderValue = v.toDouble());
             },
-            actionText: 'تكلفة: ${buyAmt * player.goldPrice}',
+            actionText: 'تكلفة: ${buyAmt * market.goldPrice}', // السعر من السوق
             infoText: 'سيتم الخصم من الكاش',
             buttonColor: Colors.amber.shade700,
             onPressed: () {
               if (buyAmt > 0) {
-                player.buyGold(buyAmt);
+                player.buyGold(buyAmt, market.goldPrice); // 🟢 إرسال السعر للدالة
                 setState(() { _goldBuySliderValue = 0; _goldBuyController.text = '0'; });
               }
             },
@@ -364,12 +369,12 @@ class _BankViewState extends State<BankView> {
               if (v > player.gold) v = player.gold;
               setState(() => _goldSellSliderValue = v.toDouble());
             },
-            actionText: 'عائد: ${sellAmt * player.goldPrice}',
+            actionText: 'عائد: ${sellAmt * market.goldPrice}', // السعر من السوق
             infoText: 'ستحصل على كاش فوري',
             buttonColor: Colors.orange.shade900,
             onPressed: () {
               if (sellAmt > 0) {
-                player.sellGold(sellAmt);
+                player.sellGold(sellAmt, market.goldPrice); // 🟢 إرسال السعر للدالة
                 setState(() { _goldSellSliderValue = 0; _goldSellController.text = '0'; });
               }
             },
@@ -387,19 +392,18 @@ class _BankViewState extends State<BankView> {
     int adminFee = (takeAmt * 0.05).floor();
     int netReceive = takeAmt - adminFee;
 
-    // [الدايموند 💎] معالجة حالة السداد بناءً على توقيت القرض
     bool canRepay = player.canRepayLoan();
     String repayInfoText = 'سداد الديون يزيد من سمعتك (+10)';
 
     if (!canRepay && player.loanTime != null) {
       final diff = DateTime.now().difference(player.loanTime!);
-      final int remSec = 300 - diff.inSeconds; // 5 دقائق = 300 ثانية
+      final int remSec = 300 - diff.inSeconds;
       if (remSec > 0) {
         int m = remSec ~/ 60;
         int s = remSec % 60;
         repayInfoText = 'يُسمح بالسداد بعد: $m:${s.toString().padLeft(2, '0')} ⏳';
       } else {
-        canRepay = true; // احتياطاً في حال اللوب تأخر
+        canRepay = true;
       }
     }
 
@@ -457,7 +461,6 @@ class _BankViewState extends State<BankView> {
               setState(() => _loanTakeSliderValue = v.toDouble());
             },
             actionText: 'استلام $netReceive',
-            // [تعديل] توضيح رسوم التأخير للاعب
             infoText: 'رسوم: $adminFee | غرامة تأخير: 10% كل ساعتين',
             buttonColor: Colors.redAccent,
             onPressed: () {
@@ -469,7 +472,6 @@ class _BankViewState extends State<BankView> {
           ),
           _buildBankActionCard(
             title: 'سداد القرض',
-            // [تعديل] تعطيل الشريط إذا كان لا يمكن السداد
             sliderValue: canRepay ? _loanRepaySliderValue : 0.0,
             maxValue: canRepay ? (player.cash < player.loanAmount ? player.cash : player.loanAmount).toDouble() : 0.0,
             controller: _loanRepayController,
@@ -486,10 +488,8 @@ class _BankViewState extends State<BankView> {
               setState(() => _loanRepaySliderValue = v.toDouble());
             },
             actionText: 'سداد $repayAmt',
-            // عرض رسالة المنع مع العداد
             infoText: repayInfoText,
             buttonColor: canRepay ? Colors.orange : Colors.grey,
-            // قفل الزر بالكامل إذا كان لا يمكن السداد
             onPressed: canRepay ? () {
               if (repayAmt > 0) {
                 player.repayLoan(repayAmt);
@@ -592,7 +592,6 @@ class _BankViewState extends State<BankView> {
                     max: safeMax,
                     divisions: safeMax.toInt() > 0 ? safeMax.toInt() : 1,
                     activeColor: buttonColor,
-                    // تعطيل السلايدر إذا كان الزر مقفولاً
                     onChanged: (maxValue > 0 && onPressed != null) ? onSliderChanged : null),
               ),
               SizedBox(
@@ -603,7 +602,6 @@ class _BankViewState extends State<BankView> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(8), border: OutlineInputBorder()),
-                  // تعطيل الإدخال إذا كان الزر مقفولاً
                   enabled: onPressed != null,
                   onChanged: onTextChanged,
                 ),

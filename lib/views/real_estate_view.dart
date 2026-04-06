@@ -2,102 +2,230 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
+import '../providers/market_provider.dart';
+import '../utils/game_data.dart'; // 🟢 القوائم تجي من هنا 🟢
+import 'player_profile_view.dart';
 
-class RealEstateView extends StatelessWidget {
+class RealEstateView extends StatefulWidget {
   final VoidCallback onBack;
-
   const RealEstateView({super.key, required this.onBack});
+
+  @override
+  State<RealEstateView> createState() => _RealEstateViewState();
+}
+
+class _RealEstateViewState extends State<RealEstateView> {
+  String _currentFilter = 'newest';
 
   String _formatNumber(int number) {
     return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
   }
 
+  Widget _moneyText(int amount, {double fontSize = 11, Color color = Colors.greenAccent, FontWeight fontWeight = FontWeight.bold}) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Text(
+        '\$${_formatNumber(amount)}',
+        style: TextStyle(color: color, fontSize: fontSize, fontWeight: fontWeight, fontFamily: 'Changa'),
+      ),
+    );
+  }
+
+  void _confirmAction(BuildContext context, String title, Widget contentWidget, VoidCallback onConfirm) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.black87,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
+        title: Text(title, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+        content: contentWidget,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
+            child: const Text('تأكيد', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showExplanationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.black87,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
+        title: const Text('شرح سوق العقارات ℹ️', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('🏠 عقارات سكنية:', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+              Text('تزيد من نسبة السعادة اللي تضاعف تدريبك بالنادي. تقدر تسكن فيها أو تعرضها للإيجار.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+              SizedBox(height: 10),
+              Text('🤝 سوق الإيجارات:', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+              Text('تقدر تستأجر عقار من لاعب ثاني لفترة محددة. إذا فسخت العقد قبل وقته (قانون المافيا: الفلوس ما ترجع!).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+              SizedBox(height: 10),
+              Text('🏢 مشاريع تجارية:', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+              Text('تدر عليك كاش تلقائي كل يوم. أسعارها تتأثر بحالة السوق العالمية (كل 6 ساعات).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('حسناً فهمت', style: TextStyle(color: Colors.amber))),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
+    final market = Provider.of<MarketProvider>(context);
     final audio = Provider.of<AudioProvider>(context, listen: false);
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: DefaultTabController(
-        length: 2,
-        child: Column(
-          children: [
-            Container(
-              color: Colors.black87,
-              padding: const EdgeInsets.only(top: 10),
-              child: Row(
-                children: [
-                  IconButton(icon: const Icon(Icons.arrow_forward_ios, color: Colors.white), onPressed: onBack),
-                  const Expanded(
-                    child: Text('سوق العقارات والمشاريع 🏙️', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                  ),
-                  const SizedBox(width: 48), // لموازنة العنوان
-                ],
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Column(
+            children: [
+              const SizedBox(height: 5),
+              const Center(
+                child: Text('إمبراطورية العقارات 🏙️', style: TextStyle(color: Colors.amber, fontSize: 22, fontWeight: FontWeight.bold)),
               ),
-            ),
-            Container(
-              color: Colors.black87,
-              child: const TabBar(
-                indicatorColor: Colors.amber,
-                labelColor: Colors.amber,
-                unselectedLabelColor: Colors.white54,
-                labelStyle: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 16),
-                tabs: [
-                  Tab(text: "عقارات سكنية 🏠", icon: Icon(Icons.holiday_village)),
-                  Tab(text: "مشاريع تجارية 🏢", icon: Icon(Icons.monetization_on)),
-                ],
-              ),
-            ),
 
-            // محتوى التبويبات
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildResidentialTab(player, audio),
-                  _buildCommercialTab(player, audio),
-                ],
+              Expanded(
+                child: DefaultTabController(
+                  length: 3,
+                  child: Column(
+                    children: [
+                      const TabBar(
+                        indicatorColor: Colors.amber,
+                        labelColor: Colors.amber,
+                        unselectedLabelColor: Colors.white54,
+                        tabs: [
+                          Tab(text: "عقاراتي"),
+                          Tab(text: "سوق الإيجارات"),
+                          Tab(text: "مشاريع تجارية"),
+                        ],
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _buildResidentialTab(context, player, audio),
+                            _buildRentalMarketTab(context, player, audio),
+                            _buildCommercialTab(context, player, market, audio),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+            ],
+          ),
+        ),
+      ),
+
+      bottomNavigationBar: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            image: const DecorationImage(
+              image: AssetImage('assets/images/ui/bottom_navbar_bg.png'),
+              fit: BoxFit.cover,
             ),
-          ],
+            border: const Border(
+              top: BorderSide(color: Color(0xFF856024), width: 2),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.8),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
+          child: SafeArea(
+            bottom: true,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    audio.playEffect('click.mp3');
+                    widget.onBack();
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24),
+                      SizedBox(height: 4),
+                      Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+
+                GestureDetector(
+                  onTap: () {
+                    audio.playEffect('click.mp3');
+                    _showExplanationDialog(context);
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.menu_book, color: Colors.white70, size: 24),
+                      SizedBox(height: 4),
+                      Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  // 🟢 التبويب الأول: العقارات السكنية (نظامك القديم الرهيب) 🟢
-  Widget _buildResidentialTab(PlayerProvider player, AudioProvider audio) {
-    final List<Map<String, dynamic>> properties = [
-      {'id': 'shack', 'name': 'غرفة بسيطة', 'description': 'بداية متواضعة جداً لأي طموح.', 'price': 5000, 'happiness': 2, 'icon': Icons.meeting_room, 'color': Colors.grey},
-      {'id': 'tent', 'name': 'خيمة بسيطة', 'description': 'بداية متواضعة، توفر لك الحد الأدنى من السعادة.', 'price': 50000, 'happiness': 5, 'icon': Icons.holiday_village_outlined, 'color': Colors.brown},
-      {'id': 'wooden_cabin', 'name': 'كوخ خشبي', 'description': 'كوخ ريفي هادئ بعيداً عن ضجيج المدينة.', 'price': 150000, 'happiness': 10, 'icon': Icons.home_outlined, 'color': Colors.orangeAccent},
-      {'id': 'apartment', 'name': 'شقة وسط المدينة', 'description': 'مريحة وعملية لنمط حياة المدن السريع.', 'price': 500000, 'happiness': 20, 'icon': Icons.apartment, 'color': Colors.blueGrey},
-      {'id': 'penthouse', 'name': 'بنتهاوس فاخر', 'description': 'شقة في أعلى ناطحة سحاب مع إطلالة خلابة.', 'price': 1500000, 'happiness': 35, 'icon': Icons.location_city, 'color': Colors.indigoAccent},
-      {'id': 'villa', 'name': 'فيلا حديثة', 'description': 'منزل واسع مع حديقة ومسابح، تزيد سعادتك بشكل ملحوظ.', 'price': 5000000, 'happiness': 50, 'icon': Icons.villa, 'color': Colors.teal},
-      {'id': 'beach_house', 'name': 'منزل شاطئي', 'description': 'استيقظ على صوت الأمواج ومنظر المحيط.', 'price': 12000000, 'happiness': 65, 'icon': Icons.beach_access, 'color': Colors.blue},
-      {'id': 'mansion', 'name': 'قصر ملكي', 'description': 'عنوان الفخامة والرقي، سكن العظماء والمشاهير.', 'price': 25000000, 'happiness': 80, 'icon': Icons.castle, 'color': Colors.purpleAccent},
-      {'id': 'private_estate', 'name': 'عزبة خاصة', 'description': 'مساحات شاسعة، خيول، وخصوصية تامة.', 'price': 45000000, 'happiness': 90, 'icon': Icons.landscape, 'color': Colors.green},
-      {'id': 'island', 'name': 'جزيرة خاصة', 'description': 'جنة على الأرض، أعلى مستويات السعادة والخصوصية.', 'price': 75000000, 'happiness': 100, 'icon': Icons.holiday_village, 'color': Colors.amber},
-      {'id': 'space_station', 'name': 'محطة فضائية', 'description': 'العيش خارج حدود الأرض، قمة الترف والمستقبل.', 'price': 250000000, 'happiness': 150, 'icon': Icons.rocket_launch, 'color': Colors.deepPurple},
-      {'id': 'mafia_empire', 'name': 'إمبراطورية الزعيم', 'description': 'المقر الرئيسي لأعظم زعيم في السيرفر. قوة، سيطرة، وسعادة لا نهائية!', 'price': 5000000000, 'happiness': 4000, 'icon': Icons.account_balance, 'color': Colors.redAccent},
-    ];
-
+  Widget _buildResidentialTab(BuildContext context, PlayerProvider player, AudioProvider audio) {
     return ListView.builder(
-      itemCount: properties.length,
+      itemCount: GameData.residentialProperties.length,
       padding: const EdgeInsets.all(16),
       itemBuilder: (context, index) {
-        final prop = properties[index];
+        final prop = GameData.residentialProperties[index];
         final bool isOwned = player.ownedProperties.contains(prop['id']);
-        final bool isActive = player.activePropertyId == prop['id'];
+        final bool isListed = player.listedProperties.contains(prop['id']);
+        final bool isRentedOut = player.rentedOutProperties.containsKey(prop['id']);
+
+        bool isActive = player.activePropertyId == prop['id'];
+        bool isActiveRented = player.activeRentedProperty != null && player.activeRentedProperty!['id'] == prop['id'];
 
         return Card(
           color: Colors.black45,
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-            side: BorderSide(color: isActive ? Colors.green : (isOwned ? Colors.blue : (prop['color'] as Color).withOpacity(0.3))),
+            side: BorderSide(
+              color: (isActive || isActiveRented) ? Colors.green : (isListed ? Colors.amber : (isOwned ? Colors.blue : (prop['color'] as Color).withOpacity(0.3))),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(12.0),
@@ -112,17 +240,18 @@ class RealEstateView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(prop['name'], style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-                      Text(prop['description'], style: const TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      Text(prop['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text(prop['description'], style: const TextStyle(color: Colors.white54, fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           const Icon(Icons.sentiment_very_satisfied, color: Colors.yellow, size: 14),
-                          Text(' سعادة: ${prop['happiness']}', style: const TextStyle(color: Colors.yellow, fontFamily: 'Changa', fontSize: 12)),
-                          if (!isOwned) ...[
+                          Text(' سعادة: ${prop['happiness']}', style: const TextStyle(color: Colors.yellow, fontSize: 11)),
+                          if (!isOwned && !isActiveRented) ...[
                             const SizedBox(width: 10),
                             const Icon(Icons.payments, color: Colors.green, size: 14),
-                            Text(' ${_formatNumber(prop['price'])}', style: const TextStyle(color: Colors.green, fontFamily: 'Changa', fontSize: 12)),
+                            const SizedBox(width: 4),
+                            _moneyText(prop['price']),
                           ]
                         ],
                       ),
@@ -130,7 +259,83 @@ class RealEstateView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                _buildPropertyAction(player, prop, isOwned, isActive, audio),
+
+                if (isActiveRented)
+                  Column(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerProfileView(targetUid: player.activeRentedProperty!['ownerId']))),
+                        child: Text('مؤجر من: ${player.activeRentedProperty!['ownerName'] ?? 'لاعب'} 👤', style: const TextStyle(color: Colors.blueAccent, fontSize: 10, decoration: TextDecoration.underline)),
+                      ),
+                      Text(DateFormat('MM-dd HH:mm').format(DateTime.parse(player.activeRentedProperty!['expire'])), style: const TextStyle(color: Colors.greenAccent, fontSize: 10)),
+                      const SizedBox(height: 4),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(60, 25)),
+                        onPressed: () {
+                          audio.playEffect('click.mp3');
+                          _confirmAction(context, 'فسخ العقد ⚠️', const Text('لن تسترد أي مبلغ دفعته! متأكد؟', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')), () { player.cancelRentedProperty(); });
+                        },
+                        child: const Text('فسخ العقد', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  )
+                else if (isActive)
+                  const Text('سكنك الحالي', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold))
+                else if (isRentedOut)
+                    Column(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            String renterId = player.rentedOutProperties[prop['id']]['renterId'] ?? '';
+                            if (renterId.isNotEmpty) Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerProfileView(targetUid: renterId)));
+                          },
+                          child: Text('مؤجر لـ: ${player.rentedOutProperties[prop['id']]['renterName'] ?? 'مجهول'} 👤', style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, decoration: TextDecoration.underline)),
+                        ),
+                        Text(DateFormat('MM-dd HH:mm').format(DateTime.parse(player.rentedOutProperties[prop['id']]['expire'])), style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                      ],
+                    )
+                  else if (isListed)
+                      Column(
+                        children: [
+                          const Text('معروض بالسوق', style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(60, 25)),
+                            onPressed: () {
+                              audio.playEffect('click.mp3');
+                              _confirmAction(context, 'سحب العقار', Text('سحب ${prop['name']} من السوق؟', style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')), () { player.cancelRentalListing(prop['id']); });
+                            },
+                            child: const Text('سحب العرض', style: TextStyle(fontSize: 10, color: Colors.white)),
+                          ),
+                        ],
+                      )
+                    else if (isOwned)
+                        Column(
+                          children: [
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(60, 25)),
+                              onPressed: () {
+                                audio.playEffect('click.mp3');
+                                _confirmAction(context, 'الانتقال للعقار', Text('السكن في ${prop['name']}؟', style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')), () { player.setActiveProperty(prop['id'], prop['happiness']); });
+                              },
+                              child: const Text('انتقال', style: TextStyle(fontSize: 10, color: Colors.white)),
+                            ),
+                            const SizedBox(height: 4),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(60, 25)),
+                              onPressed: () { audio.playEffect('click.mp3'); _showRentDialog(context, player, prop); },
+                              child: const Text('تأجير', style: TextStyle(fontSize: 9, color: Colors.black, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        )
+                      else
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: player.cash >= prop['price'] ? Colors.orange : Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(60, 30)),
+                          onPressed: player.cash >= prop['price'] ? () {
+                            audio.playEffect('click.mp3');
+                            _confirmAction(context, 'شراء عقار', Wrap(children: [Text('شراء ${prop['name']} بمبلغ ', style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')), _moneyText(prop['price'], color: Colors.amber, fontSize: 13)]), () { player.buyProperty(prop['id'], prop['price'], prop['happiness']); });
+                          } : null,
+                          child: const Text('شراء', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black)),
+                        )
               ],
             ),
           ),
@@ -139,89 +344,124 @@ class RealEstateView extends StatelessWidget {
     );
   }
 
-  Widget _buildPropertyAction(PlayerProvider player, Map<String, dynamic> prop, bool isOwned, bool isActive, AudioProvider audio) {
-    if (isActive) {
-      return const Text('سكنك الحالي', style: TextStyle(color: Colors.green, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold));
-    }
-    if (isOwned) {
-      return ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(60, 30)),
-        onPressed: () { audio.playEffect('click.mp3'); player.setActiveProperty(prop['id'], prop['happiness']); },
-        child: const Text('انتقال', style: TextStyle(fontSize: 12, fontFamily: 'Changa', color: Colors.white)),
-      );
-    }
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: player.cash >= prop['price'] ? Colors.orange : Colors.grey,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        minimumSize: const Size(60, 30),
-      ),
-      onPressed: player.cash >= prop['price'] ? () { audio.playEffect('click.mp3'); player.buyProperty(prop['id'], prop['price'], prop['happiness']); } : null,
-      child: const Text('شراء', style: TextStyle(fontSize: 12, fontFamily: 'Changa', fontWeight: FontWeight.bold, color: Colors.black)),
+  void _showRentDialog(BuildContext context, PlayerProvider player, Map<String, dynamic> prop) {
+    int dailyPrice = 50000;
+    int rentDays = 7;
+    showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+              builder: (context, setState) {
+                int totalPrice = dailyPrice * rentDays;
+                return AlertDialog(
+                  backgroundColor: Colors.black87,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
+                  title: Text('تأجير ${prop['name']} 🔑', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('سعر الإيجار اليومي (كاش):', style: TextStyle(color: Colors.white, fontSize: 14)),
+                        TextField(keyboardType: TextInputType.number, style: const TextStyle(color: Colors.greenAccent), decoration: const InputDecoration(hintText: '50000', hintStyle: TextStyle(color: Colors.white24)), onChanged: (val) { setState(() { dailyPrice = int.tryParse(val) ?? 0; }); }),
+                        const SizedBox(height: 20),
+                        Text('مدة الإيجار: $rentDays يوم', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                        Slider(value: rentDays.toDouble(), min: 1, max: 30, activeColor: Colors.amber, onChanged: (val) { setState(() { rentDays = val.toInt(); }); }),
+                        const Divider(color: Colors.white24),
+                        Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [const Text('إجمالي: ', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)), _moneyText(totalPrice, fontSize: 14)]),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                      onPressed: () {
+                        if (dailyPrice > 0) {
+                          Navigator.pop(context);
+                          _confirmAction(context, 'نشر الإعلان', const Text('متأكد من نشر العقار في السوق ليراه اللاعبين؟', style: TextStyle(color: Colors.white)), () {
+                            player.listPropertyForRent(prop['id'], dailyPrice, rentDays);
+                          });
+                        }
+                      },
+                      child: const Text('نشر في السوق', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                );
+              }
+          );
+        }
     );
   }
 
-  // 🟢 التبويب الثاني: المشاريع التجارية (الدخل السلبي) 🟢
-  Widget _buildCommercialTab(PlayerProvider player, AudioProvider audio) {
-    final List<Map<String, dynamic>> businesses = [
-      {'id': 'nightclub', 'name': 'ملهى ليلي', 'description': 'مشروع ترفيهي ممتاز لغسيل أموالك وكسب دخل ثابت.', 'basePrice': 250000, 'baseIncome': 250, 'icon': Icons.nightlife, 'color': Colors.purpleAccent},
-      {'id': 'weapons_factory', 'name': 'مصنع أسلحة', 'description': 'تصنيع وتوريد للمجرمين، أرباح خيالية وخطورة عالية.', 'basePrice': 1500000, 'baseIncome': 1200, 'icon': Icons.precision_manufacturing, 'color': Colors.grey},
-      {'id': 'money_laundering', 'name': 'شركة واجهة', 'description': 'شركة استيراد وتصدير كواجهة مثالية لأعمالك المشبوهة.', 'basePrice': 7500000, 'baseIncome': 5000, 'icon': Icons.local_shipping, 'color': Colors.blueAccent},
-      {'id': 'casino', 'name': 'كازينو المدينة', 'description': 'منجم ذهب حرفياً، يسحب أموال الناس لجيوبك بصمت.', 'basePrice': 40000000, 'baseIncome': 25000, 'icon': Icons.casino, 'color': Colors.amber},
-    ];
+  Widget _filterChip(String label, String code) {
+    bool isSel = _currentFilter == code;
+    return GestureDetector(
+      onTap: () => setState(() => _currentFilter = code),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(color: isSel ? Colors.amber : Colors.transparent, border: Border.all(color: Colors.amber), borderRadius: BorderRadius.circular(20)),
+        child: Text(label, style: TextStyle(color: isSel ? Colors.black : Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
 
-    int totalIncome = player.getTotalPassiveIncomePerMinute();
-
+  Widget _buildRentalMarketTab(BuildContext context, PlayerProvider player, AudioProvider audio) {
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          color: Colors.green.withOpacity(0.1),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              const Icon(Icons.account_balance_wallet, color: Colors.greenAccent),
-              const SizedBox(width: 8),
-              Text('إجمالي الأرباح التلقائية: \$${_formatNumber(totalIncome)} / دقيقة', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 14)),
+              _filterChip('الأحدث', 'newest'),
+              _filterChip('السعادة الأعلى', 'happy_desc'),
+              _filterChip('السعر الأعلى', 'price_desc'),
             ],
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            itemCount: businesses.length,
-            padding: const EdgeInsets.all(16),
-            itemBuilder: (context, index) {
-              final biz = businesses[index];
-              final String bizId = biz['id'];
-              final int currentLevel = player.ownedBusinesses[bizId] ?? 0;
-              final bool isOwned = currentLevel > 0;
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('property_rentals').snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Colors.amber));
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("لا توجد عقارات معروضة.", style: TextStyle(color: Colors.white54, fontSize: 16)));
 
-              final int basePrice = biz['basePrice'];
-              final int baseIncome = biz['baseIncome'];
+              var docs = snapshot.data!.docs.map((d) {
+                var map = d.data() as Map<String, dynamic>;
+                map['docId'] = d.id;
+                return map;
+              }).toList();
 
-              // تكلفة الترقية: السعر الأساسي * المستوى الحالي * 1.5
-              final int upgradeCost = isOwned ? (basePrice * currentLevel * 1.5).toInt() : basePrice;
-              final int currentIncome = baseIncome * currentLevel;
-              final int nextIncome = baseIncome * (currentLevel + 1);
+              if (_currentFilter == 'newest') {
+                docs.sort((a, b) => (b['timestamp'] as Timestamp?)?.compareTo(a['timestamp'] as Timestamp? ?? Timestamp.now()) ?? 0);
+              } else if (_currentFilter == 'happy_desc') {
+                docs.sort((a, b) {
+                  int hA = GameData.residentialProperties.firstWhere((p) => p['id'] == a['propertyId'], orElse: () => {'happiness': 0})['happiness'];
+                  int hB = GameData.residentialProperties.firstWhere((p) => p['id'] == b['propertyId'], orElse: () => {'happiness': 0})['happiness'];
+                  return hB.compareTo(hA);
+                });
+              } else if (_currentFilter == 'price_desc') {
+                docs.sort((a, b) => (b['dailyPrice'] as int).compareTo(a['dailyPrice'] as int));
+              }
 
-              return Card(
-                color: Colors.black45,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  side: BorderSide(color: isOwned ? (biz['color'] as Color).withOpacity(0.8) : Colors.white10, width: isOwned ? 2 : 1),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    children: [
-                      Row(
+              return ListView.builder(
+                itemCount: docs.length,
+                padding: const EdgeInsets.all(16),
+                itemBuilder: (context, index) {
+                  final listing = docs[index];
+                  final prop = GameData.residentialProperties.firstWhere((p) => p['id'] == listing['propertyId'], orElse: () => GameData.residentialProperties[0]);
+                  int totalPrice = listing['dailyPrice'] * listing['days'];
+                  bool isMyListing = listing['ownerId'] == player.uid;
+
+                  return Card(
+                    color: Colors.black45,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.amber.withOpacity(0.5))),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(color: (biz['color'] as Color).withOpacity(0.2), shape: BoxShape.circle),
-                            child: Icon(biz['icon'] as IconData, color: biz['color'], size: 28),
-                          ),
+                          CircleAvatar(backgroundColor: (prop['color'] as Color).withOpacity(0.2), child: Icon(prop['icon'] as IconData, color: prop['color'])),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -230,53 +470,147 @@ class RealEstateView extends StatelessWidget {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(biz['name'], style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 16)),
-                                    if (isOwned) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber)), child: Text('مستوى $currentLevel', style: const TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 11, fontWeight: FontWeight.bold))),
+                                    Text(prop['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    GestureDetector(
+                                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerProfileView(targetUid: listing['ownerId']))),
+                                      child: Text('المالك: ${listing['ownerName']} 👤', style: const TextStyle(color: Colors.blueAccent, fontSize: 10, decoration: TextDecoration.underline)),
+                                    ),
                                   ],
                                 ),
-                                Text(biz['description'], style: const TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 11)),
+                                const SizedBox(height: 4),
+                                Text('سعادة: +${prop['happiness']}', style: const TextStyle(color: Colors.yellow, fontSize: 11)),
+                                Row(children: [const Text('اليومي: ', style: TextStyle(color: Colors.greenAccent, fontSize: 11)), _moneyText(listing['dailyPrice'])]),
+                                Text('المدة: ${listing['days']} أيام', style: const TextStyle(color: Colors.blueAccent, fontSize: 11)),
                               ],
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          Column(
+                            children: [
+                              const Text('الإجمالي', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                              _moneyText(totalPrice, fontSize: 12),
+                              const SizedBox(height: 4),
+                              if (isMyListing) const Text('عقارك', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12))
+                              else ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: player.cash >= totalPrice ? Colors.amber : Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 10), minimumSize: const Size(60, 30)),
+                                onPressed: player.cash >= totalPrice ? () {
+                                  audio.playEffect('click.mp3');
+                                  _confirmAction(context, 'استئجار عقار', Wrap(children: [Text('استئجار ${prop['name']} بمبلغ ', style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')), _moneyText(totalPrice, color: Colors.amber, fontSize: 13)]), () { player.rentPropertyFromMarket(listing, prop['happiness']); });
+                                } : null,
+                                child: const Text('استئجار', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.black38, borderRadius: BorderRadius.circular(10)),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommercialTab(BuildContext context, PlayerProvider player, MarketProvider market, AudioProvider audio) {
+    int totalIncome = player.getTotalPassiveIncomePerDay();
+
+    double marketTrend = market.realEstateMultiplier;
+    double trendPercent = ((marketTrend - 1.0) * 100).abs();
+    bool isCollapsed = marketTrend < 1.0;
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          color: Colors.black38,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('إجمالي الأرباح:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  Row(children: [_moneyText(totalIncome, fontSize: 14), const Text(' / يوم', style: TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold))]),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('حالة السوق:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  Text(isCollapsed ? 'منهار بنسبة ${trendPercent.toStringAsFixed(1)}% 📉' : 'مرتفع بنسبة ${trendPercent.toStringAsFixed(1)}% 📈', style: TextStyle(color: isCollapsed ? Colors.red : Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: GameData.businessData.length,
+            padding: const EdgeInsets.all(16),
+            itemBuilder: (context, index) {
+              final biz = GameData.businessData[index];
+              final String bizId = biz['id'];
+              final int currentLevel = player.ownedBusinesses[bizId] ?? 0;
+              final bool isOwned = currentLevel > 0;
+              final bool isMax = currentLevel >= biz['maxLevel'];
+
+              final int basePrice = biz['basePrice'];
+              final int baseIncome = (GameData.businessBaseIncome[bizId] ?? 0) * 12;
+
+              final int originalCost = isOwned ? (basePrice * currentLevel * 1.5).toInt() : basePrice;
+              final int dynamicCost = (originalCost * marketTrend).toInt();
+
+              final int currentIncome = baseIncome * currentLevel;
+              final int nextIncome = baseIncome * (currentLevel + 1);
+
+              return Card(
+                color: Colors.black45,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: isOwned ? (biz['color'] as Color).withOpacity(0.5) : Colors.white10)),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      CircleAvatar(backgroundColor: (biz['color'] as Color).withOpacity(0.2), child: Icon(biz['icon'] as IconData, color: biz['color'])),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Row(
                               children: [
-                                Text(isOwned ? 'أرباحك الحالية:' : 'أرباح المستوى 1:', style: const TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 11)),
-                                Text('\$${_formatNumber(isOwned ? currentIncome : nextIncome)} / دقيقة', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 13)),
+                                Expanded(child: Text(biz['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                                if (isOwned) ...[
+                                  const SizedBox(width: 4),
+                                  Text(isMax ? '(MAX)' : '(مستوى $currentLevel / ${biz['maxLevel']})', style: TextStyle(color: isMax ? Colors.red : Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ]
                               ],
                             ),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: player.cash >= upgradeCost ? (isOwned ? Colors.blueAccent : Colors.orange) : Colors.grey,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              ),
-                              onPressed: player.cash >= upgradeCost ? () {
-                                audio.playEffect('click.mp3');
-                                if (isOwned) {
-                                  player.upgradeBusiness(bizId, upgradeCost);
-                                } else {
-                                  player.buyBusiness(bizId, upgradeCost);
-                                }
-                              } : null,
-                              icon: Icon(isOwned ? Icons.upgrade : Icons.shopping_cart, color: Colors.white, size: 16),
-                              label: Text(
-                                isOwned ? 'ترقية (\$${_formatNumber(upgradeCost)})' : 'شراء (\$${_formatNumber(upgradeCost)})',
-                                style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
-                            ),
+                            const SizedBox(height: 4),
+                            Row(children: [const Icon(Icons.monetization_on, color: Colors.greenAccent, size: 14), const SizedBox(width: 4), const Text('الدخل: ', style: TextStyle(color: Colors.greenAccent, fontSize: 11)), _moneyText(isOwned ? currentIncome : nextIncome), const Text('/يوم', style: TextStyle(color: Colors.greenAccent, fontSize: 11))]),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      Column(
+                        children: [
+                          if (!isMax) _moneyText(dynamicCost, color: isCollapsed ? Colors.green : Colors.red),
+                          const SizedBox(height: 4),
+                          isMax ? const Text('مكتمل', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)) : ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: player.cash >= dynamicCost ? (isOwned ? Colors.blue : Colors.orange) : Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(60, 30)),
+                            onPressed: player.cash >= dynamicCost ? () {
+                              audio.playEffect('click.mp3');
+                              _confirmAction(context, isOwned ? 'ترقية المشروع' : 'شراء مشروع', Wrap(children: [Text(isOwned ? 'ترقية ${biz['name']} بمبلغ ' : 'شراء ${biz['name']} بمبلغ ', style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')), _moneyText(dynamicCost, color: Colors.amber, fontSize: 13)]), () {
+                                if (isOwned) player.upgradeBusiness(bizId, dynamicCost); else player.buyBusiness(bizId, dynamicCost);
+                              });
+                            } : null,
+                            child: Text(isOwned ? 'ترقية' : 'شراء', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                          ),
+                        ],
+                      )
                     ],
                   ),
                 ),
