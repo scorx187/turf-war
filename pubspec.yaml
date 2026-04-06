@@ -18,6 +18,8 @@ dependencies:
   google_sign_in: ^6.2.1
   cloud_firestore: ^6.2.0
   image_picker: ^1.2.1
+  firebase_storage: ^12.3.6 # 🟢 الإضافة الأولى: رفع الصور
+  cached_network_image: ^3.4.1 # 🟢 الإضافة الثانية: الذاكرة المؤقتة للصور
 
 dev_dependencies:
   flutter_test:
