@@ -29,7 +29,13 @@ class ChatView extends StatelessWidget {
       views.add(const _ChatListWidget(collectionPath: 'hospital_chat', isGlobal: false, isHospital: true));
     }
 
-    // إذا ما عنده إلا الشات العام (مو بعصابة ومو مريض) نعرضه مباشرة بدون تبويبات
+    // 🟢 التعديل هنا: إضافة تبويب شات السجن 🟢
+    if (player.isInPrison) {
+      tabs.add(const Tab(text: "السجن 🚷"));
+      views.add(const _ChatListWidget(collectionPath: 'prison_chat', isGlobal: false, isPrison: true));
+    }
+
+    // إذا ما عنده إلا الشات العام نعرضه مباشرة بدون تبويبات
     if (tabs.length == 1) {
       return views.first;
     }
@@ -44,7 +50,7 @@ class ChatView extends StatelessWidget {
             Container(
               color: Colors.black87,
               child: TabBar(
-                  isScrollable: true, // عشان لو زادت التبويبات ما تنضغط
+                  isScrollable: true,
                   indicatorColor: Colors.amber,
                   labelColor: Colors.amber,
                   unselectedLabelColor: Colors.white54,
@@ -65,9 +71,15 @@ class ChatView extends StatelessWidget {
 class _ChatListWidget extends StatefulWidget {
   final String collectionPath;
   final bool isGlobal;
-  final bool isHospital; // 🟢 متغير جديد لتخصيص لون شات المستشفى
+  final bool isHospital;
+  final bool isPrison; // 🟢 متغير للسجن
 
-  const _ChatListWidget({required this.collectionPath, required this.isGlobal, this.isHospital = false});
+  const _ChatListWidget({
+    required this.collectionPath,
+    required this.isGlobal,
+    this.isHospital = false,
+    this.isPrison = false,
+  });
 
   @override
   State<_ChatListWidget> createState() => _ChatListWidgetState();
@@ -236,13 +248,20 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
               decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), border: const Border(bottom: BorderSide(color: Colors.redAccent))),
               child: const Text('شات العناية المركزة 🏥', style: TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Changa'), textAlign: TextAlign.center)
           )
-        else
-          Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              width: double.infinity,
-              decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), border: const Border(bottom: BorderSide(color: Colors.orangeAccent))),
-              child: const Text('المحادثات سرية ومشفرة 🔒', style: TextStyle(color: Colors.orangeAccent, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Changa'), textAlign: TextAlign.center)
-          ),
+        else if (widget.isPrison)
+            Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                width: double.infinity,
+                decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), border: const Border(bottom: BorderSide(color: Colors.grey))),
+                child: const Text('زنزانة السجن المركزي 🚷', style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Changa'), textAlign: TextAlign.center)
+            )
+          else
+            Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                width: double.infinity,
+                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), border: const Border(bottom: BorderSide(color: Colors.orangeAccent))),
+                child: const Text('المحادثات سرية ومشفرة 🔒', style: TextStyle(color: Colors.orangeAccent, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Changa'), textAlign: TextAlign.center)
+            ),
 
         if (widget.isGlobal && _cachedAdminMsg != null)
           Container(
@@ -296,10 +315,10 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                   final String senderName = msg['user'] ?? 'مجهول';
                   final String? picUrl = msg['profilePicUrl'];
 
-                  // 🟢 تلوين فقاعة الرسالة حسب نوع الشات 🟢
                   Color bubbleColor = isMe ? const Color(0xFF1B3B2B) : const Color(0xFF28282B);
                   if (widget.isHospital && isMe) bubbleColor = Colors.red.withOpacity(0.3);
-                  else if (!widget.isGlobal && !widget.isHospital && isMe) bubbleColor = Colors.orange.withOpacity(0.3);
+                  else if (widget.isPrison && isMe) bubbleColor = Colors.grey.withOpacity(0.3);
+                  else if (!widget.isGlobal && !widget.isHospital && !widget.isPrison && isMe) bubbleColor = Colors.orange.withOpacity(0.3);
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -319,14 +338,14 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                                 children: [
                                   Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                    child: Text(isMe ? 'أنت' : senderName, style: TextStyle(color: isMe ? (widget.isGlobal ? Colors.greenAccent : (widget.isHospital ? Colors.redAccent : Colors.orangeAccent)) : (isVIP ? Colors.amber : Colors.white54), fontWeight: FontWeight.bold, fontSize: 11)),
+                                    child: Text(isMe ? 'أنت' : senderName, style: TextStyle(color: isMe ? (widget.isGlobal ? Colors.greenAccent : (widget.isHospital ? Colors.redAccent : (widget.isPrison ? Colors.grey : Colors.orangeAccent))) : (isVIP ? Colors.amber : Colors.white54), fontWeight: FontWeight.bold, fontSize: 11)),
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                     decoration: BoxDecoration(
                                       color: bubbleColor,
                                       borderRadius: BorderRadius.only(topLeft: const Radius.circular(12), topRight: const Radius.circular(12), bottomLeft: isMe ? const Radius.circular(12) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(12)),
-                                      border: Border.all(color: isMe ? (widget.isGlobal ? Colors.green.withOpacity(0.2) : (widget.isHospital ? Colors.redAccent.withOpacity(0.4) : Colors.orangeAccent.withOpacity(0.4))) : Colors.white10, width: 0.5),
+                                      border: Border.all(color: isMe ? (widget.isGlobal ? Colors.green.withOpacity(0.2) : (widget.isHospital ? Colors.redAccent.withOpacity(0.4) : (widget.isPrison ? Colors.grey.withOpacity(0.4) : Colors.orangeAccent.withOpacity(0.4)))) : Colors.white10, width: 0.5),
                                     ),
                                     child: Text(msg['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.2)),
                                   ),
@@ -359,7 +378,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         onSubmitted: (_) => _sendMessage(),
                         decoration: InputDecoration(
-                            hintText: widget.isHospital ? 'فضفض للمرضى...' : (widget.isGlobal ? 'اكتب رسالة للجميع...' : 'رسالة سرية لأفراد العصابة...'),
+                            hintText: widget.isHospital ? 'فضفض للمرضى...' : (widget.isPrison ? 'سوالف مساجين...' : (widget.isGlobal ? 'اكتب رسالة للجميع...' : 'رسالة سرية...')),
                             hintStyle: const TextStyle(color: Colors.white30, fontSize: 13, fontFamily: 'Changa'),
                             filled: true,
                             fillColor: Colors.black45,
@@ -372,7 +391,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
               const SizedBox(width: 10),
               GestureDetector(
                   onTap: _sendMessage,
-                  child: CircleAvatar(radius: 20, backgroundColor: widget.isHospital ? Colors.redAccent : (widget.isGlobal ? Colors.amber : Colors.orangeAccent), child: const Icon(Icons.send, color: Colors.black, size: 18))
+                  child: CircleAvatar(radius: 20, backgroundColor: widget.isHospital ? Colors.redAccent : (widget.isPrison ? Colors.grey : (widget.isGlobal ? Colors.amber : Colors.orangeAccent)), child: const Icon(Icons.send, color: Colors.black, size: 18))
               ),
             ],
           ),
@@ -385,9 +404,8 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
     final playerProv = Provider.of<PlayerProvider>(context, listen: false);
     final imageBytes = playerProv.getDecodedImage(picUrl);
 
-    // بالمستشفى نغير شكل أفاتار الخصوم لشكل مريض
     Widget avatarChild = imageBytes == null
-        ? Icon(widget.isHospital ? Icons.sick : (isVIP ? Icons.workspace_premium : Icons.person), color: widget.isHospital ? Colors.redAccent : (isVIP ? Colors.amber : Colors.white54), size: 18)
+        ? Icon(widget.isHospital ? Icons.sick : (widget.isPrison ? Icons.lock : (isVIP ? Icons.workspace_premium : Icons.person)), color: widget.isHospital ? Colors.redAccent : (widget.isPrison ? Colors.grey : (isVIP ? Colors.amber : Colors.white54)), size: 18)
         : const SizedBox.shrink();
 
     return GestureDetector(

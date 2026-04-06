@@ -32,11 +32,11 @@ import '../views/friends_view.dart';
 import 'dart:async';
 import 'dart:math';
 
-// 🟢 دمجنا BottomNavBar هنا مباشرة عشان نتحكم بشكله إذا اللاعب بالمستشفى 🟢
+// 🟢 دمجنا BottomNavBar هنا مباشرة عشان نتحكم بشكله إذا اللاعب بالمستشفى أو السجن 🟢
 class BottomNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
-  final bool isHospitalized; // متغير لمعرفة إذا اللاعب مريض
+  final bool isHospitalized;
 
   const BottomNavBar({
     super.key,
@@ -65,14 +65,12 @@ class BottomNavBar extends StatelessWidget {
       child: SafeArea(
         bottom: true,
         child: Directionality(
-          textDirection: TextDirection.rtl, // لضمان اليمين واليسار
+          textDirection: TextDirection.rtl,
           child: Row(
-            // 🟢 إذا كان مريض، نخلي الزر يمين (start)، وإذا سليم نوزعهم بالتساوي 🟢
             mainAxisAlignment: isHospitalized ? MainAxisAlignment.start : MainAxisAlignment.spaceEvenly,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: isHospitalized
                 ? [
-              // زر الشات فقط ويكون على اليمين مع شوي بادينج
               Padding(
                 padding: const EdgeInsets.only(right: 30.0),
                 child: _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
@@ -296,9 +294,17 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           ],
         ),
       ),
-      // 🟢 إذا اللاعب بالسجن نلغي النافبار، إذا بالمستشفى نعرض نسخة المستشفى 🟢
-      bottomNavigationBar: player.isInPrison
-          ? const SizedBox.shrink()
+      bottomNavigationBar: (player.isInPrison || player.isHospitalized)
+          ? BottomNavBar(
+        selectedIndex: _selectedIndex,
+        isHospitalized: true,
+        onItemTapped: (index) {
+          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+          if (index == 1) {
+            setState(() => _selectedIndex = _selectedIndex == 1 ? 2 : 1);
+          }
+        },
+      )
           : (_selectedIndex == 5 && !player.isHospitalized
           ? BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -318,17 +324,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       )
           : BottomNavBar(
         selectedIndex: _selectedIndex,
-        isHospitalized: player.isHospitalized, // نرسل حالة المريض
+        isHospitalized: player.isHospitalized,
         onItemTapped: (index) {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-
-          if (player.isHospitalized) {
-            // لو كان بالمستشفى وضغط زر الشات (index 1)، نبدل بين المستشفى والشات
-            if (index == 1) {
-              setState(() => _selectedIndex = _selectedIndex == 1 ? 2 : 1);
-            }
-            return;
-          }
 
           setState(() {
             _selectedIndex = index;
@@ -340,9 +338,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildConditionalContent(PlayerProvider player) {
-    if (player.isInPrison) return PrisonView(prisonReleaseTime: player.prisonReleaseTime, cash: player.cash, onBailPaid: () { player.payBail(); });
-    // 🟢 الشات يقدر يفتحه حتى لو كان مريض! 🟢
+    // 🟢 التعديل السحري هنا: حطينا الشات أول شيء عشان يغطي على السجن والمستشفى ويقدر اللاعب يفتحه! 🟢
     if (_selectedIndex == 1) return const ChatView();
+    if (player.isInPrison) return const PrisonView();
     if (player.isHospitalized) return HospitalView(onBack: () => setState(() => _activeArea = 'الخريطة'));
 
     return _buildMainContent(player);
@@ -365,10 +363,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             }
           }
         },
-        onFailure: () {
+        onFailure: (minutes, crimeName, bailCost) {
           final audio = Provider.of<AudioProvider>(context, listen: false);
           audio.playEffect('click.mp3');
-          player.handleCrimeFailure(2);
+          player.handleCrimeFailure(minutes, crimeName, bailCost);
         },
       );
     }
@@ -388,6 +386,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
     if (_activeArea == 'المطار') return AirportView(gold: player.gold, onTravel: (cost) => player.removeGold(cost), onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'البنك') return BankView(onBack: () => setState(() => _activeArea = 'الخريطة'));
+    if (_activeArea == 'السجن') return PrisonView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'عجلة الحظ') return LuckyWheelView(cash: player.cash, maxEnergy: player.maxEnergy, maxCourage: player.maxCourage, onCashChanged: (val) => val > 0 ? player.addCash(val, reason: "عجلة الحظ") : player.removeCash(val.abs(), reason: "خسارة عجلة حظ"), onGoldChanged: (val) => player.addGold(val), onEnergyChanged: (val) => player.setEnergy(val), onCourageChanged: (val) => player.setCourage(val), onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'المستشفى') return HospitalView(onBack: () => setState(() => _activeArea = 'الخريطة'));
     if (_activeArea == 'المتجر الأسود') return BlackMarketView(onBack: () => setState(() => _activeArea = 'الخريطة'));

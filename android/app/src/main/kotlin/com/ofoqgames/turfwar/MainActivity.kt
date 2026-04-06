@@ -1,4 +1,4 @@
-package com.example.first_app
+package com.ofoqgames.turfwar
 
 import io.flutter.embedding.android.FlutterActivity
 

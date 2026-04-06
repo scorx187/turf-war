@@ -10,7 +10,8 @@ import '../utils/crime_data.dart';
 class CrimeView extends StatefulWidget {
   final int courage;
   final Function(int reward, String crimeId, int energyUsed) onSuccess;
-  final VoidCallback onFailure;
+  // 🟢 التعديل هنا: دالة الفشل صارت تستقبل الوقت، اسم الجريمة، وقيمة الكفالة
+  final Function(int minutes, String crimeName, int bailCost) onFailure;
 
   const CrimeView({
     super.key,
@@ -214,7 +215,6 @@ class _CrimeViewState extends State<CrimeView> {
                       Icon(category['icon'], color: isCrimeUnlocked ? Colors.white : Colors.white24, size: 20),
                     ],
                   ),
-                  // 👇 هنا التعديل: شلنا الـ maxLines والـ overflow عشان تطلع الكلمة كاملة وتنزل سطر اذا احتجت
                   title: Text(
                     crime['name'],
                     style: TextStyle(fontFamily: 'Changa', color: isCrimeUnlocked ? Colors.white : Colors.white30, fontSize: 14, fontWeight: FontWeight.bold),
@@ -324,7 +324,12 @@ class _CrimeViewState extends State<CrimeView> {
 
     if (_random.nextDouble() < finalFailChance) {
       player.increaseHeat(crime['heat'] * 1.5);
-      widget.onFailure();
+
+      // 🟢 حساب الدقائق والتكلفة بناءً على صعوبة الجريمة (الشجاعة)
+      int prisonMinutes = 2 + (reqCourage * 2);
+      int bailCost = 500 + (reqCourage * 600);
+
+      widget.onFailure(prisonMinutes, crime['name'], bailCost);
     } else {
       player.increaseHeat(crime['heat']);
 
