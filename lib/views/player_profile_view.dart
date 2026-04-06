@@ -10,7 +10,7 @@ import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import 'private_chat_view.dart';
 import 'pvp_battle_view.dart';
-import 'public_gang_profile_view.dart'; // 🟢 تم استدعاء الواجهة الجديدة للعصابة 🟢
+import 'public_gang_profile_view.dart';
 
 class PlayerProfileView extends StatefulWidget {
   final String targetUid;
@@ -47,6 +47,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
     if (isMe) {
       playerData = {
+        'uid': player.uid,
         'playerName': player.playerName,
         'gameId': player.gameId,
         'profilePicUrl': player.profilePicUrl,
@@ -151,10 +152,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         ],
       ),
     );
-  }
-
-  void _showResetConfirmation(PlayerProvider player) {
-    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: Colors.grey[900], title: const Text("تحذير نهائي ⚠️", style: TextStyle(color: Colors.white), textAlign: TextAlign.right), content: const Text("هل أنت متأكد من مسح كافة بياناتك؟ لا يمكن التراجع.", style: TextStyle(color: Colors.white70), textAlign: TextAlign.right), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("إلغاء", style: TextStyle(color: Colors.blue))), TextButton(onPressed: () { player.resetPlayerData(); Navigator.pop(context); }, child: const Text("نعم، امسح كل شيء", style: TextStyle(color: Colors.red)))]));
   }
 
   void _showTransferDialog(PlayerProvider player) {
@@ -378,12 +375,40 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     );
   }
 
+  void _showExplanationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.black87,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
+        title: const Text('شرح ملف الزعيم ℹ️', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('👤 هويتك الإجرامية:', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+              Text('هنا تظهر هيبتك أمام باقي اللاعبين. اختر صورتك ووصفك بعناية لترهب خصومك.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+              SizedBox(height: 10),
+              Text('🌟 الامتيازات (شجرة المهارات):', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+              Text('قريباً.. ستتمكن من صرف نقاط الإجرام لفتح مهارات خاصة (مثل خصم المتجر، أو تقليل وقت السجن).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+              SizedBox(height: 10),
+              Text('⚔️ الإحصائيات القتالية:', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+              Text('نقاط قوتك وسرعتك تظهر هنا فقط لك. أعداؤك لن يروا قوتك الحقيقية حتى يواجهوك!', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+            ],
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('حسناً فهمت', style: TextStyle(color: Colors.amber)))],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
     final audio = Provider.of<AudioProvider>(context);
 
-    if (playerData == null) return const Center(child: CircularProgressIndicator(color: Colors.amber));
+    if (playerData == null) return const Scaffold(backgroundColor: Colors.black, body: Center(child: CircularProgressIndicator(color: Colors.amber)));
 
     bool isMe = widget.targetUid == player.uid;
     bool isVIP = playerData!['isVIP'] == true;
@@ -395,7 +420,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     if (isMe) {
       isOnline = true;
     } else if (playerData!['lastUpdate'] != null) {
-      DateTime lastUpdate = (playerData!['lastUpdate'] as Timestamp).toDate();
+      DateTime lastUpdate = (playerData!['lastUpdate'] is Timestamp) ? (playerData!['lastUpdate'] as Timestamp).toDate() : DateTime.parse(playerData!['lastUpdate'].toString());
       if (DateTime.now().difference(lastUpdate).inMinutes < 5) isOnline = true;
     }
 
@@ -420,190 +445,212 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       locBorder = Colors.grey.withOpacity(0.4);
     }
 
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Text(isMe ? 'ملف الزعيم 👑' : 'الملف الإجرامي 🕵️‍♂️', style: const TextStyle(color: Colors.amber, fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
 
-          // 1. الترويسة
-          GestureDetector(
-            onLongPress: isMe ? () => _pickBackgroundImage(player) : null,
-            child: Directionality(
-              textDirection: TextDirection.rtl,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 15),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-                decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(20), border: Border.all(color: isVIP ? Colors.amber.withOpacity(0.4) : Colors.white10), image: backgroundPicData != null ? DecorationImage(image: MemoryImage(backgroundPicData), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.darken)) : null),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: isMe ? () => _pickImage(player) : null,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF212121), shape: BoxShape.circle, border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null, boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)]), child: CircleAvatar(radius: 40, backgroundColor: Colors.grey[800], backgroundImage: profilePicData != null ? MemoryImage(profilePicData) : null, child: profilePicData == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54) : null)),
-                          Positioned(bottom: 0, right: 0, child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Color(0xFF1A1A1D), shape: BoxShape.circle), child: CircleAvatar(radius: 7, backgroundColor: isOnline ? Colors.greenAccent : Colors.redAccent))),
-                          if (isMe) const Positioned(top: 0, left: 0, child: CircleAvatar(radius: 12, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 14, color: Colors.black)))
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 24), if (isVIP) const SizedBox(width: 5), Flexible(child: Text(playerData!['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]), overflow: TextOverflow.ellipsis))]),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8, runSpacing: 8,
+              // 1. الترويسة
+              GestureDetector(
+                onLongPress: isMe ? () => _pickBackgroundImage(player) : null,
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 15),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+                    decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(20), border: Border.all(color: isVIP ? Colors.amber.withOpacity(0.4) : Colors.white10), image: backgroundPicData != null ? DecorationImage(image: MemoryImage(backgroundPicData), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.darken)) : null),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: isMe ? () => _pickImage(player) : null,
+                          child: Stack(
+                            clipBehavior: Clip.none,
                             children: [
-                              // 🟢 التعديل السحري: جعل صندوق اسم العصابة قابل للضغط 🟢
-                              GestureDetector(
-                                onTap: () {
-                                  if (playerData!['gangName'] != null) {
-                                    audio.playEffect('click.mp3');
-                                    Navigator.push(context, MaterialPageRoute(builder: (_) => PublicGangProfileView(gangName: playerData!['gangName'])));
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withOpacity(0.5))),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                                      if (playerData!['gangName'] != null) const SizedBox(width: 4),
-                                      if (playerData!['gangName'] != null) const Icon(Icons.touch_app, color: Colors.orangeAccent, size: 12),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withOpacity(0.4))), child: Text('ID: ${playerData!['gameId'] ?? '------'}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1))),
-                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: locBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: locBorder)), child: Text(locationText, style: TextStyle(color: locColor, fontSize: 12, fontWeight: FontWeight.bold))),
+                              Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF212121), shape: BoxShape.circle, border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null, boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)]), child: CircleAvatar(radius: 40, backgroundColor: Colors.grey[800], backgroundImage: profilePicData != null ? MemoryImage(profilePicData) : null, child: profilePicData == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54) : null)),
+                              Positioned(bottom: 0, right: 0, child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Color(0xFF1A1A1D), shape: BoxShape.circle), child: CircleAvatar(radius: 7, backgroundColor: isOnline ? Colors.greenAccent : Colors.redAccent))),
+                              if (isMe) const Positioned(top: 0, left: 0, child: CircleAvatar(radius: 12, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 14, color: Colors.black)))
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 24), if (isVIP) const SizedBox(width: 5), Flexible(child: Text(playerData!['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]), overflow: TextOverflow.ellipsis))]),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8, runSpacing: 8,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (playerData!['gangName'] != null) {
+                                        audio.playEffect('click.mp3');
+                                        Navigator.push(context, MaterialPageRoute(builder: (_) => PublicGangProfileView(gangName: playerData!['gangName'])));
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      decoration: BoxDecoration(color: Colors.orange.withOpacity(0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withOpacity(0.5))),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                          if (playerData!['gangName'] != null) const SizedBox(width: 4),
+                                          if (playerData!['gangName'] != null) const Icon(Icons.touch_app, color: Colors.orangeAccent, size: 12),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withOpacity(0.4))), child: Text('ID: ${playerData!['gameId'] ?? '------'}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1))),
+                                  Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: locBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: locBorder)), child: Text(locationText, style: TextStyle(color: locColor, fontSize: 12, fontWeight: FontWeight.bold))),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                    decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withOpacity(0.4))),
+                                    child: Text('السكن: ${isMe ? player.currentResidenceName : (playerData!['activePropertyId'] != null ? 'عقار خاص' : 'غير معروف')}', style: const TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isMe) GestureDetector(onTap: () => _pickBackgroundImage(player), child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle, border: Border.all(color: Colors.white24)), child: const Icon(Icons.wallpaper, color: Colors.white, size: 18))),
+                      ],
                     ),
-                    if (isMe) GestureDetector(onTap: () => _pickBackgroundImage(player), child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle, border: Border.all(color: Colors.white24)), child: const Icon(Icons.wallpaper, color: Colors.white, size: 18))),
-                  ],
+                  ),
                 ),
               ),
+              const SizedBox(height: 15),
+
+              // 2. البايو
+              GestureDetector(
+                onTap: isMe ? () => _editBio(player) : null,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.all(15),
+                  width: double.infinity,
+                  decoration: BoxDecoration(color: isMe ? Colors.white.withOpacity(0.05) : Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: isMe ? Colors.amber.withOpacity(0.3) : Colors.white10)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [if (isMe) const Icon(Icons.edit, color: Colors.amber, size: 16), if (isMe) const SizedBox(width: 5), const Text('البايو (الوصف):', style: TextStyle(color: Colors.white54, fontSize: 12))]),
+                      const SizedBox(height: 10),
+                      Text(playerData!['bio'] ?? 'لا يوجد وصف حالياً...', style: const TextStyle(color: Colors.white, fontSize: 15, fontStyle: FontStyle.italic), textAlign: TextAlign.right),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 25),
+
+              // 3. الإحصائيات العامة
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildProfileStat('الساحة', '${playerData!['arenaLevel'] ?? 0}', Icons.shield, Colors.redAccent),
+                      _buildProfileStat('الإجرام', '${playerData!['crimeLevel'] ?? 0}', Icons.local_police, Colors.blueAccent),
+                      _buildProfileStat('العمل', '${playerData!['workLevel'] ?? 0}', Icons.work, Colors.green),
+                      _buildProfileStat('السمعة', '${playerData!['creditScore'] ?? 0}', Icons.star, Colors.amber),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 25),
+
+              if (isMe) ...[
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 25), child: Align(alignment: Alignment.centerRight, child: Text("الإحصائيات القتالية ⚔️", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)))),
+                const SizedBox(height: 10),
+                Container(margin: const EdgeInsets.symmetric(horizontal: 20), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: Directionality(textDirection: TextDirection.rtl, child: Column(children: [Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [_buildCombatStat("القوة", player.strength, Icons.fitness_center, Colors.redAccent), _buildCombatStat("السرعة", player.speed, Icons.speed, Colors.orangeAccent)]), const SizedBox(height: 15), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [_buildCombatStat("الدفاع", player.defense, Icons.shield, Colors.blueAccent), _buildCombatStat("المهارة", player.skill, Icons.psychology, Colors.greenAccent)])]))),
+                const SizedBox(height: 25),
+              ],
+
+              // 4. الأزرار
+              if (!isMe)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+                  child: Wrap(
+                    spacing: 15, runSpacing: 15, alignment: WrapAlignment.center,
+                    children: [
+                      _buildActionBtn(Icons.person_add, 'إضافة', Colors.blue, () => player.sendFriendRequest(widget.targetUid)),
+                      _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatView(targetUid: widget.targetUid, targetName: playerData!['playerName'] ?? 'مجهول', targetPicUrl: playerData!['profilePicUrl'])));
+                      }),
+                      _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () {
+                        if (!playerData!.containsKey('uid') || playerData!['uid'] == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جاري التحميل...'))); return; }
+                        if (isHosp) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اللاعب في المستشفى 🏥', style: TextStyle(fontFamily: 'Changa')))); return; }
+                        if (isPris) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اللاعب في السجن 🔒', style: TextStyle(fontFamily: 'Changa')))); return; }
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(backgroundColor: Colors.black, body: SafeArea(child: PvpBattleView(enemyData: playerData!, onBack: () => Navigator.pop(context))))));
+                      }),
+                      _buildActionBtn(Icons.attach_money, 'تحويل', Colors.amber, () => _showTransferDialog(player)),
+                      _buildActionBtn(Icons.track_changes, 'مكافأة', Colors.deepOrange, () => _showBountyDialog(player)),
+                      _buildActionBtn(Icons.card_giftcard, 'هدية', Colors.pinkAccent, () {}),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 50),
+            ],
+          ),
+        ),
+      ),
+
+      // 🟢 البار السفلي المخصص (تم إضافة زر الامتيازات) 🟢
+      bottomNavigationBar: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            image: const DecorationImage(image: AssetImage('assets/images/ui/bottom_navbar_bg.png'), fit: BoxFit.cover),
+            border: const Border(top: BorderSide(color: Color(0xFF856024), width: 2)),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 10, offset: const Offset(0, -5))],
+          ),
+          padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
+          child: SafeArea(
+            bottom: true,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    audio.playEffect('click.mp3');
+                    if(widget.onBack != null) widget.onBack!();
+                    else Navigator.pop(context);
+                  },
+                  child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24), SizedBox(height: 4), Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
+                ),
+
+                // 🟢 زر الامتيازات يظهر فقط إذا كان هذا بروفايلك 🟢
+                if (isMe)
+                  GestureDetector(
+                    onTap: () {
+                      audio.playEffect('click.mp3');
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('شجرة المهارات والامتيازات سيتم برمجتها قريباً! 🌟', style: TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.amber));
+                    },
+                    child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.stars, color: Colors.amber, size: 28), SizedBox(height: 4), Text('الامتيازات', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
+                  ),
+
+                GestureDetector(
+                  onTap: () { audio.playEffect('click.mp3'); _showExplanationDialog(context); },
+                  child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.menu_book, color: Colors.white70, size: 24), SizedBox(height: 4), Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-
-          const SizedBox(height: 15),
-
-          // 2. البايو
-          GestureDetector(
-            onTap: isMe ? () => _editBio(player) : null,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(15),
-              width: double.infinity,
-              decoration: BoxDecoration(color: isMe ? Colors.white.withOpacity(0.05) : Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: isMe ? Colors.amber.withOpacity(0.3) : Colors.white10)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.end, children: [if (isMe) const Icon(Icons.edit, color: Colors.amber, size: 16), if (isMe) const SizedBox(width: 5), const Text('البايو (الوصف):', style: TextStyle(color: Colors.white54, fontSize: 12))]),
-                  const SizedBox(height: 10),
-                  Text(playerData!['bio'] ?? 'لا يوجد وصف حالياً...', style: const TextStyle(color: Colors.white, fontSize: 15, fontStyle: FontStyle.italic), textAlign: TextAlign.right),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 25),
-
-          // 3. الإحصائيات العامة
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Directionality(
-              textDirection: TextDirection.rtl,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildProfileStat('الساحة', '${playerData!['arenaLevel'] ?? 0}', Icons.shield, Colors.redAccent),
-                  _buildProfileStat('الإجرام', '${playerData!['crimeLevel'] ?? 0}', Icons.local_police, Colors.blueAccent),
-                  _buildProfileStat('العمل', '${playerData!['workLevel'] ?? 0}', Icons.work, Colors.green),
-                  _buildProfileStat('السمعة', '${playerData!['creditScore'] ?? 0}', Icons.star, Colors.amber),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 25),
-
-          if (isMe) ...[
-            const Padding(padding: EdgeInsets.symmetric(horizontal: 25), child: Align(alignment: Alignment.centerRight, child: Text("الإحصائيات القتالية ⚔️", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)))),
-            const SizedBox(height: 10),
-            Container(margin: const EdgeInsets.symmetric(horizontal: 20), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: Directionality(textDirection: TextDirection.rtl, child: Column(children: [Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [_buildCombatStat("القوة", player.strength, Icons.fitness_center, Colors.redAccent), _buildCombatStat("السرعة", player.speed, Icons.speed, Colors.orangeAccent)]), const SizedBox(height: 15), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [_buildCombatStat("الدفاع", player.defense, Icons.shield, Colors.blueAccent), _buildCombatStat("المهارة", player.skill, Icons.psychology, Colors.greenAccent)])]))),
-            const SizedBox(height: 25),
-          ],
-
-          // 4. الأزرار السفلية
-          if (!isMe)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Wrap(
-                spacing: 15, runSpacing: 15, alignment: WrapAlignment.center,
-                children: [
-                  _buildActionBtn(Icons.person_add, 'إضافة', Colors.blue, () => player.sendFriendRequest(widget.targetUid)),
-                  _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatView(targetUid: widget.targetUid, targetName: playerData!['playerName'] ?? 'مجهول', targetPicUrl: playerData!['profilePicUrl'])));
-                  }),
-                  _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () {
-                    if (!playerData!.containsKey('uid') || playerData!['uid'] == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جاري التحميل...')));
-                      return;
-                    }
-
-                    if (isHosp) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اللاعب في المستشفى 🏥، لا يمكنك الهجوم عليه!', style: TextStyle(fontFamily: 'Changa'))));
-                      return;
-                    }
-                    if (isPris) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اللاعب يقبع في السجن 🔒، لا يمكنك الوصول إليه!', style: TextStyle(fontFamily: 'Changa'))));
-                      return;
-                    }
-                    if (player.currentCity != currentCity) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('أنت في ${player.currentCity} والهدف في $currentCity ✈️! يجب أن تسافر إليه أولاً.', style: const TextStyle(fontFamily: 'Changa'))));
-                      return;
-                    }
-
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(backgroundColor: Colors.black, body: SafeArea(child: PvpBattleView(enemyData: playerData!, onBack: () => Navigator.pop(context))))));
-                  }),
-                  _buildActionBtn(Icons.attach_money, 'تحويل', Colors.amber, () => _showTransferDialog(player)),
-                  _buildActionBtn(Icons.track_changes, 'مكافأة', Colors.deepOrange, () => _showBountyDialog(player)),
-                  _buildActionBtn(Icons.card_giftcard, 'هدية', Colors.pinkAccent, () {}),
-                  _buildActionBtn(Icons.favorite, 'زواج', Colors.redAccent, () {}),
-                  _buildActionBtn(Icons.block, 'حظر', Colors.grey, () {}),
-                ],
-              ),
-            )
-          else ...[
-            if (widget.profileTabIndex == 0)
-              _buildPlaceholder("قائمة الأصدقاء ستظهر هنا قريباً 👥")
-            else if (widget.profileTabIndex == 1)
-              _buildPlaceholder("شجرة المهارات ستظهر هنا قريباً 🧠")
-            else if (widget.profileTabIndex == 2)
-                _buildPlaceholder("مستودع التسليح سيظهر هنا قريباً 🔫"),
-
-            const SizedBox(height: 20),
-
-            if (player.heat > 0) Container(margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent.withOpacity(0.3))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Row(children: [Icon(Icons.local_police, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text("مستوى الملاحقة", style: TextStyle(color: Colors.white70))]), Text("${player.heat.toInt()}%", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))])),
-
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: [ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: audio.isMuted ? Colors.redAccent.withOpacity(0.2) : Colors.green.withOpacity(0.2), side: BorderSide(color: audio.isMuted ? Colors.redAccent : Colors.green), minimumSize: const Size(double.infinity, 50)), onPressed: () => audio.toggleMute(), icon: Icon(audio.isMuted ? Icons.volume_off : Icons.volume_up, color: audio.isMuted ? Colors.redAccent : Colors.green), label: Text(audio.isMuted ? "تشغيل الصوت" : "كتم الصوت", style: TextStyle(color: audio.isMuted ? Colors.redAccent : Colors.green))), const SizedBox(height: 15), ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.2), side: const BorderSide(color: Colors.red), minimumSize: const Size(double.infinity, 50)), onPressed: () { audio.playEffect('click.mp3'); _showResetConfirmation(player); }, icon: const Icon(Icons.delete_forever, color: Colors.red), label: const Text("مسح البيانات", style: TextStyle(color: Colors.red)))])),
-          ],
-
-          const SizedBox(height: 30),
-          Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(left: 20, bottom: 30), child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent.shade700, padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), icon: const Icon(Icons.arrow_back, color: Colors.white), label: const Text('رجوع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), onPressed: widget.onBack ?? () => Navigator.pop(context)))),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildPlaceholder(String text) { return Container(margin: const EdgeInsets.symmetric(horizontal: 20), padding: const EdgeInsets.all(35), width: double.infinity, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: Center(child: Text(text, style: const TextStyle(color: Colors.white54, fontSize: 16), textAlign: TextAlign.center))); }
   Widget _buildProfileStat(String label, String val, IconData icon, Color color) { return Column(children: [Icon(icon, color: color, size: 28), const SizedBox(height: 6), Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12))]); }
   Widget _buildActionBtn(IconData icon, String label, Color color, VoidCallback onTap) { return GestureDetector(onTap: onTap, child: SizedBox(width: 75, child: Column(children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.5))), child: Icon(icon, color: color, size: 24)), const SizedBox(height: 6), Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))]))); }
   Widget _buildCombatStat(String label, double val, IconData icon, Color color) { return SizedBox(width: 130, child: Row(children: [Icon(icon, color: color, size: 22), const SizedBox(width: 8), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)), Text(val.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))])])); }

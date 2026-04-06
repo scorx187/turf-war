@@ -295,8 +295,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         ),
       ),
 
-      // 🟢 التعديل هنا: إخفاء النافبار الأساسي إذا كنت في شاشة العقارات 🟢
-      bottomNavigationBar: (_selectedIndex == 2 && _activeArea == 'العقارات')
+      // 🟢 التعديل هنا: إخفاء النافبار في العقارات، صالة التدريب، وشاشة الزعيم (رقم 5) 🟢
+      bottomNavigationBar: ((_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب')) || _selectedIndex == 5)
           ? null
           : (player.isInPrison || player.isHospitalized)
           ? BottomNavBar(
@@ -309,35 +309,17 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           }
         },
       )
-          : (_selectedIndex == 5 && !player.isHospitalized
-          ? BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.black,
-        selectedItemColor: Colors.amber,
-        unselectedItemColor: Colors.white54,
-        currentIndex: _profileTabIndex,
-        onTap: (index) {
-          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-          setState(() => _profileTabIndex = index);
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.group), label: 'الأصدقاء'),
-          BottomNavigationBarItem(icon: Icon(Icons.psychology), label: 'المهارات'),
-          BottomNavigationBarItem(icon: Icon(Icons.security), label: 'التسليح'),
-        ],
-      )
           : BottomNavBar(
         selectedIndex: _selectedIndex,
         isHospitalized: player.isHospitalized,
         onItemTapped: (index) {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-
           setState(() {
             _selectedIndex = index;
             if (index == 2) _activeArea = 'الخريطة';
           });
         },
-      )),
+      ),
     );
   }
 

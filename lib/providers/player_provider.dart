@@ -8,7 +8,6 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/game_data.dart';
 
-// 🟢 الربط السحري مع جميع الأطراف 🟢
 part 'player_real_estate_logic.dart';
 part 'player_market_logic.dart';
 part 'player_combat_logic.dart';
@@ -78,6 +77,15 @@ class PlayerProvider with ChangeNotifier {
   double _skill = 5.0;
   double _speed = 5.0;
 
+  // 🟢 متغيرات الجيم الجديدة (المنشطات والمدربين) 🟢
+  DateTime? _activeSteroidEndTime;
+  String? _activeCoach;
+  DateTime? _coachEndTime;
+
+  DateTime? get activeSteroidEndTime => _activeSteroidEndTime;
+  String? get activeCoach => _activeCoach;
+  DateTime? get coachEndTime => _coachEndTime;
+
   List<String> _ownedProperties = [];
   String? _activePropertyId;
   int _happiness = 0;
@@ -145,7 +153,6 @@ class PlayerProvider with ChangeNotifier {
 
   final Map<String, Uint8List> _decodedImagesCache = {};
 
-  // Getters
   double get strength {
     double multiplier = 0.0;
     if (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) multiplier = GameData.weaponStats[_equippedWeaponId]!['str']!;
@@ -300,6 +307,12 @@ class PlayerProvider with ChangeNotifier {
     _energy = data['energy'] ?? _energy; _courage = data['courage'] ?? _courage; _prestige = data['prestige'] ?? 100;
     _health = data['health'] ?? _health; _maxHealth = data['maxHealth'] ?? _maxHealth; _happiness = data['happiness'] ?? _happiness;
     _strength = (data['strength'] ?? 5.0).toDouble(); _defense = (data['defense'] ?? 5.0).toDouble(); _skill = (data['skill'] ?? 5.0).toDouble(); _speed = (data['speed'] ?? 5.0).toDouble();
+
+    // بيانات الجيم
+    if (data['activeSteroidEndTime'] != null) _activeSteroidEndTime = DateTime.parse(data['activeSteroidEndTime']);
+    _activeCoach = data['activeCoach'];
+    if (data['coachEndTime'] != null) _coachEndTime = DateTime.parse(data['coachEndTime']);
+
     _ownedProperties = List<String>.from(data['ownedProperties'] ?? []); _activePropertyId = data['activePropertyId'];
     _listedProperties = List<String>.from(data['listedProperties'] ?? []);
     _rentedOutProperties = {};
@@ -358,6 +371,7 @@ class PlayerProvider with ChangeNotifier {
       await _firestore.collection('players').doc(_uid).set({
         'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl, 'currentCity': _currentCity,
         'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _maxHealth, 'happiness': _happiness, 'strength': _strength, 'defense': _defense, 'skill': _skill, 'speed': _speed,
+        'activeSteroidEndTime': _activeSteroidEndTime?.toIso8601String(), 'activeCoach': _activeCoach, 'coachEndTime': _coachEndTime?.toIso8601String(),
         'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),
         'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName, 'bailCost': _playerBailCost,
       }, SetOptions(merge: true));
@@ -371,6 +385,22 @@ class PlayerProvider with ChangeNotifier {
       if (_isLoading) return;
       bool localChanged = false;
       syncCounter++;
+
+      // 🟢 انتهاء مفعول المنشطات (يخصم 50% من الصحة كأثر جانبي)
+      if (_activeSteroidEndTime != null && DateTime.now().isAfter(_activeSteroidEndTime!)) {
+        _activeSteroidEndTime = null;
+        _health = (_health * 0.5).toInt();
+        _showNotification("⚠️ انتهى مفعول المنشطات! تشعر بإرهاق شديد وفقدت نصف صحتك.");
+        localChanged = true;
+      }
+
+      // 🟢 انتهاء عقد المدرب الفاسد
+      if (_coachEndTime != null && DateTime.now().isAfter(_coachEndTime!)) {
+        _activeCoach = null;
+        _coachEndTime = null;
+        _showNotification("⏱️ انتهى عقد مدربك الخاص.");
+        localChanged = true;
+      }
 
       if (_activeRentedProperty != null && DateTime.now().isAfter(DateTime.parse(_activeRentedProperty!['expire']))) {
         String propId = _activeRentedProperty!['id']; _activeRentedProperty = null;
@@ -448,6 +478,7 @@ class PlayerProvider with ChangeNotifier {
     crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
     _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ';
     _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null; _lastPassiveIncomeTime = DateTime.now();
+    _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null;
     await _syncWithFirestore(); notifyListeners();
   }
 

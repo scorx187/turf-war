@@ -4,6 +4,37 @@ part of 'player_provider.dart';
 
 extension PlayerCombatLogic on PlayerProvider {
 
+  // 🟢 1. شراء وتفعيل المنشطات 🟢
+  void buyAndUseSteroids(int price) {
+    if (_cash >= price) {
+      _cash -= price;
+      // تفعيل لمدة ساعة
+      _activeSteroidEndTime = DateTime.now().add(const Duration(hours: 1));
+      _addTransaction("شراء منشطات", price, false);
+      _showNotification("💉 حقنت نفسك بالمنشطات! التدريب سيتضاعف لمدة ساعة.");
+      _syncWithFirestore();
+      notifyListeners();
+    } else {
+      _showNotification("⚠️ كاش غير كافي لشراء المنشطات!");
+    }
+  }
+
+  // 🟢 2. استئجار مدرب 🟢
+  void hireCoach(String coachId, int price) {
+    if (_cash >= price) {
+      _cash -= price;
+      _activeCoach = coachId;
+      // عقد لمدة 24 ساعة
+      _coachEndTime = DateTime.now().add(const Duration(hours: 24));
+      _addTransaction("استئجار مدرب خاص", price, false);
+      _showNotification("🥊 تم التعاقد مع المدرب بنجاح لمدة 24 ساعة!");
+      _syncWithFirestore();
+      notifyListeners();
+    } else {
+      _showNotification("⚠️ كاش غير كافي لاستئجار المدرب!");
+    }
+  }
+
   void addCrimeXP(int amount) {
     if (_crimeLevel >= 450) return;
     _crimeXP += amount;
@@ -46,19 +77,46 @@ extension PlayerCombatLogic on PlayerProvider {
   double get maxGymStats => 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0);
   double get currentBaseStats => _strength + _defense + _skill + _speed;
 
+  // 🟢 3. تعديل التدريب لدعم المنشطات والمدربين 🟢
   void trainMultipleStats(int strE, int defE, int skillE, int spdE) {
     int totalEnergy = strE + defE + skillE + spdE;
     if (_energy < totalEnergy || totalEnergy <= 0) return;
     if (currentBaseStats >= maxGymStats) { _showNotification("🚨 وصلت للحد الأقصى لجسمك في هذا المستوى! ارفع لفلك."); return; }
+
+    // الأساسي
     double gainPerEnergy = 0.01 + (_happiness * 0.0002);
-    double strGain = strE * gainPerEnergy; double defGain = defE * gainPerEnergy; double skillGain = skillE * gainPerEnergy; double spdGain = spdE * gainPerEnergy;
+
+    // مضاعف المنشطات (الضعف 200%)
+    double steroidMultiplier = (_activeSteroidEndTime != null && DateTime.now().isBefore(_activeSteroidEndTime!)) ? 2.0 : 1.0;
+
+    // مضاعفات المدربين
+    double coachStrMod = _activeCoach == 'russian' ? 1.5 : 1.0; // الروسي يركز على القوة
+    double coachDefMod = _activeCoach == 'tactical' ? 1.5 : 1.0; // التكتيكي يركز على الدفاع
+    double coachSpdMod = _activeCoach == 'ninja' ? 1.5 : 1.0; // النينجا يركز على السرعة والمهارة
+    double coachSklMod = _activeCoach == 'ninja' ? 1.5 : 1.0;
+
+    // حساب المكسب النهائي لكل مهارة
+    double strGain = strE * gainPerEnergy * steroidMultiplier * coachStrMod;
+    double defGain = defE * gainPerEnergy * steroidMultiplier * coachDefMod;
+    double skillGain = skillE * gainPerEnergy * steroidMultiplier * coachSklMod;
+    double spdGain = spdE * gainPerEnergy * steroidMultiplier * coachSpdMod;
+
     double totalGain = strGain + defGain + skillGain + spdGain;
     double availableRoom = maxGymStats - currentBaseStats;
-    if (totalGain > availableRoom) { double scale = availableRoom / totalGain; strGain *= scale; defGain *= scale; skillGain *= scale; spdGain *= scale; }
 
-    _energy -= totalEnergy; _strength += strGain; _defense += defGain; _skill += skillGain; _speed += spdGain;
+    // التأكد إنه ما يتجاوز الليمت
+    if (totalGain > availableRoom) {
+      double scale = availableRoom / totalGain;
+      strGain *= scale; defGain *= scale; skillGain *= scale; spdGain *= scale;
+    }
+
+    _energy -= totalEnergy;
+    _strength += strGain; _defense += defGain; _skill += skillGain; _speed += spdGain;
+
+    // تأثير المدرب التكتيكي على رفع الـ Max Health (الفرصة تتضاعف)
     if (defGain > 0) {
-      double randomMultiplier = 8.0 + Random().nextDouble() * 7.0;
+      double hpBoostChance = _activeCoach == 'tactical' ? 15.0 : 8.0;
+      double randomMultiplier = hpBoostChance + Random().nextDouble() * 7.0;
       int hpBoost = (defGain * randomMultiplier).toInt();
       if (hpBoost > 0) {
         _maxHealth = min(50000000, _maxHealth + hpBoost);
