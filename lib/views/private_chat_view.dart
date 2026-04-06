@@ -357,7 +357,7 @@ class _PrivateChatViewState extends State<PrivateChatView> {
                             int amount = msg['amount'] ?? 0;
                             String formattedAmount = _formatWithCommas(amount);
 
-                            String transferMsg = isMe ? 'قمت بتحويل \$${formattedAmount} 💸' : 'قام ${widget.targetName} بتحويل \$${formattedAmount} 💸';
+                            String transferMsg = isMe ? 'قمت بتحويل $formattedAmount ' : 'قام ${widget.targetName} بتحويل $formattedAmount ';
 
                             return TransferBubble(message: transferMsg, isMe: isMe);
                           }

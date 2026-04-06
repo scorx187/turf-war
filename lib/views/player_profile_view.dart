@@ -10,6 +10,7 @@ import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import 'private_chat_view.dart';
 import 'pvp_battle_view.dart';
+import 'public_gang_profile_view.dart'; // 🟢 تم استدعاء الواجهة الجديدة للعصابة 🟢
 
 class PlayerProfileView extends StatefulWidget {
   final String targetUid;
@@ -58,8 +59,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'creditScore': player.creditScore,
         'gangName': player.gangName,
         'currentCity': player.currentCity,
-        'isHospitalized': player.isHospitalized, // 🟢 تم الإضافة
-        'isInPrison': player.isInPrison,         // 🟢 تم الإضافة
+        'isHospitalized': player.isHospitalized,
+        'isInPrison': player.isInPrison,
       };
     } else {
       playerData = {
@@ -172,7 +173,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 🟢 التعديل هنا: تثبيت علامة الدولار على يسار الرقم 🟢
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     textDirection: TextDirection.rtl,
@@ -266,7 +266,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                 children: [
                   const Text('سيتم نشر إعلان في شات المدينة لكل اللاعبين للهجوم على هذا الهدف.', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12), textAlign: TextAlign.center),
                   const SizedBox(height: 15),
-                  // 🟢 التعديل هنا: تثبيت علامة الدولار على يسار الرقم 🟢
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     textDirection: TextDirection.rtl,
@@ -400,7 +399,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       if (DateTime.now().difference(lastUpdate).inMinutes < 5) isOnline = true;
     }
 
-    // 🟢 التعديل هنا: تحديد حالة المكان وتغيير النص والألوان 🟢
     bool isHosp = playerData!['isHospitalized'] == true;
     bool isPris = playerData!['isInPrison'] == true;
     String currentCity = playerData!['currentCity'] ?? 'ملاذ';
@@ -460,9 +458,28 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                           Wrap(
                             spacing: 8, runSpacing: 8,
                             children: [
-                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withOpacity(0.5))), child: Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))),
+                              // 🟢 التعديل السحري: جعل صندوق اسم العصابة قابل للضغط 🟢
+                              GestureDetector(
+                                onTap: () {
+                                  if (playerData!['gangName'] != null) {
+                                    audio.playEffect('click.mp3');
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => PublicGangProfileView(gangName: playerData!['gangName'])));
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withOpacity(0.5))),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(playerData!['gangName'] != null ? 'عصابة: ${playerData!['gangName']}' : 'ذئب وحيد', style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      if (playerData!['gangName'] != null) const SizedBox(width: 4),
+                                      if (playerData!['gangName'] != null) const Icon(Icons.touch_app, color: Colors.orangeAccent, size: 12),
+                                    ],
+                                  ),
+                                ),
+                              ),
                               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withOpacity(0.4))), child: Text('ID: ${playerData!['gameId'] ?? '------'}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1))),
-                              // 🟢 التعديل هنا: استخدام متغيرات المكان المحدثة (مستشفى، سجن، مدينة)
                               Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: locBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: locBorder)), child: Text(locationText, style: TextStyle(color: locColor, fontSize: 12, fontWeight: FontWeight.bold))),
                             ],
                           ),
@@ -476,8 +493,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
             ),
           ),
           const SizedBox(height: 10),
-
-          // تم حذف الرسائل المنبثقة لأنها صارت واضحة عند اسم المدينة 🏥🔒
 
           const SizedBox(height: 15),
 

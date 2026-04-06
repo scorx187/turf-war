@@ -35,7 +35,7 @@ class _PrisonViewState extends State<PrisonView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('السجن المركزي', style: TextStyle(fontFamily: 'Tajawal', fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('السجن المركزي', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.grey[900],
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -52,7 +52,7 @@ class _PrisonViewState extends State<PrisonView> {
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('المساجين الحاليين', style: TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'Tajawal', fontWeight: FontWeight.bold)),
+                Text('المساجين الحاليين', style: TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -68,7 +68,7 @@ class _PrisonViewState extends State<PrisonView> {
                   return const Center(
                     child: Text(
                       'السجن خالي حالياً! \nيبدو أن الجميع ملتزمون بالقانون.',
-                      style: TextStyle(color: Colors.grey, fontSize: 18, fontFamily: 'Tajawal'),
+                      style: TextStyle(color: Colors.grey, fontSize: 18, fontFamily: 'Changa'),
                       textAlign: TextAlign.center,
                     ),
                   );
@@ -195,14 +195,14 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Tajawal', fontSize: 16)),
+                  Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Changa', fontSize: 16)),
                   Row(
                     children: [
-                      Text('المستوى: $level | ', style: const TextStyle(color: Colors.orangeAccent, fontFamily: 'Tajawal', fontSize: 12)),
-                      Text('باقي: $_formattedTime', style: const TextStyle(color: Colors.white, fontFamily: 'Tajawal', fontSize: 12, fontWeight: FontWeight.bold)), // الوقت الحي
+                      Text('المستوى: $level | ', style: const TextStyle(color: Colors.orangeAccent, fontFamily: 'Changa', fontSize: 12)),
+                      Text('باقي: $_formattedTime', style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)), // الوقت الحي
                     ],
                   ),
-                  Text('التهمة: $crimeName', style: const TextStyle(color: Colors.grey, fontFamily: 'Tajawal', fontSize: 12)),
+                  Text('التهمة: $crimeName', style: const TextStyle(color: Colors.grey, fontFamily: 'Changa', fontSize: 12)),
                 ],
               ),
             ),
@@ -210,7 +210,7 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
             isMe
                 ? const Padding(
               padding: EdgeInsets.all(8.0),
-              child: Text('تنتظر الكفالة...', style: TextStyle(color: Colors.redAccent, fontFamily: 'Tajawal', fontWeight: FontWeight.bold, fontSize: 13)),
+              child: Text('تنتظر الكفالة...', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 13)),
             )
                 : ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, padding: const EdgeInsets.symmetric(horizontal: 10)),
@@ -220,8 +220,8 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('دفع الكفالة', style: TextStyle(color: Colors.white, fontFamily: 'Tajawal', fontSize: 12, fontWeight: FontWeight.bold)),
-                  Text('\$$bailCost', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Tajawal', fontSize: 12)),
+                  const Text('دفع الكفالة', style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text('\$$bailCost', style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 12)),
                 ],
               ),
             ),
