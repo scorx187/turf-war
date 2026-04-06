@@ -76,6 +76,17 @@ class PlayerProvider with ChangeNotifier {
   String? _activePropertyId;
   int _happiness = 0;
 
+  // 🟢 نظام المشاريع التجارية الجديد 🟢
+  Map<String, int> _ownedBusinesses = {};
+  Map<String, int> get ownedBusinesses => _ownedBusinesses;
+
+  final Map<String, int> _businessBaseIncome = {
+    'nightclub': 250,
+    'weapons_factory': 1200,
+    'money_laundering': 5000,
+    'casino': 25000,
+  };
+
   bool _isInPrison = false;
   DateTime? _prisonReleaseTime;
   bool _isHospitalized = false;
@@ -238,6 +249,10 @@ class PlayerProvider with ChangeNotifier {
     _listenToGameConfig();
   }
 
+  String _formatWithCommas(int number) {
+    return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+  }
+
   Uint8List? getDecodedImage(String? base64Str) {
     if (base64Str == null || base64Str.isEmpty) return null;
     if (_decodedImagesCache.containsKey(base64Str)) return _decodedImagesCache[base64Str]!;
@@ -248,7 +263,6 @@ class PlayerProvider with ChangeNotifier {
     } catch (e) { return null; }
   }
 
-  // 🟢 التحديث الأهم: قراءة بيانات اللاعبين الآخرين من السيرفر مباشرة لتظهر حالة الاتصال الحقيقية (أونلاين/أوفلاين)
   Future<Map<String, dynamic>?> getPlayerById(String targetUid) async {
     try {
       DocumentSnapshot serverDoc = await _firestore.collection('players').doc(targetUid).get(const GetOptions(source: Source.server));
@@ -346,6 +360,10 @@ class PlayerProvider with ChangeNotifier {
     _speed = (data['speed'] ?? 5.0).toDouble();
     _ownedProperties = List<String>.from(data['ownedProperties'] ?? []);
     _activePropertyId = data['activePropertyId'];
+
+    // 🟢 قراءة بيانات المشاريع التجارية
+    _ownedBusinesses = Map<String, int>.from(data['ownedBusinesses'] ?? {});
+
     _inventory = Map<String, int>.from(data['inventory'] ?? {});
     _crimeLevel = data['crimeLevel'] ?? 1;
     _crimeXP = data['crimeXP'] ?? 0;
@@ -391,45 +409,41 @@ class PlayerProvider with ChangeNotifier {
 
     if (data['crimeSuccessCountsMap'] != null) {
       crimeSuccessCountsMap = Map<String, int>.from(data['crimeSuccessCountsMap']);
-    } else if (data['crimeSuccessCounts'] != null) {
-      List<int> oldList = List<int>.from(data['crimeSuccessCounts']);
-      for(int i=0; i<oldList.length; i++) { crimeSuccessCountsMap['cat_0_crime_$i'] = oldList[i]; }
     }
 
-    // 🟢 التحديث السحري: حساب التقدم أثناء إغلاق اللعبة (Offline Progress) 🟢
     if (data['lastUpdate'] != null) {
       DateTime lastUpdateTime;
-      // التحقق من نوع البيانات (لأن فايربيس يرسلها كـ Timestamp)
       if (data['lastUpdate'] is Timestamp) {
         lastUpdateTime = (data['lastUpdate'] as Timestamp).toDate();
       } else {
         lastUpdateTime = DateTime.parse(data['lastUpdate'].toString());
       }
 
-      // كم ثانية مرت منذ آخر مرة كان اللاعب متصل فيها؟
       int secondsPassed = DateTime.now().difference(lastUpdateTime).inSeconds;
 
       if (secondsPassed > 0) {
-        // تعويض الشجاعة (تزيد 1 كل 4 ثواني)
         int gainedCourage = secondsPassed ~/ 4;
         _courage = min(maxCourage, _courage + gainedCourage);
-
-        // تعويض الشهامة (تزيد 1 كل 6 ثواني)
         int gainedPrestige = secondsPassed ~/ 6;
         _prestige = min(maxPrestige, _prestige + gainedPrestige);
-
-        // تعويض الطاقة (تزيد 1 كل 8 ثواني)
         int gainedEnergy = secondsPassed ~/ 8;
         _energy = min(maxEnergy, _energy + gainedEnergy);
-
-        // تعويض الصحة (تحتاج 1800 ثانية لتكتمل)
         double regenPerSecond = _maxHealth / 1800.0;
         int gainedHealth = (secondsPassed * regenPerSecond).toInt();
         _health = min(_maxHealth, _health + gainedHealth);
-
-        // تنزيل مستوى الحرارة (ينقص 0.0278 كل ثانية)
         double lostHeat = secondsPassed * 0.0278;
         _heat = max(0, _heat - lostHeat);
+
+        // 🟢 حساب أرباح المشاريع التجارية أثناء النوم (Offline Progress)
+        int minutesPassed = secondsPassed ~/ 60;
+        if (minutesPassed > 0) {
+          int passiveIncome = getTotalPassiveIncomePerMinute() * minutesPassed;
+          if (passiveIncome > 0) {
+            _cash += passiveIncome;
+            // نستخدم Future.microtask عشان ما يطلع خطأ عرض الإشعار وقت البناء
+            Future.microtask(() => _showNotification("🏢 أرباح مشاريعك أثناء غيابك: \$${_formatWithCommas(passiveIncome)}"));
+          }
+        }
       }
     }
   }
@@ -440,7 +454,10 @@ class PlayerProvider with ChangeNotifier {
       await _firestore.collection('players').doc(_uid).set({
         'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl,
         'currentCity': _currentCity,
-        'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _maxHealth, 'happiness': _happiness, 'strength': _strength, 'defense': _defense, 'skill': _skill, 'speed': _speed, 'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName,
+        'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _maxHealth, 'happiness': _happiness, 'strength': _strength, 'defense': _defense, 'skill': _skill, 'speed': _speed,
+        'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId,
+        'ownedBusinesses': _ownedBusinesses, // 🟢 حفظ المشاريع التجارية
+        'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName,
         'bailCost': _playerBailCost,
       }, SetOptions(merge: true));
     } catch (e) {}
@@ -471,7 +488,16 @@ class PlayerProvider with ChangeNotifier {
         }
       } else { _fractionalHealth = 0.0; }
 
-      if (timer.tick % 60 == 0) { for (var tool in _crimeToolsList) { if ((_durability[tool] ?? 100) < 100) { _durability[tool] = min(100.0, (_durability[tool] ?? 100) + 1.0); localChanged = true; } } }
+      // 🟢 إضافة الدخل السلبي للمشاريع التجارية كل 60 ثانية (دقيقة) 🟢
+      if (timer.tick % 60 == 0) {
+        int passiveIncome = getTotalPassiveIncomePerMinute();
+        if (passiveIncome > 0) {
+          _cash += passiveIncome;
+          localChanged = true;
+        }
+        for (var tool in _crimeToolsList) { if ((_durability[tool] ?? 100) < 100) { _durability[tool] = min(100.0, (_durability[tool] ?? 100) + 1.0); localChanged = true; } }
+      }
+
       if (_loanAmount > 0 && _loanTime != null) { if (DateTime.now().difference(_loanTime!).inHours >= 2) { _loanAmount = (_loanAmount * 1.1).floor(); _loanTime = DateTime.now(); _showNotification("البنك 🏦: تمت إضافة فوائد 10% على قرضك لتأخرك في السداد!"); localChanged = true; } }
       if (_isInPrison && _prisonReleaseTime != null) { if (DateTime.now().isAfter(_prisonReleaseTime!)) { _isInPrison = false; _prisonReleaseTime = null; _showNotification("تم الإفراج عنك من السجن!"); localChanged = true; } }
       if (_isHospitalized && _hospitalReleaseTime != null) { if (DateTime.now().isAfter(_hospitalReleaseTime!)) { _isHospitalized = false; _hospitalReleaseTime = null; _health = (maxHealth * 0.25).toInt(); _showNotification("تم خروجك من المستشفى!"); localChanged = true; } }
@@ -483,16 +509,42 @@ class PlayerProvider with ChangeNotifier {
     });
   }
 
-  void travelToCity(String city, int price) {
-    if (_cash >= price) {
+  // 🟢 دوال التحكم بالمشاريع التجارية 🟢
+  int getTotalPassiveIncomePerMinute() {
+    int total = 0;
+    _ownedBusinesses.forEach((id, level) {
+      total += (_businessBaseIncome[id] ?? 0) * level;
+    });
+    return total;
+  }
+
+  void buyBusiness(String id, int price) {
+    if (_cash >= price && !_ownedBusinesses.containsKey(id)) {
       _cash -= price;
-      _currentCity = city;
+      _ownedBusinesses[id] = 1; // شراء المشروع وبدء المستوى 1
+      _addTransaction("شراء مشروع تجاري", price, false);
       _syncWithFirestore();
       notifyListeners();
-      _showNotification("✈️ هبطت طائرتك بسلام في $city!");
     } else {
-      _showNotification("⚠️ لا تملك كاش كافي للسفر!");
+      _showNotification("⚠️ كاش غير كافي لشراء المشروع!");
     }
+  }
+
+  void upgradeBusiness(String id, int upgradeCost) {
+    if (_cash >= upgradeCost && _ownedBusinesses.containsKey(id)) {
+      _cash -= upgradeCost;
+      _ownedBusinesses[id] = _ownedBusinesses[id]! + 1; // زيادة المستوى
+      _addTransaction("ترقية مشروع تجاري", upgradeCost, false);
+      _syncWithFirestore();
+      notifyListeners();
+    } else {
+      _showNotification("⚠️ كاش غير كافي للترقية!");
+    }
+  }
+
+  // ===== باقي الدوال كما هي =====
+  void travelToCity(String city, int price) {
+    if (_cash >= price) { _cash -= price; _currentCity = city; _syncWithFirestore(); notifyListeners(); _showNotification("✈️ هبطت طائرتك بسلام في $city!"); } else { _showNotification("⚠️ لا تملك كاش كافي للسفر!"); }
   }
 
   void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
@@ -619,17 +671,14 @@ class PlayerProvider with ChangeNotifier {
   void _startGoldMarketTimer() { _goldMarketTimer = Timer.periodic(const Duration(hours: 2), (timer) { _oldGoldPrice = _goldPrice; _goldPrice = 15000 + Random().nextInt(2001); notifyListeners(); }); }
   void payBail() { if (_cash >= _bailPrice) { _cash -= _bailPrice; _isInPrison = false; _prisonReleaseTime = null; _syncWithFirestore(); notifyListeners(); } }
 
-  // دالة مخصصة لدفع كفالة لاعب آخر وإخراجه من السجن
   Future<void> bailOutPlayer(String targetUid, int cost, String targetName) async {
     if (_cash >= cost) {
       try {
-        // 1. خصم الكاش من اللاعب الحالي (الفاعل)
         _cash -= cost;
         _addTransaction("دفع كفالة لـ $targetName", cost, false);
         _syncWithFirestore();
         notifyListeners();
 
-        // 2. تحديث بيانات اللاعب المسجون في السيرفر ليرى نفسه حراً فوراً
         await _firestore.collection('players').doc(targetUid).update({
           'isInPrison': false,
           'prisonReleaseTime': null,
@@ -644,7 +693,7 @@ class PlayerProvider with ChangeNotifier {
     }
   }
 
-  Future<void> resetPlayerData() async { _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 100; _prestige = 100; _strength = 5; _defense = 5; _skill = 5; _speed = 5; _ownedProperties = []; _activePropertyId = null; _happiness = 0; _inventory = {'name_change_card': 1}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {}; crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null; _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ'; await _syncWithFirestore(); notifyListeners(); }
+  Future<void> resetPlayerData() async { _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 100; _prestige = 100; _strength = 5; _defense = 5; _skill = 5; _speed = 5; _ownedProperties = []; _activePropertyId = null; _ownedBusinesses = {}; _happiness = 0; _inventory = {'name_change_card': 1}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null; _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {}; crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null; _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ'; await _syncWithFirestore(); notifyListeners(); }
 
   Future<List<Map<String, dynamic>>> fetchRealOpponents() async {
     try {
@@ -660,19 +709,14 @@ class PlayerProvider with ChangeNotifier {
       for (var doc in snapshot.docs) {
         if (doc.id != _uid) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-
-          // 🟢 التحديث الذكي: تنظيف حالة اللاعبين الخاملين (المستشفى والسجن) 🟢
           bool needsUpdate = false;
           Map<String, dynamic> updates = {};
 
-          // فحص المستشفى
           if (data['isHospitalized'] == true && data['hospitalReleaseTime'] != null) {
             DateTime releaseTime = DateTime.parse(data['hospitalReleaseTime']);
             if (DateTime.now().isAfter(releaseTime)) {
               data['isHospitalized'] = false;
-              // نعطيه ربع طاقته الصحية بعد خروجه من المستشفى
               data['health'] = (data['maxHealth'] ?? 100) ~/ 4;
-
               updates['isHospitalized'] = false;
               updates['hospitalReleaseTime'] = null;
               updates['health'] = data['health'];
@@ -680,19 +724,16 @@ class PlayerProvider with ChangeNotifier {
             }
           }
 
-          // فحص السجن
           if (data['isInPrison'] == true && data['prisonReleaseTime'] != null) {
             DateTime releaseTime = DateTime.parse(data['prisonReleaseTime']);
             if (DateTime.now().isAfter(releaseTime)) {
               data['isInPrison'] = false;
-
               updates['isInPrison'] = false;
               updates['prisonReleaseTime'] = null;
               needsUpdate = true;
             }
           }
 
-          // إذا جوالك اكتشف إن وقتهم انتهى، راح يحدث بياناتهم في السيرفر فوراً!
           if (needsUpdate) {
             _firestore.collection('players').doc(doc.id).update(updates);
           }
@@ -706,7 +747,9 @@ class PlayerProvider with ChangeNotifier {
       debugPrint("خطأ في جلب الخصوم: $e");
       return [];
     }
-  }  Future<List<Map<String, dynamic>>> fetchLeaderboard() async { try { QuerySnapshot snapshot = await _firestore.collection('players').orderBy('arenaLevel', descending: true).limit(10).get(); List<Map<String, dynamic>> topPlayers = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; topPlayers.add(data); } return topPlayers; } catch (e) { return []; } }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchLeaderboard() async { try { QuerySnapshot snapshot = await _firestore.collection('players').orderBy('arenaLevel', descending: true).limit(10).get(); List<Map<String, dynamic>> topPlayers = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['uid'] = doc.id; topPlayers.add(data); } return topPlayers; } catch (e) { return []; } }
 
   Future<void> recordPvpResult(String enemyUid, String enemyName, String result, int reward, {int hospitalMinutes = 15}) async {
     try {
@@ -783,7 +826,6 @@ class PlayerProvider with ChangeNotifier {
   void addInventoryItem(String itemId, int amount) { _inventory[itemId] = (_inventory[itemId] ?? 0) + amount; _syncWithFirestore(); notifyListeners(); }
   void unlockAllCrimesForDev() { for (int catIndex = 0; catIndex < 20; catIndex++) { for (int crimeIndex = 0; crimeIndex < 20; crimeIndex++) { String crimeId = 'cat_${catIndex}_crime_$crimeIndex'; crimeSuccessCountsMap[crimeId] = 10; } } _syncWithFirestore(); notifyListeners(); _showNotification("🛠️ (أداة المطور): تم فتح جميع الجرائم بنجاح!"); }
 
-  // 🟢 نظام الأصدقاء 🟢
   Future<void> sendFriendRequest(String tUid) async {
     if (_uid == null || _uid == tUid) return;
     try {
