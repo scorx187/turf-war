@@ -316,7 +316,11 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
   }
 
   Widget _buildAchievements(PlayerProvider player, bool isMe, Map<String, dynamic> data) {
-    List<Map<String, dynamic>> allTitles = isMe ? player.getAllTitles() : TitlesHelper.getAllTitlesList(data);
+    List<Map<String, dynamic>> allTitles = TitlesHelper.getAllTitlesList(data);
+
+    // 🟢 نعرض فقط الألقاب المفتوحة (عشان ما يتشوه البروفايل للناس الثانية)
+    List<Map<String, dynamic>> unlockedTitles = allTitles.where((t) => t['unlocked'] == true).toList();
+
     String currentTitle = data['selectedTitle'] ?? 'مبتدئ في الشوارع 🚶';
 
     return Container(
@@ -328,9 +332,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         textDirection: TextDirection.rtl,
         child: Wrap(
           spacing: 10, runSpacing: 10,
-          children: allTitles.map((titleData) {
+          children: unlockedTitles.map((titleData) {
             bool isCurrent = titleData['name'] == currentTitle;
-            bool isUnlocked = titleData['unlocked'];
 
             return Tooltip(
               message: titleData['desc'],
@@ -338,17 +341,17 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               showDuration: const Duration(seconds: 3),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               margin: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(color: Colors.black.withOpacity(0.9), borderRadius: BorderRadius.circular(8), border: Border.all(color: isUnlocked ? Colors.amber : Colors.redAccent, width: 1)),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.9), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber, width: 1)),
               textStyle: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 13, fontWeight: FontWeight.bold),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: isUnlocked ? (isCurrent ? Colors.amber.withOpacity(0.2) : Colors.white10) : Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: isUnlocked ? (isCurrent ? Colors.amber : Colors.white24) : Colors.white10)),
+                decoration: BoxDecoration(color: isCurrent ? Colors.amber.withOpacity(0.2) : Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: isCurrent ? Colors.amber : Colors.white24)),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(isCurrent ? Icons.military_tech : (isUnlocked ? Icons.emoji_events : Icons.lock), color: isUnlocked ? (isCurrent ? Colors.amber : Colors.white54) : Colors.white24, size: 16),
+                    Icon(isCurrent ? Icons.military_tech : Icons.emoji_events, color: isCurrent ? Colors.amber : Colors.white54, size: 16),
                     const SizedBox(width: 6),
-                    Text(titleData['name'], style: TextStyle(color: isUnlocked ? (isCurrent ? Colors.amber : Colors.white70) : Colors.white24, fontSize: 12, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
+                    Text(titleData['name'], style: TextStyle(color: isCurrent ? Colors.amber : Colors.white70, fontSize: 12, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
                   ],
                 ),
               ),
@@ -359,7 +362,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     );
   }
 
-  // 🟢 الدالة اللي كانت ناقصة 🟢
   Widget _buildRecordRow(String title, String value, Color valColor, {bool isLtr = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -380,16 +382,17 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     return Text(text, textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold, height: 1.2));
   }
 
+  // 🟢 تصغير الأزرار التفاعلية لتناسب الشاشة 🟢
   Widget _buildActionBtn(IconData icon, String label, Color color, VoidCallback onTap) {
     return GestureDetector(
         onTap: onTap,
         child: SizedBox(
-            width: 70,
+            width: 55,
             child: Column(
                 children: [
-                  Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.5))), child: Icon(icon, color: color, size: 22)),
+                  Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.5))), child: Icon(icon, color: color, size: 20)),
                   const SizedBox(height: 6),
-                  Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))
+                  Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)
                 ]
             )
         )
@@ -461,7 +464,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
             child: SafeArea(
               bottom: false,
               child: SingleChildScrollView(
-                padding: EdgeInsets.only(bottom: isMe ? 20 : 130),
+                padding: EdgeInsets.only(bottom: isMe ? 20 : 160), // 🟢 ترك مساحة أكبر للأزرار السفلية الجديدة للآخرين
                 child: Column(
                   children: [
                     const SizedBox(height: 10),
@@ -608,11 +611,13 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       const SizedBox(height: 25),
                     ],
 
-                    // 5. الألقاب المفتوحة
-                    const Padding(padding: EdgeInsets.symmetric(horizontal: 25), child: Align(alignment: Alignment.centerRight, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [Text("اضغط على أي لقب لمعرفة تفاصيله 👆", style: TextStyle(color: Colors.white54, fontSize: 10)), SizedBox(width: 10), Text("الألقاب 🏆", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14))]))),
-                    const SizedBox(height: 10),
-                    _buildAchievements(player, isMe, playerData!),
-                    const SizedBox(height: 25),
+                    // 5. الألقاب المكتسبة (تظهر فقط في بروفايل اللاعبين الآخرين، وتم إخفاؤها من شاشتك)
+                    if (!isMe) ...[
+                      const Padding(padding: EdgeInsets.symmetric(horizontal: 25), child: Align(alignment: Alignment.centerRight, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [Text("اضغط على أي لقب لمعرفة تفاصيله 👆", style: TextStyle(color: Colors.white54, fontSize: 10)), SizedBox(width: 10), Text("الألقاب المكتسبة 🏆", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14))]))),
+                      const SizedBox(height: 10),
+                      _buildAchievements(player, isMe, playerData!),
+                      const SizedBox(height: 25),
+                    ],
                   ],
                 ),
               ),
@@ -624,14 +629,14 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
             Positioned(
               bottom: 0, left: 0, right: 0,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.9),
+                  color: Colors.black.withOpacity(0.95),
                   border: const Border(top: BorderSide(color: Colors.amber, width: 1)),
                   boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 10, offset: const Offset(0, -5))],
                 ),
                 child: Wrap(
-                  spacing: 15, runSpacing: 10, alignment: WrapAlignment.center,
+                  spacing: 10, runSpacing: 10, alignment: WrapAlignment.center,
                   children: [
                     _buildActionBtn(Icons.person_add, 'إضافة', Colors.blue, () => player.sendFriendRequest(widget.targetUid)),
                     _buildActionBtn(Icons.chat, 'مراسلة', Colors.green, () { Navigator.push(context, MaterialPageRoute(builder: (_) => PrivateChatView(targetUid: widget.targetUid, targetName: playerData!['playerName'] ?? 'مجهول', targetPicUrl: playerData!['profilePicUrl']))); }),
@@ -643,6 +648,9 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                     }),
                     _buildActionBtn(Icons.attach_money, 'تحويل', Colors.amber, () => _showTransferDialog(player)),
                     _buildActionBtn(Icons.track_changes, 'مكافأة', Colors.deepOrange, () => _showBountyDialog(player)),
+                    _buildActionBtn(Icons.card_giftcard, 'هدية', Colors.pinkAccent, () {}),
+                    _buildActionBtn(Icons.favorite, 'زواج', Colors.pink, () {}),
+                    _buildActionBtn(Icons.block, 'حظر', Colors.grey, () {}),
                   ],
                 ),
               ),
@@ -673,13 +681,15 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                   child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24), SizedBox(height: 4), Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
                 ),
 
-                GestureDetector(
-                  onTap: () {
-                    audio.playEffect('click.mp3');
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => TitlesView(playerData: playerData!, isMe: isMe, allTitles: isMe ? player.getAllTitles() : TitlesHelper.getAllTitlesList(playerData!))));
-                  },
-                  child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.emoji_events, color: Colors.blueAccent, size: 28), SizedBox(height: 4), Text('الألقاب', style: TextStyle(color: Colors.blueAccent, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
-                ),
+                // 🟢 زر الألقاب يظهر لك فقط في بروفايلك 🟢
+                if (isMe)
+                  GestureDetector(
+                    onTap: () {
+                      audio.playEffect('click.mp3');
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => TitlesView(playerData: playerData!, isMe: isMe, allTitles: player.getAllTitles())));
+                    },
+                    child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.emoji_events, color: Colors.blueAccent, size: 28), SizedBox(height: 4), Text('الألقاب', style: TextStyle(color: Colors.blueAccent, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
+                  ),
 
                 if (isMe)
                   GestureDetector(
