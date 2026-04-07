@@ -4,11 +4,9 @@ part of 'player_provider.dart';
 
 extension PlayerCombatLogic on PlayerProvider {
 
-  // 🟢 1. شراء وتفعيل المنشطات 🟢
   void buyAndUseSteroids(int price) {
     if (_cash >= price) {
       _cash -= price;
-      // تفعيل لمدة ساعة
       _activeSteroidEndTime = DateTime.now().add(const Duration(hours: 1));
       _addTransaction("شراء منشطات", price, false);
       _showNotification("💉 حقنت نفسك بالمنشطات! التدريب سيتضاعف لمدة ساعة.");
@@ -19,12 +17,10 @@ extension PlayerCombatLogic on PlayerProvider {
     }
   }
 
-  // 🟢 2. استئجار مدرب 🟢
   void hireCoach(String coachId, int price) {
     if (_cash >= price) {
       _cash -= price;
       _activeCoach = coachId;
-      // عقد لمدة 24 ساعة
       _coachEndTime = DateTime.now().add(const Duration(hours: 24));
       _addTransaction("استئجار مدرب خاص", price, false);
       _showNotification("🥊 تم التعاقد مع المدرب بنجاح لمدة 24 ساعة!");
@@ -36,16 +32,16 @@ extension PlayerCombatLogic on PlayerProvider {
   }
 
   void addCrimeXP(int amount) {
-    if (_crimeLevel >= 450) return;
+    if (_crimeLevel >= 400) return; // 🟢 تم التعديل إلى 400
     _crimeXP += amount;
     bool leveledUp = false;
-    while (_crimeXP >= xpToNextLevel && _crimeLevel < 450) {
+    while (_crimeXP >= xpToNextLevel && _crimeLevel < 400) {
       _crimeXP -= xpToNextLevel;
       int oldBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
       _crimeLevel++;
       int newBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
-      _maxHealth += (newBase - oldBase);
-      if (_maxHealth > 50000000) _maxHealth = 50000000;
+      _baseMaxHealth += (newBase - oldBase); // 🟢 نرفع البيس، والـ Perk بينحسب عليه تلقائي 🟢
+      if (_baseMaxHealth > 50000000) _baseMaxHealth = 50000000;
       leveledUp = true;
     }
     if (leveledUp) _showNotification("🎉 لفل إجرامي جديد: $_crimeLevel");
@@ -75,27 +71,21 @@ extension PlayerCombatLogic on PlayerProvider {
   }
 
   double get maxGymStats => 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0);
-  double get currentBaseStats => _strength + _defense + _skill + _speed;
+  double get currentBaseStats => _baseStrength + _baseDefense + _baseSkill + _baseSpeed;
 
-  // 🟢 3. تعديل التدريب لدعم المنشطات والمدربين 🟢
   void trainMultipleStats(int strE, int defE, int skillE, int spdE) {
     int totalEnergy = strE + defE + skillE + spdE;
     if (_energy < totalEnergy || totalEnergy <= 0) return;
     if (currentBaseStats >= maxGymStats) { _showNotification("🚨 وصلت للحد الأقصى لجسمك في هذا المستوى! ارفع لفلك."); return; }
 
-    // الأساسي
     double gainPerEnergy = 0.01 + (_happiness * 0.0002);
-
-    // مضاعف المنشطات (الضعف 200%)
     double steroidMultiplier = (_activeSteroidEndTime != null && DateTime.now().isBefore(_activeSteroidEndTime!)) ? 2.0 : 1.0;
 
-    // مضاعفات المدربين
-    double coachStrMod = _activeCoach == 'russian' ? 1.5 : 1.0; // الروسي يركز على القوة
-    double coachDefMod = _activeCoach == 'tactical' ? 1.5 : 1.0; // التكتيكي يركز على الدفاع
-    double coachSpdMod = _activeCoach == 'ninja' ? 1.5 : 1.0; // النينجا يركز على السرعة والمهارة
+    double coachStrMod = _activeCoach == 'russian' ? 1.5 : 1.0;
+    double coachDefMod = _activeCoach == 'tactical' ? 1.5 : 1.0;
+    double coachSpdMod = _activeCoach == 'ninja' ? 1.5 : 1.0;
     double coachSklMod = _activeCoach == 'ninja' ? 1.5 : 1.0;
 
-    // حساب المكسب النهائي لكل مهارة
     double strGain = strE * gainPerEnergy * steroidMultiplier * coachStrMod;
     double defGain = defE * gainPerEnergy * steroidMultiplier * coachDefMod;
     double skillGain = skillE * gainPerEnergy * steroidMultiplier * coachSklMod;
@@ -104,22 +94,20 @@ extension PlayerCombatLogic on PlayerProvider {
     double totalGain = strGain + defGain + skillGain + spdGain;
     double availableRoom = maxGymStats - currentBaseStats;
 
-    // التأكد إنه ما يتجاوز الليمت
     if (totalGain > availableRoom) {
       double scale = availableRoom / totalGain;
       strGain *= scale; defGain *= scale; skillGain *= scale; spdGain *= scale;
     }
 
     _energy -= totalEnergy;
-    _strength += strGain; _defense += defGain; _skill += skillGain; _speed += spdGain;
+    _baseStrength += strGain; _baseDefense += defGain; _baseSkill += skillGain; _baseSpeed += spdGain;
 
-    // تأثير المدرب التكتيكي على رفع الـ Max Health (الفرصة تتضاعف)
     if (defGain > 0) {
       double hpBoostChance = _activeCoach == 'tactical' ? 15.0 : 8.0;
       double randomMultiplier = hpBoostChance + Random().nextDouble() * 7.0;
       int hpBoost = (defGain * randomMultiplier).toInt();
       if (hpBoost > 0) {
-        _maxHealth = min(50000000, _maxHealth + hpBoost);
+        _baseMaxHealth = min(50000000, _baseMaxHealth + hpBoost);
         _showNotification("🛡️ تمرين الدفاع زاد صحتك القصوى بمقدار +$hpBoost نقطة!");
       }
     }
@@ -130,14 +118,25 @@ extension PlayerCombatLogic on PlayerProvider {
 
   void setHealth(int value) {
     _health = value.clamp(0, maxHealth);
-    if (_health == 0 && !_isHospitalized) { enterHospital(1); }
+    if (_health == 0 && !_isHospitalized) { enterHospital(15); }
     else if (_health > 0 && _isHospitalized) { _isHospitalized = false; _hospitalReleaseTime = null; }
     _syncWithFirestore(); notifyListeners();
   }
 
   void setEnergy(int value) { _energy = value.clamp(0, maxEnergy); _syncWithFirestore(); notifyListeners(); }
   void setCourage(int value) { _courage = value.clamp(0, maxCourage); _syncWithFirestore(); notifyListeners(); }
-  void enterHospital(int minutes) { _isHospitalized = true; _health = 0; _hospitalReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
+
+  void enterHospital(int minutes) {
+    _isHospitalized = true;
+    _health = 0;
+
+    // 🟢 تطبيق ميزة تقليل وقت المستشفى 🟢
+    int reducedMinutes = minutes - ((minutes * hospitalTimeReductionPercent) ~/ 100);
+    reducedMinutes = max(1, reducedMinutes); // على الأقل دقيقة وحدة
+
+    _hospitalReleaseTime = DateTime.now().add(Duration(minutes: reducedMinutes));
+    _syncWithFirestore(); notifyListeners();
+  }
 
   void quickHealHospital() {
     int missing = maxHealth - _health;
@@ -152,7 +151,17 @@ extension PlayerCombatLogic on PlayerProvider {
     }
   }
 
-  void startPrisonTimer(int minutes) { _isInPrison = true; _prisonReleaseTime = DateTime.now().add(Duration(minutes: minutes)); _syncWithFirestore(); notifyListeners(); }
+  void startPrisonTimer(int minutes) {
+    _isInPrison = true;
+    // ميزة تقليل وقت السجن القديمة إذا كانت موجودة
+    int reduction = (_perks['corrupt_lawyer'] ?? 0) * 15;
+    int reducedMinutes = minutes - ((minutes * reduction) ~/ 100);
+    reducedMinutes = max(1, reducedMinutes);
+
+    _prisonReleaseTime = DateTime.now().add(Duration(minutes: reducedMinutes));
+    _syncWithFirestore(); notifyListeners();
+  }
+
   void payBail() { if (_cash >= _bailPrice) { _cash -= _bailPrice; _isInPrison = false; _prisonReleaseTime = null; _syncWithFirestore(); notifyListeners(); } }
 
   Future<void> bailOutPlayer(String targetUid, int cost, String targetName) async {
@@ -239,8 +248,8 @@ extension PlayerCombatLogic on PlayerProvider {
       });
 
       if (result == 'win') {
-        _pvpWins++; // 🟢 زيادة عداد القتلى 🟢
-        _totalStolenCash += reward; // 🟢 تسجيل المبلغ المسروق 🟢
+        _pvpWins++;
+        _totalStolenCash += reward;
         if (reward > 0) addCash(reward, reason: "غنيمة من $enemyName");
         _showNotification("⚔️ انتصرت على $enemyName وأرسلته للمستشفى!");
       }
