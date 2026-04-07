@@ -77,7 +77,6 @@ class PlayerProvider with ChangeNotifier {
   double _skill = 5.0;
   double _speed = 5.0;
 
-  // 🟢 متغيرات الجيم الجديدة (المنشطات والمدربين) 🟢
   DateTime? _activeSteroidEndTime;
   String? _activeCoach;
   DateTime? _coachEndTime;
@@ -153,26 +152,64 @@ class PlayerProvider with ChangeNotifier {
 
   final Map<String, Uint8List> _decodedImagesCache = {};
 
-  double get strength {
-    double multiplier = 0.0;
-    if (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) multiplier = GameData.weaponStats[_equippedWeaponId]!['str']!;
-    return _strength * (1.0 + multiplier);
+  // 🟢 متغيرات السجل الإجرامي والامتيازات 🟢
+  int _pvpWins = 0;
+  int _totalStolenCash = 0;
+  Map<String, int> _perks = {};
+
+  int get pvpWins => _pvpWins;
+  int get totalStolenCash => _totalStolenCash;
+  Map<String, int> get perks => _perks;
+
+  // 🟢 نظام الإنجازات للحصول على نقاط الامتياز 🟢
+  int get earnedPerkPoints {
+    int pts = 0;
+    // مسار السعادة
+    if (_happiness >= 100) pts++;
+    if (_happiness >= 500) pts++;
+    if (_happiness >= 1500) pts++;
+    if (_happiness >= 4000) pts++;
+    // مسار الثراء
+    int totalWealth = _cash + _bankBalance;
+    if (totalWealth >= 10000) pts++;
+    if (totalWealth >= 1000000) pts++;
+    if (totalWealth >= 100000000) pts++;
+    // مسار الجرائم
+    int totalCrimes = crimeSuccessCountsMap.values.fold(0, (sum, val) => sum + val);
+    if (totalCrimes >= 100) pts++;
+    if (totalCrimes >= 500) pts++;
+    if (totalCrimes >= 2000) pts++;
+    // مسار الدم
+    if (_pvpWins >= 10) pts++;
+    if (_pvpWins >= 50) pts++;
+    if (_pvpWins >= 200) pts++;
+    // مسار السلب
+    if (_totalStolenCash >= 10000) pts++;
+    if (_totalStolenCash >= 500000) pts++;
+    if (_totalStolenCash >= 5000000) pts++;
+
+    return pts;
   }
-  double get speed {
-    double multiplier = 0.0;
-    if (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) multiplier = GameData.weaponStats[_equippedWeaponId]!['spd']!;
-    return _speed * (1.0 + multiplier);
-  }
-  double get defense {
-    double multiplier = 0.0;
-    if (_equippedArmorId != null && GameData.armorStats.containsKey(_equippedArmorId)) multiplier = GameData.armorStats[_equippedArmorId]!['def']!;
-    return _defense * (1.0 + multiplier);
-  }
-  double get skill {
-    double multiplier = 0.0;
-    if (_equippedArmorId != null && GameData.armorStats.containsKey(_equippedArmorId)) multiplier = GameData.armorStats[_equippedArmorId]!['skl']!;
-    return _skill * (1.0 + multiplier);
-  }
+
+  // النقاط المتاحة = الإنجازات ناقص المصروف
+  int get unspentSkillPoints => max(0, earnedPerkPoints - _perks.values.fold(0, (sum, val) => sum + val));
+
+  // 🟢 الإحصائيات القتالية المفصلة (أساسي + زيادة العتاد) 🟢
+  double get baseStrength => _strength;
+  double get bonusStrength => (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) ? _strength * GameData.weaponStats[_equippedWeaponId]!['str']! : 0.0;
+  double get strength => baseStrength + bonusStrength;
+
+  double get baseSpeed => _speed;
+  double get bonusSpeed => (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) ? _speed * GameData.weaponStats[_equippedWeaponId]!['spd']! : 0.0;
+  double get speed => baseSpeed + bonusSpeed;
+
+  double get baseDefense => _defense;
+  double get bonusDefense => (_equippedArmorId != null && GameData.armorStats.containsKey(_equippedArmorId)) ? _defense * GameData.armorStats[_equippedArmorId]!['def']! : 0.0;
+  double get defense => baseDefense + bonusDefense;
+
+  double get baseSkill => _skill;
+  double get bonusSkill => (_equippedArmorId != null && GameData.armorStats.containsKey(_equippedArmorId)) ? _skill * GameData.armorStats[_equippedArmorId]!['skl']! : 0.0;
+  double get skill => baseSkill + bonusSkill;
 
   String? get uid => _uid;
   int get cash => _cash;
@@ -308,7 +345,6 @@ class PlayerProvider with ChangeNotifier {
     _health = data['health'] ?? _health; _maxHealth = data['maxHealth'] ?? _maxHealth; _happiness = data['happiness'] ?? _happiness;
     _strength = (data['strength'] ?? 5.0).toDouble(); _defense = (data['defense'] ?? 5.0).toDouble(); _skill = (data['skill'] ?? 5.0).toDouble(); _speed = (data['speed'] ?? 5.0).toDouble();
 
-    // بيانات الجيم
     if (data['activeSteroidEndTime'] != null) _activeSteroidEndTime = DateTime.parse(data['activeSteroidEndTime']);
     _activeCoach = data['activeCoach'];
     if (data['coachEndTime'] != null) _coachEndTime = DateTime.parse(data['coachEndTime']);
@@ -339,6 +375,18 @@ class PlayerProvider with ChangeNotifier {
     _heat = (data['heat'] ?? 0.0).toDouble(); _spareParts = data['spareParts'] ?? 0; _equippedWeaponId = data['equippedWeaponId']; _equippedArmorId = data['equippedArmorId']; _equippedMaskId = data['equippedMaskId']; _equippedCrimeToolId = data['equippedCrimeToolId'];
     if (data['durability'] != null) _durability = Map<String, double>.from(data['durability'].map((k, v) => MapEntry(k, v.toDouble())));
     if (data['transactions'] != null) _transactions = (data['transactions'] as List).map((t) => Transaction.fromJson(Map<String, dynamic>.from(t))).toList();
+    if (data['crimeSuccessCountsMap'] != null) crimeSuccessCountsMap = Map<String, int>.from(data['crimeSuccessCountsMap']);
+
+    // 🟢 قراءة آمنة للسجل والامتيازات 🟢
+    _pvpWins = (data['pvpWins'] as num?)?.toInt() ?? 0;
+    _totalStolenCash = (data['totalStolenCash'] as num?)?.toInt() ?? 0;
+
+    _perks = {};
+    if (data['perks'] != null && data['perks'] is Map) {
+      (data['perks'] as Map).forEach((k, v) {
+        _perks[k.toString()] = (v as num).toInt();
+      });
+    }
 
     if (data['lastPassiveIncomeTime'] != null) {
       _lastPassiveIncomeTime = DateTime.parse(data['lastPassiveIncomeTime'].toString());
@@ -374,6 +422,9 @@ class PlayerProvider with ChangeNotifier {
         'activeSteroidEndTime': _activeSteroidEndTime?.toIso8601String(), 'activeCoach': _activeCoach, 'coachEndTime': _coachEndTime?.toIso8601String(),
         'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),
         'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName, 'bailCost': _playerBailCost,
+        'pvpWins': _pvpWins,
+        'totalStolenCash': _totalStolenCash,
+        'perks': _perks,
       }, SetOptions(merge: true));
     } catch (e) {}
   }
@@ -386,7 +437,6 @@ class PlayerProvider with ChangeNotifier {
       bool localChanged = false;
       syncCounter++;
 
-      // 🟢 انتهاء مفعول المنشطات (يخصم 50% من الصحة كأثر جانبي)
       if (_activeSteroidEndTime != null && DateTime.now().isAfter(_activeSteroidEndTime!)) {
         _activeSteroidEndTime = null;
         _health = (_health * 0.5).toInt();
@@ -394,7 +444,6 @@ class PlayerProvider with ChangeNotifier {
         localChanged = true;
       }
 
-      // 🟢 انتهاء عقد المدرب الفاسد
       if (_coachEndTime != null && DateTime.now().isAfter(_coachEndTime!)) {
         _activeCoach = null;
         _coachEndTime = null;
@@ -478,8 +527,21 @@ class PlayerProvider with ChangeNotifier {
     crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
     _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ';
     _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null; _lastPassiveIncomeTime = DateTime.now();
-    _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null;
+    _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _pvpWins = 0; _totalStolenCash = 0; _perks = {};
     await _syncWithFirestore(); notifyListeners();
+  }
+
+  void upgradePerk(String perkId) {
+    int currentLvl = _perks[perkId] ?? 0;
+    int maxLvl = GameData.perksList.firstWhere((p) => p['id'] == perkId)['maxLevel'];
+    if (currentLvl < maxLvl && unspentSkillPoints > 0) {
+      _perks[perkId] = currentLvl + 1;
+      _syncWithFirestore();
+      notifyListeners();
+      _showNotification("⭐ تم تفعيل الامتياز بنجاح!");
+    } else {
+      _showNotification("⚠️ لا تملك نقاط مهارة كافية، حقق المزيد من الإنجازات.");
+    }
   }
 
   @override

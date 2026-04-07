@@ -102,46 +102,55 @@ class _GymViewState extends State<GymView> {
     final audio = Provider.of<AudioProvider>(context, listen: false);
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        bottom: false,
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Column(
-            children: [
-              const SizedBox(height: 5),
-              const Center(child: Text('صالة التدريب القتالي 🏋️‍♂️', style: TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold))),
-              const SizedBox(height: 5),
+      // 🟢 إضافة الخلفية الفخمة هنا بدل اللون الأسود 🟢
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/ui/crime_bg.jpg'),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Column(
+              children: [
+                const SizedBox(height: 5),
+                const Center(child: Text('صالة التدريب القتالي 🏋️‍♂️', style: TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold))),
+                const SizedBox(height: 5),
 
-              Expanded(
-                child: DefaultTabController(
-                  length: 3,
-                  child: Column(
-                    children: [
-                      const TabBar(
-                        indicatorColor: Colors.amber,
-                        labelColor: Colors.amber,
-                        unselectedLabelColor: Colors.white54,
-                        tabs: [
-                          Tab(text: "صالة الحديد"),
-                          Tab(text: "المدربون"),
-                          Tab(text: "المنشطات"),
-                        ],
-                      ),
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            _buildGymTab(player, audio),
-                            _buildCoachesTab(player, audio),
-                            _buildSteroidsTab(player, audio),
+                Expanded(
+                  child: DefaultTabController(
+                    length: 3,
+                    child: Column(
+                      children: [
+                        const TabBar(
+                          indicatorColor: Colors.amber,
+                          labelColor: Colors.amber,
+                          unselectedLabelColor: Colors.white54,
+                          tabs: [
+                            Tab(text: "صالة الحديد"),
+                            Tab(text: "المدربون"),
+                            Tab(text: "المنشطات"),
                           ],
                         ),
-                      ),
-                    ],
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              _buildGymTab(player, audio),
+                              _buildCoachesTab(player, audio),
+                              _buildSteroidsTab(player, audio),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -321,7 +330,7 @@ class _GymViewState extends State<GymView> {
         if (hasCoach)
           Container(
             padding: const EdgeInsets.all(12),
-            margin: const EdgeInsets.only(bottom: 15), // 🟢 الخطأ كان هنا، تم التعديل 🟢
+            margin: const EdgeInsets.only(bottom: 15),
             decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), border: Border.all(color: Colors.green), borderRadius: BorderRadius.circular(10)),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

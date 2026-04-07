@@ -83,4 +83,13 @@ class GameData {
   static const Map<String, Map<String, double>> armorStats = {
     'riot_shield': {'def': 0.60, 'skl': 0.20}, 'kevlar_vest': {'def': 0.75, 'skl': 0.75}, 'ninja_suit': {'def': 0.60, 'skl': 1.90}, 'steel_armor': {'def': 1.90, 'skl': 0.60}, 'exoskeleton': {'def': 1.75, 'skl': 1.75}, 'a_silver_heavy': {'def': 0.30, 'skl': 0.10}, 'a_silver_assault': {'def': 0.25, 'skl': 0.15}, 'a_silver_balanced': {'def': 0.20, 'skl': 0.20}, 'a_silver_tactical': {'def': 0.15, 'skl': 0.25}, 'a_silver_agile': {'def': 0.10, 'skl': 0.30}, 'a_green_heavy': {'def': 0.60, 'skl': 0.20}, 'a_green_assault': {'def': 0.50, 'skl': 0.30}, 'a_green_balanced': {'def': 0.40, 'skl': 0.40}, 'a_green_tactical': {'def': 0.30, 'skl': 0.50}, 'a_green_agile': {'def': 0.20, 'skl': 0.60}, 'a_blue_heavy': {'def': 1.10, 'skl': 0.40}, 'a_blue_assault': {'def': 0.90, 'skl': 0.60}, 'a_blue_balanced': {'def': 0.75, 'skl': 0.75}, 'a_blue_tactical': {'def': 0.60, 'skl': 0.90}, 'a_blue_agile': {'def': 0.40, 'skl': 1.10}, 'a_purple_heavy': {'def': 1.90, 'skl': 0.60}, 'a_purple_assault': {'def': 1.50, 'skl': 1.00}, 'a_purple_balanced': {'def': 1.25, 'skl': 1.25}, 'a_purple_tactical': {'def': 1.00, 'skl': 1.50}, 'a_purple_agile': {'def': 0.60, 'skl': 1.90}, 'a_gold_heavy': {'def': 2.70, 'skl': 0.80}, 'a_gold_assault': {'def': 2.10, 'skl': 1.40}, 'a_gold_balanced': {'def': 1.75, 'skl': 1.75}, 'a_gold_tactical': {'def': 1.40, 'skl': 2.10}, 'a_gold_agile': {'def': 0.80, 'skl': 2.70}, 'a_red_heavy': {'def': 3.60, 'skl': 0.90}, 'a_red_assault': {'def': 2.70, 'skl': 1.80}, 'a_red_balanced': {'def': 2.25, 'skl': 2.25}, 'a_red_tactical': {'def': 1.80, 'skl': 2.70}, 'a_red_agile': {'def': 0.90, 'skl': 3.60},
   };
+
+  // 🟢 شجرة الامتيازات (Perks) 🟢
+  static const List<Map<String, dynamic>> perksList = [
+    {'id': 'negotiator', 'name': 'مفاوض ذكي', 'desc': 'يقلل أسعار المتجر الأسود بنسبة 5% لكل مستوى.', 'maxLevel': 5, 'icon': Icons.handshake, 'color': Colors.amber},
+    {'id': 'iron_body', 'name': 'جسد فولاذي', 'desc': 'يزيد مكاسب التدريب في النادي بنسبة 10% لكل مستوى.', 'maxLevel': 5, 'icon': Icons.fitness_center, 'color': Colors.redAccent},
+    {'id': 'corrupt_lawyer', 'name': 'محامي فاسد', 'desc': 'يقلل وقت البقاء في السجن بنسبة 15% لكل مستوى.', 'maxLevel': 3, 'icon': Icons.gavel, 'color': Colors.blueGrey},
+    {'id': 'ghost', 'name': 'شبح الشوارع', 'desc': 'يزيد نسبة الهروب من الشرطة (الفشل) بنسبة 5% لكل مستوى.', 'maxLevel': 4, 'icon': Icons.visibility_off, 'color': Colors.purpleAccent},
+    {'id': 'thief', 'name': 'نشّال محترف', 'desc': 'يزيد العوائد المالية من الجرائم بنسبة 10% لكل مستوى.', 'maxLevel': 5, 'icon': Icons.money, 'color': Colors.green},
+  ];
 }

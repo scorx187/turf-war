@@ -238,7 +238,12 @@ extension PlayerCombatLogic on PlayerProvider {
         transaction.set(logRef, logData);
       });
 
-      if (result == 'win') { if (reward > 0) addCash(reward, reason: "غنيمة من $enemyName"); _showNotification("⚔️ انتصرت على $enemyName وأرسلته للمستشفى!"); }
+      if (result == 'win') {
+        _pvpWins++; // 🟢 زيادة عداد القتلى 🟢
+        _totalStolenCash += reward; // 🟢 تسجيل المبلغ المسروق 🟢
+        if (reward > 0) addCash(reward, reason: "غنيمة من $enemyName");
+        _showNotification("⚔️ انتصرت على $enemyName وأرسلته للمستشفى!");
+      }
       else if (result == 'loss') { enterHospital(15); _showNotification("🏥 لقد خسرت المعركة وتم نقلك للمستشفى!"); }
       else if (result == 'draw') { setHealth(max(1, health - 20)); _showNotification("🤝 انتهت المعركة بالتعادل! تضررت صحتك."); }
     } catch (e) { debugPrint("خطأ في حفظ نتيجة المعركة: $e"); }

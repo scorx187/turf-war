@@ -21,9 +21,7 @@ class RealEstateView extends StatefulWidget {
 
 class _RealEstateViewState extends State<RealEstateView> {
   String _currentFilter = 'newest';
-
-  // 🟢 متغير جديد عشان نفصل إعلاناتك عن السوق العام 🟢
-  int _marketTab = 0; // 0 = السوق العام، 1 = إعلاناتي
+  int _marketTab = 0;
 
   String _formatNumber(int number) {
     return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
@@ -123,48 +121,56 @@ class _RealEstateViewState extends State<RealEstateView> {
     final audio = Provider.of<AudioProvider>(context, listen: false);
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        bottom: false,
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Column(
-            children: [
-              const SizedBox(height: 5),
-              const Center(
-                child: Text('إمبراطورية العقارات 🏙️', style: TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 5),
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/ui/crime_bg.jpg'),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Column(
+              children: [
+                const SizedBox(height: 5),
+                const Center(
+                  child: Text('إمبراطورية العقارات 🏙️', style: TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 5),
 
-              Expanded(
-                child: DefaultTabController(
-                  length: 3,
-                  child: Column(
-                    children: [
-                      const TabBar(
-                        indicatorColor: Colors.amber,
-                        labelColor: Colors.amber,
-                        unselectedLabelColor: Colors.white54,
-                        tabs: [
-                          Tab(text: "عقاراتي"),
-                          Tab(text: "سوق الإيجارات"),
-                          Tab(text: "مشاريع تجارية"),
-                        ],
-                      ),
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            _buildResidentialTab(context, player, audio),
-                            _buildRentalMarketTab(context, player, audio),
-                            _buildCommercialTab(context, player, market, audio),
+                Expanded(
+                  child: DefaultTabController(
+                    length: 3,
+                    child: Column(
+                      children: [
+                        const TabBar(
+                          indicatorColor: Colors.amber,
+                          labelColor: Colors.amber,
+                          unselectedLabelColor: Colors.white54,
+                          tabs: [
+                            Tab(text: "عقاراتي"),
+                            Tab(text: "سوق الإيجارات"),
+                            Tab(text: "مشاريع تجارية"),
                           ],
                         ),
-                      ),
-                    ],
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              _buildResidentialTab(context, player, audio),
+                              _buildRentalMarketTab(context, player, audio),
+                              _buildCommercialTab(context, player, market, audio),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -493,7 +499,6 @@ class _RealEstateViewState extends State<RealEstateView> {
   Widget _buildRentalMarketTab(BuildContext context, PlayerProvider player, AudioProvider audio) {
     return Column(
       children: [
-        // 🟢 الأزرار الجديدة لفصل إعلاناتي عن السوق العام 🟢
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -531,7 +536,6 @@ class _RealEstateViewState extends State<RealEstateView> {
           ),
         ),
 
-        // الفلاتر
         Padding(
           padding: const EdgeInsets.only(bottom: 8.0, left: 16, right: 16),
           child: Row(
@@ -559,12 +563,9 @@ class _RealEstateViewState extends State<RealEstateView> {
                 return map;
               }).toList();
 
-              // 🟢 تطبيق فلتر (السوق العام / إعلاناتي) 🟢
               if (_marketTab == 0) {
-                // نعرض كل السوق ما عدا إعلانات اللاعب الحالي
                 docs = docs.where((d) => d['ownerId'] != player.uid).toList();
               } else {
-                // نعرض إعلانات اللاعب الحالي فقط
                 docs = docs.where((d) => d['ownerId'] == player.uid).toList();
               }
 
@@ -572,7 +573,6 @@ class _RealEstateViewState extends State<RealEstateView> {
                 return Center(child: Text(_marketTab == 0 ? "السوق فارغ حالياً." : "ليس لديك أي إعلانات في السوق.", style: const TextStyle(color: Colors.white54, fontSize: 16)));
               }
 
-              // تطبيق فلاتر الترتيب
               if (_currentFilter == 'newest') {
                 docs.sort((a, b) => (b['timestamp'] as Timestamp?)?.compareTo(a['timestamp'] as Timestamp? ?? Timestamp.now()) ?? 0);
               } else if (_currentFilter == 'happy_desc') {
@@ -612,7 +612,6 @@ class _RealEstateViewState extends State<RealEstateView> {
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(prop['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                    // 🟢 إذا كان الإعلان لي، أمنع الضغط وأشيل الخط 🟢
                                     if (isMyListing)
                                       const Text('المالك: أنت 👑', style: TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold))
                                     else
@@ -680,6 +679,7 @@ class _RealEstateViewState extends State<RealEstateView> {
     );
   }
 
+  // 🟢 حماية قوية للدوال هنا عشان نتجنب الـ Type Errors 🟢
   Widget _buildCommercialTab(BuildContext context, PlayerProvider player, MarketProvider market, AudioProvider audio) {
     int totalIncome = player.getTotalPassiveIncomePerDay();
 
@@ -723,12 +723,15 @@ class _RealEstateViewState extends State<RealEstateView> {
             padding: const EdgeInsets.all(16),
             itemBuilder: (context, index) {
               final biz = GameData.businessData[index];
-              final String bizId = biz['id'];
+
+              // 🟢 استخدام Safe Casting لضمان عدم تعطل الشاشة 🟢
+              final String bizId = biz['id'] ?? '';
               final int currentLevel = player.ownedBusinesses[bizId] ?? 0;
               final bool isOwned = currentLevel > 0;
-              final bool isMax = currentLevel >= biz['maxLevel'];
+              final int maxLevel = (biz['maxLevel'] as num?)?.toInt() ?? 10;
+              final bool isMax = currentLevel >= maxLevel;
 
-              final int basePrice = biz['basePrice'];
+              final int basePrice = (biz['basePrice'] as num?)?.toInt() ?? 10000;
               final int baseIncome = (GameData.businessBaseIncome[bizId] ?? 0) * 12;
 
               final int originalCost = isOwned ? (basePrice + (basePrice * currentLevel * 0.25)).toInt() : basePrice;
@@ -737,20 +740,23 @@ class _RealEstateViewState extends State<RealEstateView> {
               final int currentIncome = baseIncome * currentLevel;
               final int nextIncome = baseIncome * (currentLevel + 1);
 
+              final Color bizColor = biz['color'] as Color? ?? Colors.grey;
+              final IconData bizIcon = biz['icon'] as IconData? ?? Icons.business;
+
               return Card(
                 color: Colors.black45,
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
-                  side: BorderSide(color: isOwned ? (biz['color'] as Color).withOpacity(0.5) : Colors.white10),
+                  side: BorderSide(color: isOwned ? bizColor.withOpacity(0.5) : Colors.white10),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
                   child: Row(
                     children: [
                       CircleAvatar(
-                        backgroundColor: (biz['color'] as Color).withOpacity(0.2),
-                        child: Icon(biz['icon'] as IconData, color: biz['color']),
+                        backgroundColor: bizColor.withOpacity(0.2),
+                        child: Icon(bizIcon, color: bizColor),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -759,14 +765,14 @@ class _RealEstateViewState extends State<RealEstateView> {
                           children: [
                             Row(
                               children: [
-                                Expanded(child: Text(biz['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                                Expanded(child: Text(biz['name'] ?? 'مشروع', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
                                 if (isOwned) ...[
                                   const SizedBox(width: 4),
-                                  Text(isMax ? '(MAX)' : '(مستوى $currentLevel / ${biz['maxLevel']})', style: TextStyle(color: isMax ? Colors.red : Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  Text(isMax ? '(MAX)' : '(مستوى $currentLevel / $maxLevel)', style: TextStyle(color: isMax ? Colors.red : Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
                                 ]
                               ],
                             ),
-                            Text(biz['description'], style: const TextStyle(color: Colors.white54, fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            Text(biz['description'] ?? '', style: const TextStyle(color: Colors.white54, fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 4),
                             Row(
                               children: [
