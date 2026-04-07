@@ -142,6 +142,7 @@ class _LaboratoryViewState extends State<LaboratoryView> {
               onPressed: () {
                 audio.playEffect('click.mp3');
                 player.collectCraftedItem();
+                player.incrementLabCrafts(); // 🟢 هنا تتم زيادة عداد التصنيع لفتح الألقاب
               },
               icon: const Icon(Icons.inventory_2, color: Colors.white),
               label: const Text("نقل إلى المخزن", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),

@@ -46,6 +46,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
     });
 
     player.removeGold(500);
+    player.incrementLuckyWheelSpins(); // 🟢 هنا تنحسب الدورة في رصيد الألقاب
     audio.playEffect('click.mp3');
 
     await Future.delayed(const Duration(seconds: 3));
@@ -75,7 +76,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
 
     selectedPrize ??= prizes.last;
     String msg = "";
-    
+
     if (selectedPrize['id'] == 'none') {
       msg = "للأسف، لم تربح شيئاً هذه المرة.";
     } else if (selectedPrize['id'] == 'vip_7') {
@@ -102,7 +103,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
   Widget build(BuildContext context) {
     final audio = Provider.of<AudioProvider>(context, listen: false);
     final player = Provider.of<PlayerProvider>(context, listen: false);
-    
+
     final List<Map<String, dynamic>> prizes = [
       {'name': 'قناصة الصقر', 'icon': Icons.track_changes, 'color': Colors.red},
       {'name': 'البدلة الخارقة', 'icon': Icons.precision_manufacturing, 'color': Colors.amber},
@@ -160,22 +161,22 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
                     runSpacing: 10,
                     children: prizes
                         .map((p) => Container(
-                              width: 100,
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                  color: Colors.black26,
-                                  borderRadius: BorderRadius.circular(10)),
-                              child: Column(
-                                children: [
-                                  Icon(p['icon'], color: p['color'], size: 24),
-                                  const SizedBox(height: 5),
-                                  Text(p['name'],
-                                      style: const TextStyle(
-                                          color: Colors.white, fontSize: 10),
-                                      textAlign: TextAlign.center),
-                                ],
-                              ),
-                            ))
+                      width: 100,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Column(
+                        children: [
+                          Icon(p['icon'], color: p['color'], size: 24),
+                          const SizedBox(height: 5),
+                          Text(p['name'],
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 10),
+                              textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ))
                         .toList(),
                   ),
                 ],
@@ -185,7 +186,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
               style: ElevatedButton.styleFrom(
                   backgroundColor: _isSpinning ? Colors.grey : Colors.orange,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                  const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30))),
               onPressed: _isSpinning ? null : () => _spinWheel(audio, player),

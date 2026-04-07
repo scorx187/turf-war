@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
 
 class WorkshopView extends StatelessWidget {
-  // [إصلاح الخطأ هنا] إضافة متغير وزر الرجوع
   final VoidCallback onBack;
 
   const WorkshopView({super.key, required this.onBack});
@@ -12,7 +11,6 @@ class WorkshopView extends StatelessWidget {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // [الدايموند 💎] تسعيرة الإصلاح المتغيرة
     final List<Map<String, dynamic>> tools = [
       {'id': 'crowbar', 'name': 'عتلة', 'repairCost': 2, 'icon': Icons.build},
       {'id': 'glass_cutter', 'name': 'قاطع زجاج', 'repairCost': 3, 'icon': Icons.content_cut},
@@ -60,6 +58,9 @@ class WorkshopView extends StatelessWidget {
                     Text('الورشة السرية 🛠️', style: TextStyle(color: Colors.amber, fontSize: 22, fontWeight: FontWeight.bold)),
                     SizedBox(height: 5),
                     Text('العتاد القوي يحتاج قطع غيار أكثر للصيانة.', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    SizedBox(height: 8),
+                    // 🟢 تلميح الألقاب للورشة
+                    Text('💡 جمع المزيد من القطع لفتح ألقاب أسطورية!', style: TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),

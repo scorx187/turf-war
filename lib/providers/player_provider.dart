@@ -121,7 +121,6 @@ class PlayerProvider with ChangeNotifier {
   DateTime? _vipUntil;
   int _totalVipDays = 0;
 
-  // 🟢 متغيرات المختبر وعجلة الحظ الجديدة
   int _totalLabCrafts = 0;
   int _luckyWheelSpins = 0;
   List<String> _unlockedTitlesList = [];
@@ -172,15 +171,12 @@ class PlayerProvider with ChangeNotifier {
   int get totalLabCrafts => _totalLabCrafts;
   int get luckyWheelSpins => _luckyWheelSpins;
 
-  // 🟢 نظام الامتيازات الأوتوماتيكي (يحسب النقاط بناءً على الألقاب المفتوحة ناقص 1 اللي هو اللقب الافتراضي) 🟢
   int get earnedPerkPoints {
     return getAllTitles().where((t) => t['unlocked'] == true).length - 1;
   }
 
-  // النقاط المتاحة = الإنجازات ناقص المصروف
   int get unspentSkillPoints => max(0, earnedPerkPoints - _perks.values.fold(0, (sum, val) => sum + val));
 
-  // 🟢 الإحصائيات القتالية المفصلة (أساسي + زيادة العتاد) 🟢
   double get baseStrength => _strength;
   double get bonusStrength => (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) ? _strength * GameData.weaponStats[_equippedWeaponId]!['str']! : 0.0;
   double get strength => baseStrength + bonusStrength;
@@ -277,7 +273,7 @@ class PlayerProvider with ChangeNotifier {
     _listenToGameConfig();
   }
 
-  // 🟢 قائمة كل الألقاب والشروط داخل البروفايدر 🟢
+  // 🟢 القائمة الموحدة والكاملة لكل الألقاب 🟢
   List<Map<String, dynamic>> getAllTitles() {
     int wlth = _cash + _bankBalance;
     int cr = crimeSuccessCountsMap.values.fold(0, (sum, val) => sum + val);
@@ -285,7 +281,7 @@ class PlayerProvider with ChangeNotifier {
 
     return [
       {'name': 'مبتدئ في الشوارع 🚶', 'desc': 'اللقب الافتراضي (متاح للجميع)', 'unlocked': true},
-      // مسار الكاش
+      // 💵 مسار الكاش
       {'name': 'مبتدئ مالي 💵', 'desc': 'اجمع 100 ألف دولار', 'unlocked': wlth >= 100000},
       {'name': 'مليونير صاعد 💰', 'desc': 'اجمع 1 مليون دولار', 'unlocked': wlth >= 1000000},
       {'name': 'رجل أعمال ثري 🏦', 'desc': 'اجمع 10 مليون دولار', 'unlocked': wlth >= 10000000},
@@ -294,7 +290,7 @@ class PlayerProvider with ChangeNotifier {
       {'name': 'بليونير الشوارع 💸', 'desc': 'اجمع 1 مليار دولار', 'unlocked': wlth >= 1000000000},
       {'name': 'قارون المدينة 🪙', 'desc': 'اجمع 10 مليار دولار', 'unlocked': wlth >= 10000000000},
       {'name': 'إمبراطور الاقتصاد 🌍', 'desc': 'اجمع 100 مليار دولار', 'unlocked': wlth >= 100000000000},
-      // مسار الذهب
+      // 🪙 مسار الذهب
       {'name': 'باحث عن الذهب ⛏️', 'desc': 'اجمع 100 ذهبة', 'unlocked': _gold >= 100},
       {'name': 'مكتنز الذهب 🪙', 'desc': 'اجمع 500 ذهبة', 'unlocked': _gold >= 500},
       {'name': 'تاجر الذهب ⚖️', 'desc': 'اجمع 1,000 ذهبة', 'unlocked': _gold >= 1000},
@@ -303,33 +299,36 @@ class PlayerProvider with ChangeNotifier {
       {'name': 'خزنة لا تنضب 🏦', 'desc': 'اجمع 50,000 ذهبة', 'unlocked': _gold >= 50000},
       {'name': 'أسطورة الذهب 🌟', 'desc': 'اجمع 100,000 ذهبة', 'unlocked': _gold >= 100000},
       {'name': 'إله الثروة ⚡', 'desc': 'اجمع 500,000 ذهبة', 'unlocked': _gold >= 500000},
-      // مسار القتال
+      // ⚔️ مسار القتال
       {'name': 'قاتل مأجور 🎯', 'desc': 'اقتل 10 لاعبين في الشوارع', 'unlocked': _pvpWins >= 10},
       {'name': 'سفاح خطير 🔪', 'desc': 'اقتل 50 لاعب في الشوارع', 'unlocked': _pvpWins >= 50},
       {'name': 'أسطورة الجريمة 👑🩸', 'desc': 'اقتل 200 لاعب في الشوارع', 'unlocked': _pvpWins >= 200},
-      // مسار الجرائم
+      // 🥷 مسار الجرائم
       {'name': 'لص محترف 🥷', 'desc': 'نفذ 500 جريمة ناجحة', 'unlocked': cr >= 500},
       {'name': 'عقل مدبر 🧠', 'desc': 'نفذ 2,000 جريمة ناجحة', 'unlocked': cr >= 2000},
       {'name': 'زعيم المافيا 🎩', 'desc': 'نفذ 10,000 جريمة ناجحة', 'unlocked': cr >= 10000},
       {'name': 'كابوس المدينة 🦇', 'desc': 'نفذ 50,000 جريمة ناجحة', 'unlocked': cr >= 50000},
       {'name': 'شيطان الشوارع 👹', 'desc': 'نفذ 100,000 جريمة ناجحة', 'unlocked': cr >= 100000},
-      // مسار السعادة
+      // 🌈 مسار السعادة
       {'name': 'رجل أعمال سعيد 💼', 'desc': 'صل إلى 500 نقطة سعادة', 'unlocked': _happiness >= 500},
       {'name': 'مواطن VIP 🥂', 'desc': 'صل إلى 2,000 نقطة سعادة', 'unlocked': _happiness >= 2000},
       {'name': 'سيد الرفاهية 🏰', 'desc': 'صل إلى 5,000 نقطة سعادة', 'unlocked': _happiness >= 5000},
       {'name': 'إمبراطور النعيم 👑', 'desc': 'صل إلى 10,000 نقطة سعادة', 'unlocked': _happiness >= 10000},
       {'name': 'أسطورة السعادة 🌈', 'desc': 'صل إلى 50,000 نقطة سعادة', 'unlocked': _happiness >= 50000},
-      // مسار العقارات والمشاريع
+      // 🏙️ مسار العقارات والمشاريع
       {'name': 'مواطن مستقر 🏠', 'desc': 'اشتر أول عقار لك واسكن فيه', 'unlocked': _ownedProperties.isNotEmpty && isHoused},
       {'name': 'مستثمر عقاري 🏢', 'desc': 'اشتر 5 عقارات واسكن في أحدها', 'unlocked': _ownedProperties.length >= 5 && isHoused},
       {'name': 'ملك العقارات 🏙️', 'desc': 'اشتر جميع العقارات واسكن في أحدها', 'unlocked': _ownedProperties.length >= GameData.residentialProperties.length && isHoused},
       {'name': 'تاجر صغير 🏪', 'desc': 'اشتر مشروع تجاري واحد', 'unlocked': _ownedBusinesses.isNotEmpty},
       {'name': 'محتكر السوق 📈', 'desc': 'اشتر 5 مشاريع تجارية', 'unlocked': _ownedBusinesses.length >= 5},
       {'name': 'إمبراطور التجارة 🛳️', 'desc': 'اشتر 10 مشاريع تجارية', 'unlocked': _ownedBusinesses.length >= 10},
-      // مسار السيارات والورشة والمختبر وعجلة الحظ
+      // 🏎️ مسار السيارات
       {'name': 'هاوي محركات 🏎️', 'desc': 'امتلك سيارة واحدة', 'unlocked': _ownedCars.isNotEmpty},
       {'name': 'مجمع سيارات 🚘', 'desc': 'امتلك 5 سيارات', 'unlocked': _ownedCars.length >= 5},
+      {'name': 'شريطي الشوارع 🏎️💨', 'desc': 'امتلك 10 سيارات', 'unlocked': _ownedCars.length >= 10},
+      {'name': 'صاحب معرض 🏁', 'desc': 'امتلك 15 سيارة', 'unlocked': _ownedCars.length >= 15},
       {'name': 'إمبراطور الكراجات 👑🏎️', 'desc': 'امتلك 25 سيارة', 'unlocked': _ownedCars.length >= 25},
+      // ⚙️ مسار الورشة والمختبر وعجلة الحظ
       {'name': 'ميكانيكي مبتدئ 🔧', 'desc': 'اجمع 100 قطعة غيار', 'unlocked': _spareParts >= 100},
       {'name': 'خبير تفكيك ⚙️', 'desc': 'اجمع 1,000 قطعة غيار', 'unlocked': _spareParts >= 1000},
       {'name': 'ملك السكراب 🚜', 'desc': 'اجمع 10,000 قطعة غيار', 'unlocked': _spareParts >= 10000},
@@ -342,20 +341,34 @@ class PlayerProvider with ChangeNotifier {
       {'name': 'مدمن قمار 🎲', 'desc': 'دور عجلة الحظ 50 مرة', 'unlocked': _luckyWheelSpins >= 50},
       {'name': 'ملك الحظ 🍀', 'desc': 'دور عجلة الحظ 200 مرة', 'unlocked': _luckyWheelSpins >= 200},
       {'name': 'حبيب الكازينو 🎰', 'desc': 'دور عجلة الحظ 1,000 مرة', 'unlocked': _luckyWheelSpins >= 1000},
-      // مسار العصابة
+      // 🤝 مسار العصابة
       {'name': 'عضو داعم 🪙', 'desc': 'تبرع بـ 100,000 لعصابتك', 'unlocked': _gangContribution >= 100000},
       {'name': 'ذراع اليمين 🤝', 'desc': 'تبرع بـ 1,000,000 لعصابتك', 'unlocked': _gangContribution >= 1000000},
+      {'name': 'ممول العصابة 💼', 'desc': 'تبرع بـ 10 مليون لعصابتك', 'unlocked': _gangContribution >= 10000000},
+      {'name': 'بنك العصابة 🏦', 'desc': 'تبرع بـ 50 مليون لعصابتك', 'unlocked': _gangContribution >= 50000000},
       {'name': 'عراب الشوارع 🕴️', 'desc': 'تبرع بـ 100 مليون لعصابتك', 'unlocked': _gangContribution >= 100000000},
-      // مسار المستوى والحلبة والعمل
+      // 🩸 مسار مستوى الجريمة
       {'name': 'خارج عن القانون 🔫', 'desc': 'صل للمستوى 10 في الجريمة', 'unlocked': _crimeLevel >= 10},
+      {'name': 'مجرم مخضرم 🧨', 'desc': 'صل للمستوى 25 في الجريمة', 'unlocked': _crimeLevel >= 25},
+      {'name': 'زعيم محنك 🎩', 'desc': 'صل للمستوى 50 في الجريمة', 'unlocked': _crimeLevel >= 50},
       {'name': 'شبح المدينة 👻', 'desc': 'صل للمستوى 100 في الجريمة', 'unlocked': _crimeLevel >= 100},
+      {'name': 'كابوس السلطات 🚔', 'desc': 'صل للمستوى 150 في الجريمة', 'unlocked': _crimeLevel >= 150},
+      {'name': 'أسطورة حية 🐉', 'desc': 'صل للمستوى 200 في الجريمة', 'unlocked': _crimeLevel >= 200},
+      {'name': 'إله الجريمة 🌋', 'desc': 'صل للمستوى 300 في الجريمة', 'unlocked': _crimeLevel >= 300},
       {'name': 'الحاكم المطلق 👑🌍', 'desc': 'صل للمستوى 400 (الماكس لفل)', 'unlocked': _crimeLevel >= 400},
+      // 💼 مسار العمل
       {'name': 'موظف مجتهد 💼', 'desc': 'صل للمستوى 10 في العمل', 'unlocked': _workLevel >= 10},
+      {'name': 'مدير تنفيذي 📊', 'desc': 'صل للمستوى 25 في العمل', 'unlocked': _workLevel >= 25},
+      {'name': 'رئيس مجلس الإدارة 🏢', 'desc': 'صل للمستوى 50 في العمل', 'unlocked': _workLevel >= 50},
       {'name': 'وزير الاقتصاد 🏛️', 'desc': 'صل للمستوى 100 في العمل', 'unlocked': _workLevel >= 100},
+      // 🥊 مسار الحلبة
       {'name': 'ملاكم شوارع 🥊', 'desc': 'صل للمستوى 10 في الحلبة', 'unlocked': _arenaLevel >= 10},
+      {'name': 'بطل الحلبة 🥇', 'desc': 'صل للمستوى 50 في الحلبة', 'unlocked': _arenaLevel >= 50},
       {'name': 'جلاد الساحة 🩸', 'desc': 'صل للمستوى 100 في الحلبة', 'unlocked': _arenaLevel >= 100},
-      // مسار VIP
+      // 💎 مسار VIP
       {'name': 'زائر مميز 🌟', 'desc': 'فعل اشتراك VIP لمدة يوم', 'unlocked': _totalVipDays >= 1},
+      {'name': 'شخصية هامة 🍷', 'desc': 'فعل اشتراك VIP لمدة أسبوع', 'unlocked': _totalVipDays >= 7},
+      {'name': 'نجم المدينة 💎', 'desc': 'فعل اشتراك VIP لمدة شهر', 'unlocked': _totalVipDays >= 30},
       {'name': 'صاحب الفخامة 👑💎', 'desc': 'فعل اشتراك VIP لمدة سنة', 'unlocked': _totalVipDays >= 365},
     ];
   }
@@ -485,7 +498,6 @@ class PlayerProvider with ChangeNotifier {
       }
     }
 
-    // 🟢 عشان ما نزعج اللاعبين القدامى بإشعارات متأخرة، نحدث قائمة الألقاب بصمت
     if (data['unlockedTitlesList'] != null) {
       _unlockedTitlesList = List<String>.from(data['unlockedTitlesList']);
     } else {
@@ -511,7 +523,6 @@ class PlayerProvider with ChangeNotifier {
     } catch (e) {}
   }
 
-  // 🟢 نظام التشييك على الألقاب وإرسال الإشعارات 🟢
   void _checkNewTitles() {
     if (_isLoading || _uid == null) return;
     List<Map<String, dynamic>> all = getAllTitles();
@@ -523,7 +534,6 @@ class PlayerProvider with ChangeNotifier {
         _unlockedTitlesList.add(t);
         hasNew = true;
 
-        // 1. إضافة الإشعار لقاعدة البيانات (ليظهر في صفحة الإشعارات)
         _firestore.collection('notifications').add({
           'uid': _uid,
           'title': 'لقب جديد 🏆',
@@ -533,7 +543,6 @@ class PlayerProvider with ChangeNotifier {
           'icon': 'trophy',
         });
 
-        // 2. إشعار فوري سريع في الشاشة
         _showNotification("🏆 لقب جديد متاح! ($t)");
       }
     }
@@ -551,7 +560,6 @@ class PlayerProvider with ChangeNotifier {
       bool localChanged = false;
       syncCounter++;
 
-      // 🟢 تشييك الألقاب كل 5 ثواني عشان ما نثقل الكود
       if (timer.tick % 5 == 0) {
         _checkNewTitles();
       }
@@ -637,7 +645,6 @@ class PlayerProvider with ChangeNotifier {
     }
   }
 
-  // 🟢 دوال الإضافة لعداد المختبر وعجلة الحظ (استخدمهم في واجهات اللعبة)
   void incrementLabCrafts() { _totalLabCrafts++; _syncWithFirestore(); notifyListeners(); }
   void incrementLuckyWheelSpins() { _luckyWheelSpins++; _syncWithFirestore(); notifyListeners(); }
 
