@@ -119,6 +119,12 @@ class PlayerProvider with ChangeNotifier {
   String? _equippedArmorId;
   String? _equippedMaskId;
   DateTime? _vipUntil;
+  int _totalVipDays = 0;
+
+  // 🟢 متغيرات المختبر وعجلة الحظ الجديدة
+  int _totalLabCrafts = 0;
+  int _luckyWheelSpins = 0;
+  List<String> _unlockedTitlesList = [];
 
   List<String> _ownedCars = [];
   String? _activeCarId;
@@ -152,43 +158,23 @@ class PlayerProvider with ChangeNotifier {
 
   final Map<String, Uint8List> _decodedImagesCache = {};
 
-  // 🟢 متغيرات السجل الإجرامي والامتيازات 🟢
   int _pvpWins = 0;
   int _totalStolenCash = 0;
   Map<String, int> _perks = {};
 
+  String? _selectedTitle;
+  String? get selectedTitle => _selectedTitle;
+
   int get pvpWins => _pvpWins;
   int get totalStolenCash => _totalStolenCash;
   Map<String, int> get perks => _perks;
+  int get totalVipDays => _totalVipDays;
+  int get totalLabCrafts => _totalLabCrafts;
+  int get luckyWheelSpins => _luckyWheelSpins;
 
-  // 🟢 نظام الإنجازات للحصول على نقاط الامتياز 🟢
+  // 🟢 نظام الامتيازات الأوتوماتيكي (يحسب النقاط بناءً على الألقاب المفتوحة ناقص 1 اللي هو اللقب الافتراضي) 🟢
   int get earnedPerkPoints {
-    int pts = 0;
-    // مسار السعادة
-    if (_happiness >= 100) pts++;
-    if (_happiness >= 500) pts++;
-    if (_happiness >= 1500) pts++;
-    if (_happiness >= 4000) pts++;
-    // مسار الثراء
-    int totalWealth = _cash + _bankBalance;
-    if (totalWealth >= 10000) pts++;
-    if (totalWealth >= 1000000) pts++;
-    if (totalWealth >= 100000000) pts++;
-    // مسار الجرائم
-    int totalCrimes = crimeSuccessCountsMap.values.fold(0, (sum, val) => sum + val);
-    if (totalCrimes >= 100) pts++;
-    if (totalCrimes >= 500) pts++;
-    if (totalCrimes >= 2000) pts++;
-    // مسار الدم
-    if (_pvpWins >= 10) pts++;
-    if (_pvpWins >= 50) pts++;
-    if (_pvpWins >= 200) pts++;
-    // مسار السلب
-    if (_totalStolenCash >= 10000) pts++;
-    if (_totalStolenCash >= 500000) pts++;
-    if (_totalStolenCash >= 5000000) pts++;
-
-    return pts;
+    return getAllTitles().where((t) => t['unlocked'] == true).length - 1;
   }
 
   // النقاط المتاحة = الإنجازات ناقص المصروف
@@ -291,6 +277,89 @@ class PlayerProvider with ChangeNotifier {
     _listenToGameConfig();
   }
 
+  // 🟢 قائمة كل الألقاب والشروط داخل البروفايدر 🟢
+  List<Map<String, dynamic>> getAllTitles() {
+    int wlth = _cash + _bankBalance;
+    int cr = crimeSuccessCountsMap.values.fold(0, (sum, val) => sum + val);
+    bool isHoused = _activePropertyId != null;
+
+    return [
+      {'name': 'مبتدئ في الشوارع 🚶', 'desc': 'اللقب الافتراضي (متاح للجميع)', 'unlocked': true},
+      // مسار الكاش
+      {'name': 'مبتدئ مالي 💵', 'desc': 'اجمع 100 ألف دولار', 'unlocked': wlth >= 100000},
+      {'name': 'مليونير صاعد 💰', 'desc': 'اجمع 1 مليون دولار', 'unlocked': wlth >= 1000000},
+      {'name': 'رجل أعمال ثري 🏦', 'desc': 'اجمع 10 مليون دولار', 'unlocked': wlth >= 10000000},
+      {'name': 'حوت المافيا 🐋', 'desc': 'اجمع 100 مليون دولار', 'unlocked': wlth >= 100000000},
+      {'name': 'نصف بليونير 💎', 'desc': 'اجمع 500 مليون دولار', 'unlocked': wlth >= 500000000},
+      {'name': 'بليونير الشوارع 💸', 'desc': 'اجمع 1 مليار دولار', 'unlocked': wlth >= 1000000000},
+      {'name': 'قارون المدينة 🪙', 'desc': 'اجمع 10 مليار دولار', 'unlocked': wlth >= 10000000000},
+      {'name': 'إمبراطور الاقتصاد 🌍', 'desc': 'اجمع 100 مليار دولار', 'unlocked': wlth >= 100000000000},
+      // مسار الذهب
+      {'name': 'باحث عن الذهب ⛏️', 'desc': 'اجمع 100 ذهبة', 'unlocked': _gold >= 100},
+      {'name': 'مكتنز الذهب 🪙', 'desc': 'اجمع 500 ذهبة', 'unlocked': _gold >= 500},
+      {'name': 'تاجر الذهب ⚖️', 'desc': 'اجمع 1,000 ذهبة', 'unlocked': _gold >= 1000},
+      {'name': 'بارون الذهب 👑', 'desc': 'اجمع 5,000 ذهبة', 'unlocked': _gold >= 5000},
+      {'name': 'ملك السبائك 🧱', 'desc': 'اجمع 10,000 ذهبة', 'unlocked': _gold >= 10000},
+      {'name': 'خزنة لا تنضب 🏦', 'desc': 'اجمع 50,000 ذهبة', 'unlocked': _gold >= 50000},
+      {'name': 'أسطورة الذهب 🌟', 'desc': 'اجمع 100,000 ذهبة', 'unlocked': _gold >= 100000},
+      {'name': 'إله الثروة ⚡', 'desc': 'اجمع 500,000 ذهبة', 'unlocked': _gold >= 500000},
+      // مسار القتال
+      {'name': 'قاتل مأجور 🎯', 'desc': 'اقتل 10 لاعبين في الشوارع', 'unlocked': _pvpWins >= 10},
+      {'name': 'سفاح خطير 🔪', 'desc': 'اقتل 50 لاعب في الشوارع', 'unlocked': _pvpWins >= 50},
+      {'name': 'أسطورة الجريمة 👑🩸', 'desc': 'اقتل 200 لاعب في الشوارع', 'unlocked': _pvpWins >= 200},
+      // مسار الجرائم
+      {'name': 'لص محترف 🥷', 'desc': 'نفذ 500 جريمة ناجحة', 'unlocked': cr >= 500},
+      {'name': 'عقل مدبر 🧠', 'desc': 'نفذ 2,000 جريمة ناجحة', 'unlocked': cr >= 2000},
+      {'name': 'زعيم المافيا 🎩', 'desc': 'نفذ 10,000 جريمة ناجحة', 'unlocked': cr >= 10000},
+      {'name': 'كابوس المدينة 🦇', 'desc': 'نفذ 50,000 جريمة ناجحة', 'unlocked': cr >= 50000},
+      {'name': 'شيطان الشوارع 👹', 'desc': 'نفذ 100,000 جريمة ناجحة', 'unlocked': cr >= 100000},
+      // مسار السعادة
+      {'name': 'رجل أعمال سعيد 💼', 'desc': 'صل إلى 500 نقطة سعادة', 'unlocked': _happiness >= 500},
+      {'name': 'مواطن VIP 🥂', 'desc': 'صل إلى 2,000 نقطة سعادة', 'unlocked': _happiness >= 2000},
+      {'name': 'سيد الرفاهية 🏰', 'desc': 'صل إلى 5,000 نقطة سعادة', 'unlocked': _happiness >= 5000},
+      {'name': 'إمبراطور النعيم 👑', 'desc': 'صل إلى 10,000 نقطة سعادة', 'unlocked': _happiness >= 10000},
+      {'name': 'أسطورة السعادة 🌈', 'desc': 'صل إلى 50,000 نقطة سعادة', 'unlocked': _happiness >= 50000},
+      // مسار العقارات والمشاريع
+      {'name': 'مواطن مستقر 🏠', 'desc': 'اشتر أول عقار لك واسكن فيه', 'unlocked': _ownedProperties.isNotEmpty && isHoused},
+      {'name': 'مستثمر عقاري 🏢', 'desc': 'اشتر 5 عقارات واسكن في أحدها', 'unlocked': _ownedProperties.length >= 5 && isHoused},
+      {'name': 'ملك العقارات 🏙️', 'desc': 'اشتر جميع العقارات واسكن في أحدها', 'unlocked': _ownedProperties.length >= GameData.residentialProperties.length && isHoused},
+      {'name': 'تاجر صغير 🏪', 'desc': 'اشتر مشروع تجاري واحد', 'unlocked': _ownedBusinesses.isNotEmpty},
+      {'name': 'محتكر السوق 📈', 'desc': 'اشتر 5 مشاريع تجارية', 'unlocked': _ownedBusinesses.length >= 5},
+      {'name': 'إمبراطور التجارة 🛳️', 'desc': 'اشتر 10 مشاريع تجارية', 'unlocked': _ownedBusinesses.length >= 10},
+      // مسار السيارات والورشة والمختبر وعجلة الحظ
+      {'name': 'هاوي محركات 🏎️', 'desc': 'امتلك سيارة واحدة', 'unlocked': _ownedCars.isNotEmpty},
+      {'name': 'مجمع سيارات 🚘', 'desc': 'امتلك 5 سيارات', 'unlocked': _ownedCars.length >= 5},
+      {'name': 'إمبراطور الكراجات 👑🏎️', 'desc': 'امتلك 25 سيارة', 'unlocked': _ownedCars.length >= 25},
+      {'name': 'ميكانيكي مبتدئ 🔧', 'desc': 'اجمع 100 قطعة غيار', 'unlocked': _spareParts >= 100},
+      {'name': 'خبير تفكيك ⚙️', 'desc': 'اجمع 1,000 قطعة غيار', 'unlocked': _spareParts >= 1000},
+      {'name': 'ملك السكراب 🚜', 'desc': 'اجمع 10,000 قطعة غيار', 'unlocked': _spareParts >= 10000},
+      {'name': 'إمبراطور القطع 🏭', 'desc': 'اجمع 50,000 قطعة غيار', 'unlocked': _spareParts >= 50000},
+      {'name': 'كيميائي هاوي 🧪', 'desc': 'قم بـ 10 عمليات تصنيع في المختبر', 'unlocked': _totalLabCrafts >= 10},
+      {'name': 'طباخ محترف 👨‍🔬', 'desc': 'قم بـ 50 عملية تصنيع في المختبر', 'unlocked': _totalLabCrafts >= 50},
+      {'name': 'خبير سموم ☠️', 'desc': 'قم بـ 200 عملية تصنيع في المختبر', 'unlocked': _totalLabCrafts >= 200},
+      {'name': 'هايزنبرغ المدينة 💎', 'desc': 'قم بـ 1,000 عملية تصنيع في المختبر', 'unlocked': _totalLabCrafts >= 1000},
+      {'name': 'محب للمغامرة 🎡', 'desc': 'دور عجلة الحظ 10 مرات', 'unlocked': _luckyWheelSpins >= 10},
+      {'name': 'مدمن قمار 🎲', 'desc': 'دور عجلة الحظ 50 مرة', 'unlocked': _luckyWheelSpins >= 50},
+      {'name': 'ملك الحظ 🍀', 'desc': 'دور عجلة الحظ 200 مرة', 'unlocked': _luckyWheelSpins >= 200},
+      {'name': 'حبيب الكازينو 🎰', 'desc': 'دور عجلة الحظ 1,000 مرة', 'unlocked': _luckyWheelSpins >= 1000},
+      // مسار العصابة
+      {'name': 'عضو داعم 🪙', 'desc': 'تبرع بـ 100,000 لعصابتك', 'unlocked': _gangContribution >= 100000},
+      {'name': 'ذراع اليمين 🤝', 'desc': 'تبرع بـ 1,000,000 لعصابتك', 'unlocked': _gangContribution >= 1000000},
+      {'name': 'عراب الشوارع 🕴️', 'desc': 'تبرع بـ 100 مليون لعصابتك', 'unlocked': _gangContribution >= 100000000},
+      // مسار المستوى والحلبة والعمل
+      {'name': 'خارج عن القانون 🔫', 'desc': 'صل للمستوى 10 في الجريمة', 'unlocked': _crimeLevel >= 10},
+      {'name': 'شبح المدينة 👻', 'desc': 'صل للمستوى 100 في الجريمة', 'unlocked': _crimeLevel >= 100},
+      {'name': 'الحاكم المطلق 👑🌍', 'desc': 'صل للمستوى 400 (الماكس لفل)', 'unlocked': _crimeLevel >= 400},
+      {'name': 'موظف مجتهد 💼', 'desc': 'صل للمستوى 10 في العمل', 'unlocked': _workLevel >= 10},
+      {'name': 'وزير الاقتصاد 🏛️', 'desc': 'صل للمستوى 100 في العمل', 'unlocked': _workLevel >= 100},
+      {'name': 'ملاكم شوارع 🥊', 'desc': 'صل للمستوى 10 في الحلبة', 'unlocked': _arenaLevel >= 10},
+      {'name': 'جلاد الساحة 🩸', 'desc': 'صل للمستوى 100 في الحلبة', 'unlocked': _arenaLevel >= 100},
+      // مسار VIP
+      {'name': 'زائر مميز 🌟', 'desc': 'فعل اشتراك VIP لمدة يوم', 'unlocked': _totalVipDays >= 1},
+      {'name': 'صاحب الفخامة 👑💎', 'desc': 'فعل اشتراك VIP لمدة سنة', 'unlocked': _totalVipDays >= 365},
+    ];
+  }
+
   String _formatWithCommas(int number) {
     return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
   }
@@ -365,7 +434,11 @@ class PlayerProvider with ChangeNotifier {
     _isInPrison = data['isInPrison'] ?? false; if (data['prisonReleaseTime'] != null) _prisonReleaseTime = DateTime.parse(data['prisonReleaseTime']);
     _isHospitalized = data['isHospitalized'] ?? false; if (data['hospitalReleaseTime'] != null) _hospitalReleaseTime = DateTime.parse(data['hospitalReleaseTime']);
     _lockedBalance = data['lockedBalance'] ?? 0; _lockedProfits = data['lockedProfits'] ?? 0; if (data['lockedUntil'] != null) _lockedUntil = DateTime.parse(data['lockedUntil']);
-    if (data['vipUntil'] != null) _vipUntil = DateTime.parse(data['vipUntil']); _loanAmount = data['loanAmount'] ?? 0; _creditScore = data['creditScore'] ?? 0; if (data['loanTime'] != null) _loanTime = DateTime.parse(data['loanTime']);
+    if (data['vipUntil'] != null) _vipUntil = DateTime.parse(data['vipUntil']);
+    _totalVipDays = data['totalVipDays'] ?? 0;
+    _totalLabCrafts = data['totalLabCrafts'] ?? 0;
+    _luckyWheelSpins = data['luckyWheelSpins'] ?? 0;
+    _loanAmount = data['loanAmount'] ?? 0; _creditScore = data['creditScore'] ?? 0; if (data['loanTime'] != null) _loanTime = DateTime.parse(data['loanTime']);
     _gangName = data['gangName']; _gangRank = data['gangRank'] ?? "عضو"; _gangContribution = data['gangContribution'] ?? 0; _gangWarWins = data['gangWarWins'] ?? 0;
     if (data['territoryOwners'] != null) _territoryOwners = Map<String, String>.from(data['territoryOwners']);
     if (data['contractEndTime'] != null) _contractEndTime = DateTime.parse(data['contractEndTime']);
@@ -377,9 +450,9 @@ class PlayerProvider with ChangeNotifier {
     if (data['transactions'] != null) _transactions = (data['transactions'] as List).map((t) => Transaction.fromJson(Map<String, dynamic>.from(t))).toList();
     if (data['crimeSuccessCountsMap'] != null) crimeSuccessCountsMap = Map<String, int>.from(data['crimeSuccessCountsMap']);
 
-    // 🟢 قراءة آمنة للسجل والامتيازات 🟢
     _pvpWins = (data['pvpWins'] as num?)?.toInt() ?? 0;
     _totalStolenCash = (data['totalStolenCash'] as num?)?.toInt() ?? 0;
+    _selectedTitle = data['selectedTitle'];
 
     _perks = {};
     if (data['perks'] != null && data['perks'] is Map) {
@@ -411,6 +484,13 @@ class PlayerProvider with ChangeNotifier {
         double lostHeat = secondsPassed * 0.0278; _heat = max(0, _heat - lostHeat);
       }
     }
+
+    // 🟢 عشان ما نزعج اللاعبين القدامى بإشعارات متأخرة، نحدث قائمة الألقاب بصمت
+    if (data['unlockedTitlesList'] != null) {
+      _unlockedTitlesList = List<String>.from(data['unlockedTitlesList']);
+    } else {
+      _unlockedTitlesList = getAllTitles().where((t) => t['unlocked'] == true).map((t) => t['name'] as String).toList();
+    }
   }
 
   Future<void> _syncWithFirestore() async {
@@ -421,12 +501,46 @@ class PlayerProvider with ChangeNotifier {
         'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _maxHealth, 'happiness': _happiness, 'strength': _strength, 'defense': _defense, 'skill': _skill, 'speed': _speed,
         'activeSteroidEndTime': _activeSteroidEndTime?.toIso8601String(), 'activeCoach': _activeCoach, 'coachEndTime': _coachEndTime?.toIso8601String(),
         'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),
-        'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName, 'bailCost': _playerBailCost,
+        'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'totalVipDays': _totalVipDays, 'totalLabCrafts': _totalLabCrafts, 'luckyWheelSpins': _luckyWheelSpins, 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName, 'bailCost': _playerBailCost,
         'pvpWins': _pvpWins,
         'totalStolenCash': _totalStolenCash,
         'perks': _perks,
+        'selectedTitle': _selectedTitle,
+        'unlockedTitlesList': _unlockedTitlesList,
       }, SetOptions(merge: true));
     } catch (e) {}
+  }
+
+  // 🟢 نظام التشييك على الألقاب وإرسال الإشعارات 🟢
+  void _checkNewTitles() {
+    if (_isLoading || _uid == null) return;
+    List<Map<String, dynamic>> all = getAllTitles();
+    List<String> currentUnlocked = all.where((t) => t['unlocked'] == true).map((t) => t['name'] as String).toList();
+    bool hasNew = false;
+
+    for (String t in currentUnlocked) {
+      if (!_unlockedTitlesList.contains(t)) {
+        _unlockedTitlesList.add(t);
+        hasNew = true;
+
+        // 1. إضافة الإشعار لقاعدة البيانات (ليظهر في صفحة الإشعارات)
+        _firestore.collection('notifications').add({
+          'uid': _uid,
+          'title': 'لقب جديد 🏆',
+          'body': 'تهانينا! لقد كسبت لقب: ($t) وحصلت على نقطة امتياز جديدة.',
+          'timestamp': FieldValue.serverTimestamp(),
+          'isRead': false,
+          'icon': 'trophy',
+        });
+
+        // 2. إشعار فوري سريع في الشاشة
+        _showNotification("🏆 لقب جديد متاح! ($t)");
+      }
+    }
+    if (hasNew) {
+      _syncWithFirestore();
+      notifyListeners();
+    }
   }
 
   void _startGameLoop() {
@@ -436,6 +550,11 @@ class PlayerProvider with ChangeNotifier {
       if (_isLoading) return;
       bool localChanged = false;
       syncCounter++;
+
+      // 🟢 تشييك الألقاب كل 5 ثواني عشان ما نثقل الكود
+      if (timer.tick % 5 == 0) {
+        _checkNewTitles();
+      }
 
       if (_activeSteroidEndTime != null && DateTime.now().isAfter(_activeSteroidEndTime!)) {
         _activeSteroidEndTime = null;
@@ -506,9 +625,30 @@ class PlayerProvider with ChangeNotifier {
   void removeGold(int amount) { _gold = max(0, _gold - amount); _syncWithFirestore(); notifyListeners(); }
   void updateName(String newName) { if (_inventory.containsKey('name_change_card') && _inventory['name_change_card']! > 0) { _playerName = newName; _inventory['name_change_card'] = _inventory['name_change_card']! - 1; if (_inventory['name_change_card'] == 0) _inventory.remove('name_change_card'); _syncWithFirestore(); notifyListeners(); } }
   void addWorkXP(int amount) { _workXP += amount; if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; _showNotification("تمت ترقيتك للمستوى $_workLevel"); } _syncWithFirestore(); notifyListeners(); }
-  void buyVIP(int days, int cost) { if (_gold >= cost) { _gold -= cost; DateTime start = isVIP ? _vipUntil! : DateTime.now(); _vipUntil = start.add(Duration(days: days)); _syncWithFirestore(); notifyListeners(); } }
+
+  void buyVIP(int days, int cost) {
+    if (_gold >= cost) {
+      _gold -= cost;
+      _totalVipDays += days;
+      DateTime start = isVIP ? _vipUntil! : DateTime.now();
+      _vipUntil = start.add(Duration(days: days));
+      _syncWithFirestore();
+      notifyListeners();
+    }
+  }
+
+  // 🟢 دوال الإضافة لعداد المختبر وعجلة الحظ (استخدمهم في واجهات اللعبة)
+  void incrementLabCrafts() { _totalLabCrafts++; _syncWithFirestore(); notifyListeners(); }
+  void incrementLuckyWheelSpins() { _luckyWheelSpins++; _syncWithFirestore(); notifyListeners(); }
+
   void _showNotification(String message) => _notificationStream.add(message);
   void _addTransaction(String title, int amount, bool isPositive, {String? senderUid}) { _transactions.insert(0, Transaction(title: title, amount: amount, date: DateTime.now(), isPositive: isPositive, senderUid: senderUid)); if (_transactions.length > 20) _transactions.removeLast(); }
+
+  void updateTitle(String newTitle) {
+    _selectedTitle = newTitle;
+    _syncWithFirestore();
+    notifyListeners();
+  }
 
   Future<Map<String, dynamic>?> getPlayerById(String targetUid) async {
     try {
@@ -521,13 +661,13 @@ class PlayerProvider with ChangeNotifier {
   Future<void> resetPlayerData() async {
     _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 100; _prestige = 100; _strength = 5; _defense = 5; _skill = 5; _speed = 5;
     _ownedProperties = []; _activePropertyId = null; _ownedBusinesses = {}; _happiness = 0; _inventory = {'name_change_card': 1};
-    _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _isHospitalized = false; _hospitalReleaseTime = null;
-    _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
+    _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _totalVipDays = 0; _totalLabCrafts = 0; _luckyWheelSpins = 0; _unlockedTitlesList = [];
+    _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
     _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {};
     crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
     _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ';
     _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null; _lastPassiveIncomeTime = DateTime.now();
-    _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _pvpWins = 0; _totalStolenCash = 0; _perks = {};
+    _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _pvpWins = 0; _totalStolenCash = 0; _perks = {}; _selectedTitle = null;
     await _syncWithFirestore(); notifyListeners();
   }
 
@@ -540,7 +680,7 @@ class PlayerProvider with ChangeNotifier {
       notifyListeners();
       _showNotification("⭐ تم تفعيل الامتياز بنجاح!");
     } else {
-      _showNotification("⚠️ لا تملك نقاط مهارة كافية، حقق المزيد من الإنجازات.");
+      _showNotification("⚠️ لا تملك نقاط مهارة كافية، حقق المزيد من الألقاب.");
     }
   }
 

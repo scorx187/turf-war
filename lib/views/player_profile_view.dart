@@ -1,5 +1,6 @@
 // المسار: lib/views/player_profile_view.dart
 
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -57,15 +58,21 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'profilePicUrl': player.profilePicUrl,
         'backgroundPicUrl': player.backgroundPicUrl,
         'isVIP': player.isVIP,
+        'totalVipDays': player.totalVipDays,
         'bio': player.bio,
         'gangName': player.gangName,
+        'gangContribution': player.gangContribution,
         'currentCity': player.currentCity,
         'isHospitalized': player.isHospitalized,
         'isInPrison': player.isInPrison,
         'pvpWins': player.pvpWins,
         'totalStolenCash': player.totalStolenCash,
         'crimeSuccessCountsMap': player.crimeSuccessCountsMap,
+        'crimeLevel': player.crimeLevel,
+        'workLevel': player.workLevel,
+        'arenaLevel': player.arenaLevel,
         'perks': player.perks,
+        'selectedTitle': player.selectedTitle,
         'baseStrength': player.baseStrength, 'bonusStrength': player.bonusStrength,
         'baseDefense': player.baseDefense, 'bonusDefense': player.bonusDefense,
         'baseSpeed': player.baseSpeed, 'bonusSpeed': player.bonusSpeed,
@@ -73,6 +80,14 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'happiness': player.happiness,
         'cash': player.cash,
         'bankBalance': player.bankBalance,
+        'gold': player.gold,
+        'ownedProperties': player.ownedProperties,
+        'activePropertyId': player.activePropertyId,
+        'ownedCars': player.ownedCars,
+        'ownedBusinesses': player.ownedBusinesses,
+        'spareParts': player.spareParts,
+        'totalLabCrafts': player.totalLabCrafts,
+        'luckyWheelSpins': player.luckyWheelSpins,
       };
     } else {
       playerData = {
@@ -81,6 +96,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'profilePicUrl': widget.previewPicUrl,
         'backgroundPicUrl': null,
         'isVIP': widget.previewIsVIP ?? false,
+        'totalVipDays': 0,
         'bio': 'جاري تحديث البيانات...',
         'currentCity': 'ملاذ', 'isHospitalized': false, 'isInPrison': false,
         'pvpWins': 0, 'totalStolenCash': 0, 'crimeSuccessCountsMap': {}, 'perks': {},
@@ -89,6 +105,9 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'baseSpeed': 5.0, 'bonusSpeed': 0.0,
         'baseSkill': 5.0, 'bonusSkill': 0.0,
         'happiness': 0, 'cash': 0, 'bankBalance': 0,
+        'gold': 0, 'ownedProperties': [], 'activePropertyId': null, 'ownedCars': [], 'gangContribution': 0,
+        'crimeLevel': 1, 'workLevel': 1, 'arenaLevel': 1, 'ownedBusinesses': {},
+        'spareParts': 0, 'totalLabCrafts': 0, 'luckyWheelSpins': 0,
       };
       _loadData();
     }
@@ -120,23 +139,122 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match match) => '${match[1]},');
   }
 
-  String _getPlayerTitle(Map<String, dynamic> data) {
+  List<Map<String, dynamic>> _getAllTitlesLocal(Map<String, dynamic> data) {
     int pvp = data['pvpWins'] ?? 0;
-    int hap = data['happiness'] ?? 0;
-    int cr = 0;
-    if (data['crimeSuccessCountsMap'] != null) { (data['crimeSuccessCountsMap'] as Map).forEach((k, v) => cr += (v as int)); }
     int wlth = (data['cash'] ?? 0) + (data['bankBalance'] ?? 0);
+    int gld = data['gold'] ?? 0;
+    int cr = 0;
+    if (data['crimeSuccessCountsMap'] != null) {
+      (data['crimeSuccessCountsMap'] as Map).forEach((k, v) => cr += (v as int));
+    }
+    int hap = data['happiness'] ?? 0;
+    List<String> ownedProps = List<String>.from(data['ownedProperties'] ?? []);
+    bool isHoused = data['activePropertyId'] != null;
+    int totalProps = GameData.residentialProperties.length;
 
-    if (pvp >= 200) return 'أسطورة الجريمة 👑🩸';
-    if (wlth >= 100000000) return 'حوت المافيا 🐋';
-    if (hap >= 4000) return 'إمبراطور المدينة 🏙️';
-    if (cr >= 2000) return 'عقل مدبر 🧠';
-    if (pvp >= 50) return 'سفاح خطير 🔪';
-    if (wlth >= 1000000) return 'مليونير صاعد 💰';
-    if (cr >= 500) return 'محترف سطو 🥷';
-    if (hap >= 500) return 'رجل أعمال ناجح 💼';
-    if (pvp >= 10) return 'قاتل مأجور 🎯';
-    return 'مبتدئ في الشوارع 🚶';
+    int carsOwned = List<String>.from(data['ownedCars'] ?? []).length;
+    int gangCont = data['gangContribution'] ?? 0;
+    int crimeLvl = data['crimeLevel'] ?? 1;
+    int workLvl = data['workLevel'] ?? 1;
+    int arenaLvl = data['arenaLevel'] ?? 1;
+    int totalVipDays = data['totalVipDays'] ?? 0;
+    int bizCount = (data['ownedBusinesses'] as Map?)?.length ?? 0;
+    int spareParts = data['spareParts'] ?? 0;
+    int labCrafts = data['totalLabCrafts'] ?? 0;
+    int wheelSpins = data['luckyWheelSpins'] ?? 0;
+
+    return [
+      {'name': 'مبتدئ في الشوارع 🚶', 'desc': 'اللقب الافتراضي (متاح للجميع)', 'unlocked': true},
+      {'name': 'مبتدئ مالي 💵', 'desc': 'اجمع 100 ألف دولار', 'unlocked': wlth >= 100000},
+      {'name': 'مليونير صاعد 💰', 'desc': 'اجمع 1 مليون دولار', 'unlocked': wlth >= 1000000},
+      {'name': 'رجل أعمال ثري 🏦', 'desc': 'اجمع 10 مليون دولار', 'unlocked': wlth >= 10000000},
+      {'name': 'حوت المافيا 🐋', 'desc': 'اجمع 100 مليون دولار', 'unlocked': wlth >= 100000000},
+      {'name': 'نصف بليونير 💎', 'desc': 'اجمع 500 مليون دولار', 'unlocked': wlth >= 500000000},
+      {'name': 'بليونير الشوارع 💸', 'desc': 'اجمع 1 مليار دولار', 'unlocked': wlth >= 1000000000},
+      {'name': 'قارون المدينة 🪙', 'desc': 'اجمع 10 مليار دولار', 'unlocked': wlth >= 10000000000},
+      {'name': 'إمبراطور الاقتصاد 🌍', 'desc': 'اجمع 100 مليار دولار', 'unlocked': wlth >= 100000000000},
+      {'name': 'باحث عن الذهب ⛏️', 'desc': 'اجمع 100 ذهبة', 'unlocked': gld >= 100},
+      {'name': 'مكتنز الذهب 🪙', 'desc': 'اجمع 500 ذهبة', 'unlocked': gld >= 500},
+      {'name': 'تاجر الذهب ⚖️', 'desc': 'اجمع 1,000 ذهبة', 'unlocked': gld >= 1000},
+      {'name': 'بارون الذهب 👑', 'desc': 'اجمع 5,000 ذهبة', 'unlocked': gld >= 5000},
+      {'name': 'ملك السبائك 🧱', 'desc': 'اجمع 10,000 ذهبة', 'unlocked': gld >= 10000},
+      {'name': 'خزنة لا تنضب 🏦', 'desc': 'اجمع 50,000 ذهبة', 'unlocked': gld >= 50000},
+      {'name': 'أسطورة الذهب 🌟', 'desc': 'اجمع 100,000 ذهبة', 'unlocked': gld >= 100000},
+      {'name': 'إله الثروة ⚡', 'desc': 'اجمع 500,000 ذهبة', 'unlocked': gld >= 500000},
+      {'name': 'قاتل مأجور 🎯', 'desc': 'اقتل 10 لاعبين في الشوارع', 'unlocked': pvp >= 10},
+      {'name': 'سفاح خطير 🔪', 'desc': 'اقتل 50 لاعب في الشوارع', 'unlocked': pvp >= 50},
+      {'name': 'أسطورة الجريمة 👑🩸', 'desc': 'اقتل 200 لاعب في الشوارع', 'unlocked': pvp >= 200},
+      {'name': 'لص محترف 🥷', 'desc': 'نفذ 500 جريمة ناجحة', 'unlocked': cr >= 500},
+      {'name': 'عقل مدبر 🧠', 'desc': 'نفذ 2,000 جريمة ناجحة', 'unlocked': cr >= 2000},
+      {'name': 'زعيم المافيا 🎩', 'desc': 'نفذ 10,000 جريمة ناجحة', 'unlocked': cr >= 10000},
+      {'name': 'كابوس المدينة 🦇', 'desc': 'نفذ 50,000 جريمة ناجحة', 'unlocked': cr >= 50000},
+      {'name': 'شيطان الشوارع 👹', 'desc': 'نفذ 100,000 جريمة ناجحة', 'unlocked': cr >= 100000},
+      {'name': 'رجل أعمال سعيد 💼', 'desc': 'صل إلى 500 نقطة سعادة', 'unlocked': hap >= 500},
+      {'name': 'مواطن VIP 🥂', 'desc': 'صل إلى 2,000 نقطة سعادة', 'unlocked': hap >= 2000},
+      {'name': 'سيد الرفاهية 🏰', 'desc': 'صل إلى 5,000 نقطة سعادة', 'unlocked': hap >= 5000},
+      {'name': 'إمبراطور النعيم 👑', 'desc': 'صل إلى 10,000 نقطة سعادة', 'unlocked': hap >= 10000},
+      {'name': 'أسطورة السعادة 🌈', 'desc': 'صل إلى 50,000 نقطة سعادة', 'unlocked': hap >= 50000},
+      {'name': 'مواطن مستقر 🏠', 'desc': 'اشتر أول عقار لك واسكن فيه', 'unlocked': ownedProps.isNotEmpty && isHoused},
+      {'name': 'مستثمر عقاري 🏢', 'desc': 'اشتر 5 عقارات واسكن في أحدها', 'unlocked': ownedProps.length >= 5 && isHoused},
+      {'name': 'ملك العقارات 🏙️', 'desc': 'اشتر جميع العقارات واسكن في أحدها', 'unlocked': ownedProps.length >= totalProps && isHoused},
+      {'name': 'تاجر صغير 🏪', 'desc': 'اشتر مشروع تجاري واحد', 'unlocked': bizCount >= 1},
+      {'name': 'محتكر السوق 📈', 'desc': 'اشتر 5 مشاريع تجارية', 'unlocked': bizCount >= 5},
+      {'name': 'إمبراطور التجارة 🛳️', 'desc': 'اشتر 10 مشاريع تجارية', 'unlocked': bizCount >= 10},
+      {'name': 'هاوي محركات 🏎️', 'desc': 'امتلك سيارة واحدة', 'unlocked': carsOwned >= 1},
+      {'name': 'مجمع سيارات 🚘', 'desc': 'امتلك 5 سيارات', 'unlocked': carsOwned >= 5},
+      {'name': 'إمبراطور الكراجات 👑🏎️', 'desc': 'امتلك 25 سيارة', 'unlocked': carsOwned >= 25},
+      {'name': 'ميكانيكي مبتدئ 🔧', 'desc': 'اجمع 100 قطعة غيار', 'unlocked': spareParts >= 100},
+      {'name': 'خبير تفكيك ⚙️', 'desc': 'اجمع 1,000 قطعة غيار', 'unlocked': spareParts >= 1000},
+      {'name': 'ملك السكراب 🚜', 'desc': 'اجمع 10,000 قطعة غيار', 'unlocked': spareParts >= 10000},
+      {'name': 'إمبراطور القطع 🏭', 'desc': 'اجمع 50,000 قطعة غيار', 'unlocked': spareParts >= 50000},
+      {'name': 'كيميائي هاوي 🧪', 'desc': 'قم بـ 10 عمليات تصنيع في المختبر', 'unlocked': labCrafts >= 10},
+      {'name': 'طباخ محترف 👨‍🔬', 'desc': 'قم بـ 50 عملية تصنيع في المختبر', 'unlocked': labCrafts >= 50},
+      {'name': 'خبير سموم ☠️', 'desc': 'قم بـ 200 عملية تصنيع في المختبر', 'unlocked': labCrafts >= 200},
+      {'name': 'هايزنبرغ المدينة 💎', 'desc': 'قم بـ 1,000 عملية تصنيع في المختبر', 'unlocked': labCrafts >= 1000},
+      {'name': 'محب للمغامرة 🎡', 'desc': 'دور عجلة الحظ 10 مرات', 'unlocked': wheelSpins >= 10},
+      {'name': 'مدمن قمار 🎲', 'desc': 'دور عجلة الحظ 50 مرة', 'unlocked': wheelSpins >= 50},
+      {'name': 'ملك الحظ 🍀', 'desc': 'دور عجلة الحظ 200 مرة', 'unlocked': wheelSpins >= 200},
+      {'name': 'حبيب الكازينو 🎰', 'desc': 'دور عجلة الحظ 1,000 مرة', 'unlocked': wheelSpins >= 1000},
+      {'name': 'عضو داعم 🪙', 'desc': 'تبرع بـ 100,000 لعصابتك', 'unlocked': gangCont >= 100000},
+      {'name': 'ذراع اليمين 🤝', 'desc': 'تبرع بـ 1,000,000 لعصابتك', 'unlocked': gangCont >= 1000000},
+      {'name': 'عراب الشوارع 🕴️', 'desc': 'تبرع بـ 100 مليون لعصابتك', 'unlocked': gangCont >= 100000000},
+      {'name': 'خارج عن القانون 🔫', 'desc': 'صل للمستوى 10 في الجريمة', 'unlocked': crimeLvl >= 10},
+      {'name': 'شبح المدينة 👻', 'desc': 'صل للمستوى 100 في الجريمة', 'unlocked': crimeLvl >= 100},
+      {'name': 'الحاكم المطلق 👑🌍', 'desc': 'صل للمستوى 400 (الماكس لفل)', 'unlocked': crimeLvl >= 400},
+      {'name': 'موظف مجتهد 💼', 'desc': 'صل للمستوى 10 في العمل', 'unlocked': workLvl >= 10},
+      {'name': 'وزير الاقتصاد 🏛️', 'desc': 'صل للمستوى 100 في العمل', 'unlocked': workLvl >= 100},
+      {'name': 'ملاكم شوارع 🥊', 'desc': 'صل للمستوى 10 في الحلبة', 'unlocked': arenaLvl >= 10},
+      {'name': 'جلاد الساحة 🩸', 'desc': 'صل للمستوى 100 في الحلبة', 'unlocked': arenaLvl >= 100},
+      {'name': 'زائر مميز 🌟', 'desc': 'فعل اشتراك VIP لمدة يوم', 'unlocked': totalVipDays >= 1},
+      {'name': 'صاحب الفخامة 👑💎', 'desc': 'فعل اشتراك VIP لمدة سنة', 'unlocked': totalVipDays >= 365},
+    ];
+  }
+
+  void _showTitleSelectionDialog(PlayerProvider player, List<Map<String, dynamic>> allTitles) {
+    List<String> unlockedTitles = allTitles.where((t) => t['unlocked'] == true).map((t) => t['name'] as String).toList();
+
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
+        title: const Text('اختر لقبك 👑', textAlign: TextAlign.center, style: TextStyle(color: Colors.amber, fontFamily: 'Changa')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: unlockedTitles.map((title) => ListTile(
+              title: Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Changa'), textAlign: TextAlign.right),
+              trailing: (playerData!['selectedTitle'] ?? unlockedTitles.first) == title ? const Icon(Icons.check_circle, color: Colors.greenAccent) : null,
+              onTap: () {
+                player.updateTitle(title);
+                setState(() => playerData!['selectedTitle'] = title);
+                Navigator.pop(c);
+              },
+            )).toList(),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _pickImage(PlayerProvider player) async {
@@ -289,7 +407,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                     const Text('شجرة الامتيازات 🌟', style: TextStyle(color: Colors.amber, fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                     const SizedBox(height: 10),
                     Text('النقاط المتاحة: $unspent', style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
-                    const Text('أكمل المزيد من الإنجازات للحصول على نقاط (سعادة أعلى، فلوس، جرام، الخ).', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    const Text('افتح ألقاب جديدة لتربح نقاط امتياز! (كل لقب = نقطة واحدة)', style: TextStyle(color: Colors.white54, fontSize: 12)),
                     const Divider(color: Colors.white24, height: 30),
                     Expanded(
                       child: ListView.builder(
@@ -365,13 +483,13 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('👤 هويتك الإجرامية:', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              Text('اختر صورتك ووصفك بعناية لترهب خصومك. اللقب الخاص بك سيتغير كلما حققت إنجازات جديدة.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+              Text('اللقب الخاص بك يمكنك اختياره بتسجيل إنجازاتك. اضغط على أي لقب في خزانة الألقاب لمعرفة الشروط المطلوبة!', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
               SizedBox(height: 10),
               Text('🌟 الامتيازات (شجرة المهارات):', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              Text('كلما كسرت رقماً قياسياً (في السعادة، الفلوس، الجرائم، أو القتال) ستحصل على نقطة مهارة لترقية امتيازاتك.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+              Text('كل لقب جديد تفتحه يعطيك (نقطة امتياز واحدة). استخدمها لترقية مهاراتك بالضغط على أيقونة النجمة بالأسفل!', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
               SizedBox(height: 10),
               Text('⚔️ الإحصائيات القتالية:', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              Text('الرقم الأبيض هو قوتك الأساسية، والرقم الأخضر هو الزيادة من السلاح والدرع الذي ترتديه!', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+              Text('الرسم البياني يوضح إجمالي قوتك (الأساسي + الزيادة من السلاح والدرع)!', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
             ],
           ),
         ),
@@ -380,17 +498,10 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     );
   }
 
-  // 🟢 5. دالة بناء الامتيازات النشطة لعرضها في البروفايل 🟢
-  Widget _buildActivePerks(Map<String, dynamic> data) {
-    Map<String, dynamic> perks = data['perks'] ?? {};
-    if (perks.isEmpty) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20),
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
-        child: const Center(child: Text("لا توجد امتيازات نشطة حالياً.", style: TextStyle(color: Colors.white54, fontSize: 12))),
-      );
-    }
+  Widget _buildAchievements(PlayerProvider player, bool isMe, Map<String, dynamic> data) {
+    // 🟢 نقرأ الألقاب من البروفايدر إذا كانت حسابك، ومحلياً إذا كان حساب شخص ثاني
+    List<Map<String, dynamic>> allTitles = isMe ? player.getAllTitles() : _getAllTitlesLocal(data);
+    String currentTitle = data['selectedTitle'] ?? 'مبتدئ في الشوارع 🚶';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -400,35 +511,63 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: perks.entries.map((e) {
-            final perkId = e.key;
-            final level = e.value;
-            if (level == 0) return const SizedBox.shrink();
+          spacing: 10, runSpacing: 10,
+          children: allTitles.map((titleData) {
+            bool isCurrent = titleData['name'] == currentTitle;
+            bool isUnlocked = titleData['unlocked'];
 
-            final perkData = GameData.perksList.firstWhere((p) => p['id'] == perkId, orElse: () => {'name': 'مجهول', 'icon': Icons.star, 'color': Colors.grey});
-
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            return Tooltip(
+              message: titleData['desc'],
+              triggerMode: TooltipTriggerMode.tap,
+              showDuration: const Duration(seconds: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                  color: (perkData['color'] as Color).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: perkData['color'])
+                color: Colors.black.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isUnlocked ? Colors.amber : Colors.redAccent, width: 1),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(perkData['icon'], color: perkData['color'], size: 16),
-                  const SizedBox(width: 6),
-                  Text('${perkData['name']} (مستوى $level)', style: TextStyle(color: perkData['color'], fontSize: 12, fontWeight: FontWeight.bold)),
-                ],
+              textStyle: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 13, fontWeight: FontWeight.bold),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                    color: isUnlocked
+                        ? (isCurrent ? Colors.amber.withOpacity(0.2) : Colors.white10)
+                        : Colors.black54,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isUnlocked
+                        ? (isCurrent ? Colors.amber : Colors.white24)
+                        : Colors.white10)
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                        isCurrent ? Icons.military_tech : (isUnlocked ? Icons.emoji_events : Icons.lock),
+                        color: isUnlocked ? (isCurrent ? Colors.amber : Colors.white54) : Colors.white24,
+                        size: 16
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                        titleData['name'],
+                        style: TextStyle(
+                            color: isUnlocked ? (isCurrent ? Colors.amber : Colors.white70) : Colors.white24,
+                            fontSize: 12,
+                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal
+                        )
+                    ),
+                  ],
+                ),
               ),
             );
           }).toList(),
         ),
       ),
     );
+  }
+
+  Widget _buildStatLabel(String text, Color color) {
+    return Text(text, textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold, height: 1.2));
   }
 
   @override
@@ -470,7 +609,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     if (playerData!['crimeSuccessCountsMap'] != null) {
       (playerData!['crimeSuccessCountsMap'] as Map).forEach((k, v) => totalCrimes += (v as int));
     }
-    String playerTitle = _getPlayerTitle(playerData!);
+
+    String playerTitle = playerData!['selectedTitle'] ?? 'مبتدئ في الشوارع 🚶';
 
     double bStr = playerData!['baseStrength'] ?? 5.0;
     double pStr = playerData!['bonusStrength'] ?? 0.0;
@@ -482,7 +622,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     double pSkl = playerData!['bonusSkill'] ?? 0.0;
 
     return Scaffold(
-      // 🟢 الخلفية الفخمة 🟢
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
@@ -530,7 +669,17 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                               children: [
                                 Row(children: [if (isVIP) const Icon(Icons.workspace_premium, color: Colors.amber, size: 24), if (isVIP) const SizedBox(width: 5), Flexible(child: Text(playerData!['playerName'] ?? 'مجهول', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]), overflow: TextOverflow.ellipsis))]),
 
-                                Text(playerTitle, style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)),
+                                GestureDetector(
+                                  onTap: isMe ? () => _showTitleSelectionDialog(player, player.getAllTitles()) : null,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(playerTitle, style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)),
+                                      if (isMe) const SizedBox(width: 6),
+                                      if (isMe) const Icon(Icons.edit, color: Colors.white54, size: 14),
+                                    ],
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
 
                                 Wrap(
@@ -604,42 +753,39 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                 ),
                 const SizedBox(height: 25),
 
-                // 4. الإحصائيات القتالية
+                // 4. الإحصائيات القتالية (Radar Chart)
                 const Padding(padding: EdgeInsets.symmetric(horizontal: 25), child: Align(alignment: Alignment.centerRight, child: Text("الإحصائيات القتالية ⚔️", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)))),
                 const SizedBox(height: 10),
                 Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
-                    child: Directionality(
-                        textDirection: TextDirection.rtl,
-                        child: Column(
-                            children: [
-                              Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                  children: [
-                                    _buildCombatStatDetailed("القوة", bStr, pStr, Icons.fitness_center, Colors.redAccent),
-                                    _buildCombatStatDetailed("السرعة", bSpd, pSpd, Icons.speed, Colors.orangeAccent)
-                                  ]
-                              ),
-                              const SizedBox(height: 15),
-                              Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                  children: [
-                                    _buildCombatStatDetailed("الدفاع", bDef, pDef, Icons.shield, Colors.blueAccent),
-                                    _buildCombatStatDetailed("المهارة", bSkl, pSkl, Icons.psychology, Colors.greenAccent)
-                                  ]
-                              )
-                            ]
-                        )
-                    )
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 15),
+                  decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
+                  child: Center(
+                    child: SizedBox(
+                      width: 200, height: 200,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
+                        children: [
+                          CustomPaint(
+                            size: const Size(160, 160),
+                            painter: RadarPainter(str: bStr+pStr, spd: bSpd+pSpd, def: bDef+pDef, skl: bSkl+pSkl),
+                          ),
+                          Positioned(top: -30, child: _buildStatLabel("قوة\n${(bStr+pStr).toStringAsFixed(1)}", Colors.redAccent)),
+                          Positioned(bottom: -30, child: _buildStatLabel("دفاع\n${(bDef+pDef).toStringAsFixed(1)}", Colors.blueAccent)),
+                          Positioned(left: -35, child: _buildStatLabel("سرعة\n${(bSpd+pSpd).toStringAsFixed(1)}", Colors.orangeAccent)),
+                          Positioned(right: -35, child: _buildStatLabel("مهارة\n${(bSkl+pSkl).toStringAsFixed(1)}", Colors.greenAccent)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 25),
 
-                // 5. الامتيازات النشطة
-                const Padding(padding: EdgeInsets.symmetric(horizontal: 25), child: Align(alignment: Alignment.centerRight, child: Text("الامتيازات النشطة 🌟", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)))),
+                // 5. خزانة الألقاب
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 25), child: Align(alignment: Alignment.centerRight, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [Text("اضغط على أي لقب لمعرفة تفاصيله 👆", style: TextStyle(color: Colors.white54, fontSize: 10)), SizedBox(width: 10), Text("خزانة الألقاب 🏆", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14))]))),
                 const SizedBox(height: 10),
-                _buildActivePerks(playerData!),
+                _buildAchievements(player, isMe, playerData!),
                 const SizedBox(height: 25),
 
                 // 6. الأزرار التفاعلية
@@ -735,29 +881,37 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     );
   }
 
-  Widget _buildCombatStatDetailed(String label, double base, double bonus, IconData icon, Color color) {
-    return SizedBox(
-      width: 140,
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 26),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-              Row(
-                children: [
-                  Text(base.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                  if (bonus > 0) Text(' (+${bonus.toStringAsFixed(1)})', style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+  Widget _buildActionBtn(IconData icon, String label, Color color, VoidCallback onTap) { return GestureDetector(onTap: onTap, child: SizedBox(width: 75, child: Column(children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.5))), child: Icon(icon, color: color, size: 24)), const SizedBox(height: 6), Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))]))); }
+}
+
+class RadarPainter extends CustomPainter {
+  final double str, spd, def, skl;
+  final double maxStat;
+
+  RadarPainter({required this.str, required this.spd, required this.def, required this.skl})
+      : maxStat = [str, spd, def, skl, 10.0].reduce(max);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = min(size.width / 2, size.height / 2);
+
+    final bgPaint = Paint()..color = Colors.white10..style = PaintingStyle.stroke..strokeWidth = 1;
+    canvas.drawLine(Offset(center.dx, center.dy - radius), Offset(center.dx, center.dy + radius), bgPaint);
+    canvas.drawLine(Offset(center.dx - radius, center.dy), Offset(center.dx + radius, center.dy), bgPaint);
+    for(int i=1; i<=4; i++) { canvas.drawCircle(center, radius * (i/4), bgPaint); }
+
+    final path = Path();
+    path.moveTo(center.dx, center.dy - (radius * (str / maxStat))); // فوق: القوة
+    path.lineTo(center.dx + (radius * (skl / maxStat)), center.dy); // يمين: المهارة
+    path.lineTo(center.dx, center.dy + (radius * (def / maxStat))); // تحت: الدفاع
+    path.lineTo(center.dx - (radius * (spd / maxStat)), center.dy); // يسار: السرعة
+    path.close();
+
+    canvas.drawPath(path, Paint()..color = Colors.amber.withOpacity(0.4)..style = PaintingStyle.fill);
+    canvas.drawPath(path, Paint()..color = Colors.amber..style = PaintingStyle.stroke..strokeWidth = 2);
   }
 
-  Widget _buildActionBtn(IconData icon, String label, Color color, VoidCallback onTap) { return GestureDetector(onTap: onTap, child: SizedBox(width: 75, child: Column(children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.5))), child: Icon(icon, color: color, size: 24)), const SizedBox(height: 6), Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))]))); }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
