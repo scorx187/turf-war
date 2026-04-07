@@ -30,10 +30,10 @@ class _PerksViewState extends State<PerksView> {
       ),
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/ui/crime_bg.jpg'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
+          gradient: RadialGradient(
+            colors: [Color(0xFF2A2D34), Color(0xFF0D0D0D)],
+            center: Alignment.center,
+            radius: 1.2,
           ),
         ),
         child: Column(
