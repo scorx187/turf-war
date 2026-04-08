@@ -93,6 +93,13 @@ class BlackMarketView extends StatelessWidget {
       {'id': 'katana', 'name': 'كاتانا كلاسيكي', 'description': 'قوة: +90%\nسرعة: +60%', 'price': 85000, 'currency': 'cash', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon', 'isConsumable': false},
       {'id': 'shotgun', 'name': 'شوزن كلاسيكي', 'description': 'قوة: +190%\nسرعة: +60%', 'price': 250000, 'currency': 'cash', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'type': 'weapon', 'isConsumable': false},
       {'id': 'sniper', 'name': 'قناصة كلاسيكية', 'description': 'قوة: +270%\nسرعة: +80%', 'price': 1200, 'currency': 'gold', 'icon': Icons.track_changes, 'color': Colors.red, 'type': 'weapon', 'isConsumable': false},
+// 🟢 حزمة علاء الدين الخيالية (أسطوري - لون أحمر) 🟢
+      {'id': 'w_aladdin_damage', 'name': 'سيف علاء الدين القاطع', 'description': 'سلاح أسطوري يمزق الأعداء\nقوة: +500% | سرعة: +100%', 'price': 50000, 'currency': 'gold', 'icon': Icons.hardware, 'color': Colors.redAccent, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'w_aladdin_accuracy', 'name': 'خنجر علاء الدين السحري', 'description': 'دقة وسرعة لا مثيل لها\nقوة: +100% | سرعة: +500%', 'price': 50000, 'currency': 'gold', 'icon': Icons.flash_on, 'color': Colors.redAccent, 'type': 'weapon', 'isConsumable': false},
+      {'id': 'a_aladdin_defense', 'name': 'درع الجني الفولاذي', 'description': 'دفاع صلب لا يمكن اختراقه\nدفاع: +500% | مهارة: +100%', 'price': 50000, 'currency': 'gold', 'icon': Icons.shield, 'color': Colors.redAccent, 'type': 'armor', 'isConsumable': false},
+      {'id': 'a_aladdin_evasion', 'name': 'عباءة علاء الدين', 'description': 'تفادي جميع الضربات بخفة\nدفاع: +100% | مهارة: +500%', 'price': 50000, 'currency': 'gold', 'icon': Icons.air, 'color': Colors.redAccent, 'type': 'armor', 'isConsumable': false},
+      {'id': 't_aladdin_lamp', 'name': 'المصباح السحري', 'description': 'أداة أسطورية لاستدعاء الجني\n(المزايا قيد التطوير)', 'price': 25000, 'currency': 'gold', 'icon': Icons.lightbulb, 'color': Colors.redAccent, 'type': 'crime_tool', 'isConsumable': false},
+      {'id': 't_aladdin_carpet', 'name': 'البساط الطائر', 'description': 'وسيلة تنقل وهروب خيالية\n(المزايا قيد التطوير)', 'price': 25000, 'currency': 'gold', 'icon': Icons.map, 'color': Colors.redAccent, 'type': 'crime_tool', 'isConsumable': false},
 
       {'id': 'riot_shield', 'name': 'درع شغب كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +20%', 'price': 3000, 'currency': 'cash', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor', 'isConsumable': false},
       {'id': 'kevlar_vest', 'name': 'سترة كلاسيكية', 'description': 'دفاع: +75%\nمهارة: +75%', 'price': 25000, 'currency': 'cash', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor', 'isConsumable': false},

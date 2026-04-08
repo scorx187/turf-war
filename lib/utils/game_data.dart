@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 class GameData {
   static const List<String> crimeToolsList = [
     'crowbar', 'slim_jim', 'jammer', 'lockpick', 'glass_cutter',
-    'laptop', 'thermite', 'stethoscope', 'hydraulic', 'emp_device'
+    'laptop', 'thermite', 'stethoscope', 'hydraulic', 'emp_device',
+    't_aladdin_lamp', 't_aladdin_carpet' // 🟢 أدوات علاء الدين
   ];
 
   static const Map<String, int> businessBaseIncome = {
@@ -74,10 +75,14 @@ class GameData {
   static const Map<String, Map<String, double>> weaponStats = {
     'dagger': {'str': 0.15, 'spd': 0.25}, 'revolver': {'str': 0.40, 'spd': 0.40}, 'katana': {'str': 0.90, 'spd': 0.60}, 'shotgun': {'str': 1.90, 'spd': 0.60}, 'sniper': {'str': 2.70, 'spd': 0.80},
     'w_silver_heavy': {'str': 0.30, 'spd': 0.10}, 'w_silver_assault': {'str': 0.25, 'spd': 0.15}, 'w_silver_balanced': {'str': 0.20, 'spd': 0.20}, 'w_silver_tactical': {'str': 0.15, 'spd': 0.25}, 'w_silver_agile': {'str': 0.10, 'spd': 0.30}, 'w_green_heavy': {'str': 0.60, 'spd': 0.20}, 'w_green_assault': {'str': 0.50, 'spd': 0.30}, 'w_green_balanced': {'str': 0.40, 'spd': 0.40}, 'w_green_tactical': {'str': 0.30, 'spd': 0.50}, 'w_green_agile': {'str': 0.20, 'spd': 0.60}, 'w_blue_heavy': {'str': 1.10, 'spd': 0.40}, 'w_blue_assault': {'str': 0.90, 'spd': 0.60}, 'w_blue_balanced': {'str': 0.75, 'spd': 0.75}, 'w_blue_tactical': {'str': 0.60, 'spd': 0.90}, 'w_blue_agile': {'str': 0.40, 'spd': 1.10}, 'w_purple_heavy': {'str': 1.90, 'spd': 0.60}, 'w_purple_assault': {'str': 1.50, 'spd': 1.00}, 'w_purple_balanced': {'str': 1.25, 'spd': 1.25}, 'w_purple_tactical': {'str': 1.00, 'spd': 1.50}, 'w_purple_agile': {'str': 0.60, 'spd': 1.90}, 'w_gold_heavy': {'str': 2.70, 'spd': 0.80}, 'w_gold_assault': {'str': 2.10, 'spd': 1.40}, 'w_gold_balanced': {'str': 1.75, 'spd': 1.75}, 'w_gold_tactical': {'str': 1.40, 'spd': 2.10}, 'w_gold_agile': {'str': 0.80, 'spd': 2.70}, 'w_red_heavy': {'str': 3.60, 'spd': 0.90}, 'w_red_assault': {'str': 2.70, 'spd': 1.80}, 'w_red_balanced': {'str': 2.25, 'spd': 2.25}, 'w_red_tactical': {'str': 1.80, 'spd': 2.70}, 'w_red_agile': {'str': 0.90, 'spd': 3.60},
+    'w_aladdin_damage': {'str': 5.00, 'spd': 1.00}, // سيف علاء الدين القاطع (ضرر هائل 500%)
+    'w_aladdin_accuracy': {'str': 1.00, 'spd': 5.00}, // خنجر علاء الدين السحري (دقة 500%)
   };
 
   static const Map<String, Map<String, double>> armorStats = {
     'riot_shield': {'def': 0.60, 'skl': 0.20}, 'kevlar_vest': {'def': 0.75, 'skl': 0.75}, 'ninja_suit': {'def': 0.60, 'skl': 1.90}, 'steel_armor': {'def': 1.90, 'skl': 0.60}, 'exoskeleton': {'def': 1.75, 'skl': 1.75}, 'a_silver_heavy': {'def': 0.30, 'skl': 0.10}, 'a_silver_assault': {'def': 0.25, 'skl': 0.15}, 'a_silver_balanced': {'def': 0.20, 'skl': 0.20}, 'a_silver_tactical': {'def': 0.15, 'skl': 0.25}, 'a_silver_agile': {'def': 0.10, 'skl': 0.30}, 'a_green_heavy': {'def': 0.60, 'skl': 0.20}, 'a_green_assault': {'def': 0.50, 'skl': 0.30}, 'a_green_balanced': {'def': 0.40, 'skl': 0.40}, 'a_green_tactical': {'def': 0.30, 'skl': 0.50}, 'a_green_agile': {'def': 0.20, 'skl': 0.60}, 'a_blue_heavy': {'def': 1.10, 'skl': 0.40}, 'a_blue_assault': {'def': 0.90, 'skl': 0.60}, 'a_blue_balanced': {'def': 0.75, 'skl': 0.75}, 'a_blue_tactical': {'def': 0.60, 'skl': 0.90}, 'a_blue_agile': {'def': 0.40, 'skl': 1.10}, 'a_purple_heavy': {'def': 1.90, 'skl': 0.60}, 'a_purple_assault': {'def': 1.50, 'skl': 1.00}, 'a_purple_balanced': {'def': 1.25, 'skl': 1.25}, 'a_purple_tactical': {'def': 1.00, 'skl': 1.50}, 'a_purple_agile': {'def': 0.60, 'skl': 1.90}, 'a_gold_heavy': {'def': 2.70, 'skl': 0.80}, 'a_gold_assault': {'def': 2.10, 'skl': 1.40}, 'a_gold_balanced': {'def': 1.75, 'skl': 1.75}, 'a_gold_tactical': {'def': 1.40, 'skl': 2.10}, 'a_gold_agile': {'def': 0.80, 'skl': 2.70}, 'a_red_heavy': {'def': 3.60, 'skl': 0.90}, 'a_red_assault': {'def': 2.70, 'skl': 1.80}, 'a_red_balanced': {'def': 2.25, 'skl': 2.25}, 'a_red_tactical': {'def': 1.80, 'skl': 2.70}, 'a_red_agile': {'def': 0.90, 'skl': 3.60},
+    'a_aladdin_defense': {'def': 5.00, 'skl': 1.00}, // درع الجني الفولاذي (دفاع جبار 500%)
+    'a_aladdin_evasion': {'def': 1.00, 'skl': 5.00}, // عباءة علاء الدين (تفادي للضربات 500%)
   };
 
   // 🟢 شجرة الامتيازات (Perks) - تم إزالة القديم والإبقاء على الجديد فقط 🟢

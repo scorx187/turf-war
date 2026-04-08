@@ -16,6 +16,7 @@ import 'public_gang_profile_view.dart';
 import '../widgets/radar_painter.dart';
 import 'titles_view.dart';
 import 'perks_view.dart';
+import 'armory_view.dart'; // 🟢 استدعاء شاشة التسليح 🟢
 
 class PlayerProfileView extends StatefulWidget {
   final String targetUid;
@@ -750,10 +751,10 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       bottomNavigationBar: Directionality(
         textDirection: TextDirection.rtl,
         child: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.black87,
-            image: const DecorationImage(image: AssetImage('assets/images/ui/bottom_navbar_bg.png'), fit: BoxFit.cover),
-            border: const Border(top: BorderSide(color: Color(0xFF856024), width: 2)),
+            image: DecorationImage(image: AssetImage('assets/images/ui/bottom_navbar_bg.png'), fit: BoxFit.cover),
+            border: Border(top: BorderSide(color: Color(0xFF856024), width: 2)),
           ),
           padding: const EdgeInsets.only(top: 10, bottom: 20, left: 15, right: 15),
           child: SafeArea(
@@ -770,7 +771,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                   child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24), SizedBox(height: 4), Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
                 ),
 
-                // 🟢 زر الألقاب يظهر لك فقط في بروفايلك 🟢
+                // 🟢 زر الألقاب 🟢
                 if (isMe)
                   GestureDetector(
                     onTap: () {
@@ -780,6 +781,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                     child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.emoji_events, color: Colors.blueAccent, size: 28), SizedBox(height: 4), Text('الألقاب', style: TextStyle(color: Colors.blueAccent, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
                   ),
 
+                // 🟢 زر الامتيازات 🟢
                 if (isMe)
                   GestureDetector(
                     onTap: () {
@@ -793,6 +795,23 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                         if (player.unspentSkillPoints > 0)
                           Positioned(top: -5, right: -5, child: CircleAvatar(radius: 8, backgroundColor: Colors.red, child: Text('${player.unspentSkillPoints}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))),
                       ],
+                    ),
+                  ),
+
+                // 🟢 الزر الجديد: التسليح 🟢
+                if (isMe)
+                  GestureDetector(
+                    onTap: () {
+                      audio.playEffect('click.mp3');
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ArmoryView()));
+                    },
+                    child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shield, color: Colors.redAccent, size: 28),
+                          SizedBox(height: 4),
+                          Text('التسليح', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))
+                        ]
                     ),
                   ),
 
