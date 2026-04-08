@@ -13,7 +13,8 @@ import 'firebase_options.dart';
 import 'screens/game_screen.dart';
 import 'providers/player_provider.dart';
 import 'providers/audio_provider.dart';
-import 'providers/market_provider.dart'; // 🟢 تم استدعاء ملف السوق الجديد
+import 'providers/market_provider.dart';
+import 'utils/local_notification_service.dart'; // 🟢 تم إضافة استدعاء الإشعارات
 
 // 🔥 تعريف الألوان الخاصة باللعبة هنا لسهولة الوصول إليها
 class GameColors {
@@ -32,12 +33,15 @@ void main() async {
 
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
+  // 🟢 تهيئة إشعارات الجوال مع بداية تشغيل التطبيق
+  await LocalNotificationService.initialize();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => AudioProvider()),
-        ChangeNotifierProvider(create: (_) => MarketProvider()), // 🟢 تم تفعيل مزود السوق
+        ChangeNotifierProvider(create: (_) => MarketProvider()),
       ],
       child: const MyGame(),
     ),
