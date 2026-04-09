@@ -25,7 +25,6 @@ class _GymViewState extends State<GymView> {
 
   bool _isLoading = false;
 
-  // 🟢 متغيرات الرسالة الطائرة
   bool _showFloatingEffect = false;
   String _floatingMessage = '';
   double _floatBottom = 80.0;
@@ -49,7 +48,6 @@ class _GymViewState extends State<GymView> {
     return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
   }
 
-  // 🟢 تنسيق الوقت ليكون 00:00:00
   String _formatTimeLeft(DateTime? endTime, DateTime secureNow) {
     if (endTime == null) return '';
     Duration diff = endTime.difference(secureNow);
@@ -63,11 +61,10 @@ class _GymViewState extends State<GymView> {
     return '$hours:$minutes:$seconds';
   }
 
-  // 🟢 دالة عرض الرسالة الطائرة الفخمة (من الأسفل للمنتصف مع تلاشي)
   void _triggerFloatingAnimation(double gained) {
     setState(() {
       _showFloatingEffect = true;
-      _floatingMessage = '+${gained.toStringAsFixed(1)} إحصائيات 💪';
+      _floatingMessage = '+${gained.toStringAsFixed(1)} إحصائيات';
       _floatBottom = 80.0;
       _floatOpacity = 1.0;
     });
@@ -101,40 +98,43 @@ class _GymViewState extends State<GymView> {
     TextEditingController controller = TextEditingController(text: currentValue > 0 ? currentValue.toString() : '');
     showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFF1A1A1A),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber, width: 2)),
-            title: Text('تحديد طاقة $statName', style: const TextStyle(color: Colors.amber, fontFamily: 'Changa')),
-            content: TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white, fontFamily: 'Changa'),
-              decoration: const InputDecoration(
-                filled: true,
-                fillColor: Colors.black54,
-                border: OutlineInputBorder(),
-                hintText: 'أدخل الرقم هنا',
-                hintStyle: TextStyle(color: Colors.white24),
+        builder: (context) => Directionality( // 🟢 إجبار النافذة على اليمين
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber, width: 2)),
+              title: Text('تحديد طاقة $statName', style: const TextStyle(color: Colors.amber, fontFamily: 'Changa')),
+              content: TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontFamily: 'Changa'),
+                decoration: const InputDecoration(
+                  filled: true,
+                  fillColor: Colors.black54,
+                  border: OutlineInputBorder(),
+                  hintText: 'أدخل الرقم هنا',
+                  hintStyle: TextStyle(color: Colors.white24),
+                ),
               ),
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('إلغاء', style: TextStyle(color: Colors.white54, fontFamily: 'Changa'))
-              ),
-              ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-                  onPressed: () {
-                    int val = int.tryParse(controller.text) ?? 0;
-                    if (val < 0) val = 0;
-                    if (val > maxAllowed) val = maxAllowed;
-                    onSave(val);
-                    Navigator.pop(context);
-                  },
-                  child: const Text('تأكيد', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontFamily: 'Changa'))
-              )
-            ]
+              actions: [
+                ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                    onPressed: () {
+                      int val = int.tryParse(controller.text) ?? 0;
+                      if (val < 0) val = 0;
+                      if (val > maxAllowed) val = maxAllowed;
+                      onSave(val);
+                      Navigator.pop(context);
+                    },
+                    child: const Text('تأكيد', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontFamily: 'Changa'))
+                ),
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('إلغاء', style: TextStyle(color: Colors.white54, fontFamily: 'Changa'))
+                ),
+              ]
+          ),
         )
     );
   }
@@ -143,22 +143,25 @@ class _GymViewState extends State<GymView> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber, width: 2)),
-        title: Text(title, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-        content: content,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-            onPressed: () {
-              Navigator.pop(context);
-              onConfirm();
-            },
-            child: const Text('تأكيد', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          )
-        ],
+      builder: (context) => Directionality( // 🟢 إجبار النافذة على اليمين
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber, width: 2)),
+          title: Text(title, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+          content: content,
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+              onPressed: () {
+                Navigator.pop(context);
+                onConfirm();
+              },
+              child: const Text('تأكيد', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
+          ],
+        ),
       ),
     );
   }
@@ -166,27 +169,30 @@ class _GymViewState extends State<GymView> {
   void _showExplanationDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
-        title: const Text('شرح صالة التدريب 🏋️‍♂️', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-        content: const SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('💪 الإحصائيات:', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              Text('اسحب الشريط أو اضغط على الرقم لكتابة الطاقة المطلوبة.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
-              SizedBox(height: 10),
-              Text('🥊 المدربون الفاسدون:', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              Text('استأجر مدرباً لـ 30 دقيقة. يتطلب 6 ساعات فترة راحة بعد ذلك.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
-              SizedBox(height: 10),
-              Text('💉 المنشطات:', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              Text('تضاعف تدريباتك (100%) لـ 20 دقيقة، وتحتاج فترة راحة 6 ساعات.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
-            ],
+      builder: (context) => Directionality( // 🟢 إجبار النافذة على اليمين
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
+          title: const Text('شرح صالة التدريب 🏋️‍♂️', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+          content: const SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('💪 الإحصائيات:', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                Text('اسحب الشريط أو اضغط على الرقم لكتابة الطاقة المطلوبة.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+                SizedBox(height: 10),
+                Text('🥊 المدربون الفاسدون:', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                Text('استأجر مدرباً لـ 30 دقيقة. يتطلب 6 ساعات فترة راحة بعد ذلك.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+                SizedBox(height: 10),
+                Text('💉 المنشطات:', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                Text('تضاعف تدريباتك (100%) لـ 20 دقيقة، وتحتاج فترة راحة 6 ساعات.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+              ],
+            ),
           ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('حسناً فهمت', style: TextStyle(color: Colors.amber)))],
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('حسناً فهمت', style: TextStyle(color: Colors.amber)))],
       ),
     );
   }
@@ -338,7 +344,6 @@ class _GymViewState extends State<GymView> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         children: [
-          // لوحة المعلومات
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -407,7 +412,6 @@ class _GymViewState extends State<GymView> {
           ),
           const SizedBox(height: 20),
 
-          // 🟢 تم التغيير هنا: استخدام player.baseStrength بدل player.strength لعرض الإحصائيات الصافية فقط 🟢
           _buildStatCard(context, player, 'القوة', Icons.fitness_center, Colors.redAccent, player.baseStrength, strE, totalAllocated, (v) => setState(() => strE = v)),
           _buildStatCard(context, player, 'الدفاع', Icons.shield, Colors.blueAccent, player.baseDefense, defE, totalAllocated, (v) => setState(() => defE = v)),
           _buildStatCard(context, player, 'السرعة', Icons.speed, Colors.orangeAccent, player.baseSpeed, spdE, totalAllocated, (v) => setState(() => spdE = v)),
@@ -415,7 +419,6 @@ class _GymViewState extends State<GymView> {
 
           const SizedBox(height: 20),
 
-          // زر التدريب
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: double.infinity,
@@ -434,7 +437,7 @@ class _GymViewState extends State<GymView> {
                 if (totalAllocated > player.energy) {
                   QuickRecoveryDialog.show(context, 'energy', totalAllocated - player.energy);
                 } else {
-                  _confirmAction(context, 'تأكيد التدريب 💪', Text('هل أنت متأكد أنك تريد استهلاك $totalAllocated طاقة للتدريب؟', style: const TextStyle(color: Colors.white, fontFamily: 'Changa')), () async {
+                  _confirmAction(context, 'تأكيد التدريب', Text('هل أنت متأكد أنك تريد استهلاك $totalAllocated طاقة للتدريب؟', style: const TextStyle(color: Colors.white, fontFamily: 'Changa')), () async {
                     setState(() => _isLoading = true);
                     double gained = await player.trainMultipleStats(strE, defE, skillE, spdE);
                     if (mounted) {
