@@ -29,6 +29,7 @@ import '../views/player_profile_view.dart';
 import '../views/notifications_view.dart';
 import '../views/private_chat_list_view.dart';
 import '../views/friends_view.dart';
+import '../views/settings_view.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -252,7 +253,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               const Divider(color: Colors.white10),
               _buildMenuOption(Icons.group, 'الأصدقاء', () { Navigator.pop(c); Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsView())); }),
               const Divider(color: Colors.white10),
-              _buildMenuOption(Icons.settings, 'الإعدادات', () { Navigator.pop(c); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('سيتم برمجة الإعدادات قريباً!', style: TextStyle(fontFamily: 'Changa')))); }),
+              _buildMenuOption(Icons.settings, 'الإعدادات', () { Navigator.pop(c); Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsView()));
+              }),
             ],
           ),
         ),
