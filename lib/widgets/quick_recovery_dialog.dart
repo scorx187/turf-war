@@ -1,96 +1,84 @@
+// المسار: lib/widgets/quick_recovery_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/audio_provider.dart';
 
-class QuickRecoveryDialog extends StatelessWidget {
-  final String type; // 'energy' or 'courage'
-  final int requiredAmount;
+class QuickRecoveryDialog {
+  static void show(BuildContext context, String type, int amountNeeded) {
+    showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          final player = Provider.of<PlayerProvider>(context, listen: false);
+          final audio = Provider.of<AudioProvider>(context, listen: false);
 
-  const QuickRecoveryDialog({
-    super.key,
-    required this.type,
-    required this.requiredAmount,
-  });
+          int cost = 0;
+          String title = '';
+          String icon = '';
+          Color color = Colors.white;
+          String itemName = '';
 
-  @override
-  Widget build(BuildContext context) {
-    final player = Provider.of<PlayerProvider>(context);
+          if (type == 'energy') {
+            cost = 100; // يمكنك تعديل السعر حسب توازن لعبتك
+            title = 'استعادة الطاقة';
+            icon = '⚡';
+            color = Colors.amber;
+            itemName = 'مشروب طاقة';
+          } else if (type == 'courage') {
+            cost = 50;
+            title = 'استعادة الشجاعة';
+            icon = '🔥';
+            color = Colors.orangeAccent;
+            itemName = 'قهوة مركزة';
+          } else if (type == 'health') {
+            cost = amountNeeded > 0 ? amountNeeded : 100;
+            title = 'علاج سريع';
+            icon = '❤️';
+            color = Colors.redAccent;
+            itemName = 'حقنة إسعافات';
+          }
 
-    final bool isEnergy = type == 'energy';
-    final String title = isEnergy ? "نفدت الطاقة! ⚡" : "نفدت الشجاعة! 🛡️";
-    final String itemId = isEnergy ? 'steroids' : 'coffee';
-    final String itemName = isEnergy ? 'حقنة منشط' : 'قهوة مركزة';
-
-    // التعديل هنا: السعر صار 50 للجميع
-    final int itemPrice = 50;
-    final int ownedCount = player.inventory[itemId] ?? 0;
-
-    return AlertDialog(
-      backgroundColor: Colors.grey[900],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Colors.amber, width: 1)),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            "تحتاج إلى $requiredAmount ${isEnergy ? 'طاقة' : 'شجاعة'} إضافية للقيام بهذا العمل.",
-            style: const TextStyle(color: Colors.white70),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(itemName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    Text("تملك حالياً: $ownedCount", style: const TextStyle(color: Colors.amber, fontSize: 12)),
-                  ],
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              backgroundColor: const Color(0xFF1A1A1A),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: color, width: 2)),
+              title: Text('$icon $title', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+              content: Text('هل تريد شراء واستخدام $itemName مقابل \$$cost كاش؟\n(سيتم استعادة $type بالكامل)', style: const TextStyle(color: Colors.white, fontFamily: 'Changa')),
+              actions: [
+                // 🟢 زر الإلغاء صار الأول عشان يظهر بنفس ترتيب النادي
+                TextButton(
+                  onPressed: () {
+                    audio.playEffect('click.mp3');
+                    Navigator.pop(context);
+                  },
+                  child: const Text('إلغاء', style: TextStyle(color: Colors.white54, fontFamily: 'Changa')),
                 ),
-                Icon(isEnergy ? Icons.medical_services : Icons.coffee, color: isEnergy ? Colors.greenAccent : Colors.brown, size: 30),
+                // 🟢 زر التأكيد صار الثاني
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: color),
+                  onPressed: () {
+                    audio.playEffect('click.mp3');
+                    if (player.cash >= cost) {
+                      player.removeCash(cost, reason: 'استخدام $itemName');
+                      if (type == 'energy') player.setEnergy(player.maxEnergy);
+                      if (type == 'courage') player.setCourage(player.maxCourage);
+                      if (type == 'health') player.setHealth(player.maxHealth);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تمت استعادة $title بنجاح! $icon', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
+                    } else {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('كاش غير كافي!', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
+                    }
+                  },
+                  child: const Text('تأكيد', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                ),
               ],
             ),
-          ),
-        ],
-      ),
-      actionsAlignment: MainAxisAlignment.center,
-      actions: [
-        if (ownedCount > 0)
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            onPressed: () {
-              player.useItem(itemId);
-              Navigator.pop(context);
-            },
-            child: const Text("استخدام الآن", style: TextStyle(fontWeight: FontWeight.bold)),
-          )
-        else
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            // التعديل هنا: يشيك على الذهب ويشتري بالذهب
-            onPressed: player.gold >= itemPrice ? () {
-              player.buyItem(itemId, itemPrice, isConsumable: true, currency: 'gold');
-              player.useItem(itemId);
-              Navigator.pop(context);
-            } : null,
-            child: Text("شراء واستخدام ($itemPrice ذهب)", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("إلغاء", style: TextStyle(color: Colors.white54)),
-        ),
-      ],
-    );
-  }
-
-  static void show(BuildContext context, String type, int requiredAmount) {
-    showDialog(
-      context: context,
-      builder: (context) => QuickRecoveryDialog(type: type, requiredAmount: requiredAmount),
+          );
+        }
     );
   }
 }

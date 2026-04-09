@@ -7,7 +7,7 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/game_data.dart';
-import '../utils/local_notification_service.dart'; // 🟢 استدعاء إشعارات الجوال
+import '../utils/local_notification_service.dart';
 
 part 'player_real_estate_logic.dart';
 part 'player_market_logic.dart';
@@ -28,7 +28,7 @@ class Transaction {
   factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(title: json['title'], amount: json['amount'], date: DateTime.parse(json['date']), isPositive: json['isPositive'], senderUid: json['senderUid']);
 }
 
-class PlayerProvider with ChangeNotifier {
+class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   String? _uid;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   StreamSubscription? _playerDataSubscription;
@@ -165,6 +165,14 @@ class PlayerProvider with ChangeNotifier {
   String? _selectedTitle;
   String? get selectedTitle => _selectedTitle;
 
+  DateTime? _lastServerTime;
+  final Stopwatch _sessionTimer = Stopwatch();
+
+  DateTime get secureNow {
+    if (_lastServerTime == null) return DateTime.now();
+    return _lastServerTime!.add(_sessionTimer.elapsed);
+  }
+
   int get pvpWins => _pvpWins;
   int get totalStolenCash => _totalStolenCash;
   Map<String, int> get perks => _perks;
@@ -278,7 +286,7 @@ class PlayerProvider with ChangeNotifier {
   int get creditScore => _creditScore;
   DateTime? get loanTime => _loanTime;
   int get maxLoanLimit => 20000 + (_creditScore * 2000);
-  bool get isInvestmentLocked => _lockedUntil != null && DateTime.now().isBefore(_lockedUntil!);
+  bool get isInvestmentLocked => _lockedUntil != null && secureNow.isBefore(_lockedUntil!);
   int get crimeLevel => _crimeLevel;
   int get crimeXP => _crimeXP;
   int get xpToNextLevel => (100 * pow(1.05, _crimeLevel - 1)).toInt();
@@ -286,7 +294,7 @@ class PlayerProvider with ChangeNotifier {
   int get workXP => _workXP;
   int get workXPToNextLevel => max(150, _workLevel * 150);
   int get arenaLevel => _arenaLevel;
-  bool get isUnderContract => _contractEndTime != null && DateTime.now().isBefore(_contractEndTime!);
+  bool get isUnderContract => _contractEndTime != null && secureNow.isBefore(_contractEndTime!);
   DateTime? get contractEndTime => _contractEndTime;
   String? get activeContractName => _activeContractName;
   bool get isInGang => _gangName != null;
@@ -296,12 +304,11 @@ class PlayerProvider with ChangeNotifier {
   int get gangWarWins => _gangWarWins;
   Map<String, String> get territoryOwners => _territoryOwners;
   DateTime? get vipUntil => _vipUntil;
-  bool get isVIP => _vipUntil != null && DateTime.now().isBefore(_vipUntil!);
+  bool get isVIP => _vipUntil != null && secureNow.isBefore(_vipUntil!);
   int get prestige => _prestige;
   int get maxPrestige => isVIP ? 200 : 100;
   List<Transaction> get transactions => _transactions;
 
-  // 🟢 تركنا הـ Stream عشان واجهة اللعبة ما تعطي كراش، لكن صار "صامت" ما يرسل بوب-أب
   final StreamController<String> _notificationStream = StreamController<String>.broadcast();
   Stream<String> get notificationStream => _notificationStream.stream;
 
@@ -316,13 +323,21 @@ class PlayerProvider with ChangeNotifier {
   }
 
   PlayerProvider() {
+    WidgetsBinding.instance.addObserver(this);
     _startGameLoop();
     _listenToGameConfig();
   }
 
-  // 🟢 1. دالة الإشعارات الجديدة المتكاملة (قاعدة بيانات + جوال) 🟢
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _uid != null && !_isLoading) {
+      _firestore.collection('players').doc(_uid).update({
+        'lastUpdate': FieldValue.serverTimestamp()
+      }).catchError((e) => debugPrint("Error updating time: $e"));
+    }
+  }
+
   void _sendSystemNotification(String title, String message, String iconType) {
-    // حفظ في مركز الإشعارات (القائمة السريعة)
     if (_uid != null && _uid!.isNotEmpty) {
       _firestore.collection('notifications').add({
         'uid': _uid,
@@ -333,11 +348,9 @@ class PlayerProvider with ChangeNotifier {
         'icon': iconType,
       });
     }
-    // إرسال إشعار حقيقي للمستخدم على الجوال
     LocalNotificationService.showNotification(title, message);
   }
 
-  // 🟢 2. دالة التوافقية (عشان باقي ملفات اللعبة ما تخرب) 🟢
   void _showNotification(String message) {
     _sendSystemNotification("تحديث جديد 🚨", message, "info");
   }
@@ -456,7 +469,7 @@ class PlayerProvider with ChangeNotifier {
       } else if (name.isNotEmpty) {
         _playerName = name; _inventory['name_change_card'] = 1;
         _gameId = (100000 + Random().nextInt(900000)).toString();
-        _lastPassiveIncomeTime = DateTime.now();
+        _lastPassiveIncomeTime = secureNow;
         _isLoading = false; await _syncWithFirestore();
       }
     } catch (e) {} finally { _isLoading = false; notifyListeners(); }
@@ -531,20 +544,13 @@ class PlayerProvider with ChangeNotifier {
       });
     }
 
-    if (data['lastPassiveIncomeTime'] != null) {
-      _lastPassiveIncomeTime = DateTime.parse(data['lastPassiveIncomeTime'].toString());
-      int hoursPassed = DateTime.now().difference(_lastPassiveIncomeTime!).inHours;
-      if (hoursPassed >= 24) {
-        int daysPassed = hoursPassed ~/ 24;
-        int passiveIncome = (getTotalPassiveIncomePerDay() + getPropertyRentIncomePerDay()) * daysPassed;
-        if (passiveIncome > 0) { _cash += passiveIncome; Future.microtask(() => _sendSystemNotification("الأرباح اليومية 🏢", "استلمت أرباحك بقيمة: \$${_formatWithCommas(passiveIncome)}", "money")); }
-        _lastPassiveIncomeTime = _lastPassiveIncomeTime!.add(Duration(days: daysPassed));
-      }
-    } else { _lastPassiveIncomeTime = DateTime.now(); }
-
     if (data['lastUpdate'] != null) {
-      DateTime lastUpdateTime = (data['lastUpdate'] is Timestamp) ? (data['lastUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastUpdate'].toString());
-      int secondsPassed = DateTime.now().difference(lastUpdateTime).inSeconds;
+      DateTime serverTime = (data['lastUpdate'] is Timestamp) ? (data['lastUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastUpdate'].toString());
+      _lastServerTime = serverTime;
+      _sessionTimer.reset();
+      _sessionTimer.start();
+
+      int secondsPassed = secureNow.difference(serverTime).inSeconds;
       if (secondsPassed > 0) {
         int gainedCourage = secondsPassed ~/ 4; _courage = min(maxCourage, _courage + gainedCourage);
         int gainedPrestige = secondsPassed ~/ 6; _prestige = min(maxPrestige, _prestige + gainedPrestige);
@@ -554,6 +560,17 @@ class PlayerProvider with ChangeNotifier {
         double lostHeat = secondsPassed * 0.0278; _heat = max(0, _heat - lostHeat);
       }
     }
+
+    if (data['lastPassiveIncomeTime'] != null) {
+      _lastPassiveIncomeTime = DateTime.parse(data['lastPassiveIncomeTime'].toString());
+      int hoursPassed = secureNow.difference(_lastPassiveIncomeTime!).inHours;
+      if (hoursPassed >= 24) {
+        int daysPassed = hoursPassed ~/ 24;
+        int passiveIncome = (getTotalPassiveIncomePerDay() + getPropertyRentIncomePerDay()) * daysPassed;
+        if (passiveIncome > 0) { _cash += passiveIncome; Future.microtask(() => _sendSystemNotification("الأرباح اليومية 🏢", "استلمت أرباحك بقيمة: \$${_formatWithCommas(passiveIncome)}", "money")); }
+        _lastPassiveIncomeTime = _lastPassiveIncomeTime!.add(Duration(days: daysPassed));
+      }
+    } else { _lastPassiveIncomeTime = secureNow; }
 
     if (data['unlockedTitlesList'] != null) {
       _unlockedTitlesList = List<String>.from(data['unlockedTitlesList']);
@@ -631,21 +648,35 @@ class PlayerProvider with ChangeNotifier {
         _checkNewTitles();
       }
 
-      if (_activeSteroidEndTime != null && DateTime.now().isAfter(_activeSteroidEndTime!)) {
+      // 🟢 إنهاء مفعول المنشط بصمت
+      if (_activeSteroidEndTime != null && secureNow.isAfter(_activeSteroidEndTime!)) {
         _activeSteroidEndTime = null;
-        _health = (_health * 0.5).toInt();
-        _sendSystemNotification("تنبيه صحي ⚠️", "انتهى مفعول المنشطات! تشعر بإرهاق شديد وفقدت نصف صحتك.", "warning");
         localChanged = true;
       }
 
-      if (_coachEndTime != null && DateTime.now().isAfter(_coachEndTime!)) {
+      // 🟢 إنهاء مفعول المدرب بصمت
+      if (_coachEndTime != null && secureNow.isAfter(_coachEndTime!)) {
         _activeCoach = null;
         _coachEndTime = null;
-        _sendSystemNotification("التدريب ⏱️", "انتهى عقد مدربك الخاص.", "info");
         localChanged = true;
       }
 
-      if (_activeRentedProperty != null && DateTime.now().isAfter(DateTime.parse(_activeRentedProperty!['expire']))) {
+      // 🟢 إرسال إشعار عند انتهاء الـ Cooldown وإزالته من المخزون
+      int steroidCooldown = _inventory['steroid_cooldown'] ?? 0;
+      if (steroidCooldown > 0 && secureNow.millisecondsSinceEpoch > steroidCooldown) {
+        _inventory.remove('steroid_cooldown');
+        _sendSystemNotification("سوق المنشطات 💉", "انتهت فترة الراحة للمنشطات! يمكنك شراء وحقن جرعة جديدة الآن.", "info");
+        localChanged = true;
+      }
+
+      int coachCooldown = _inventory['coach_cooldown'] ?? 0;
+      if (coachCooldown > 0 && secureNow.millisecondsSinceEpoch > coachCooldown) {
+        _inventory.remove('coach_cooldown');
+        _sendSystemNotification("صالة التدريب 🥊", "المدربون متاحون الآن للتعاقد من جديد!", "info");
+        localChanged = true;
+      }
+
+      if (_activeRentedProperty != null && secureNow.isAfter(DateTime.parse(_activeRentedProperty!['expire']))) {
         String propId = _activeRentedProperty!['id']; _activeRentedProperty = null;
         if (_activePropertyId == propId) { _activePropertyId = null; _happiness = 0; }
         _sendSystemNotification("إيجار السكن 🏠", "انتهى عقد إيجار سكنك الحالي!", "home");
@@ -654,7 +685,7 @@ class PlayerProvider with ChangeNotifier {
 
       if (_rentedOutProperties.isNotEmpty) {
         List<String> expired = [];
-        _rentedOutProperties.forEach((id, data) { if (DateTime.now().isAfter(DateTime.parse(data['expire']))) expired.add(id); });
+        _rentedOutProperties.forEach((id, data) { if (secureNow.isAfter(DateTime.parse(data['expire']))) expired.add(id); });
         for (var id in expired) {
           _rentedOutProperties.remove(id);
           _sendSystemNotification("إدارة الأملاك 🔑", "انتهت مدة إيجار عقارك ($id) وعاد إليك!", "key");
@@ -678,7 +709,7 @@ class PlayerProvider with ChangeNotifier {
         }
       } else { _fractionalHealth = 0.0; }
 
-      if (_lastPassiveIncomeTime != null && DateTime.now().difference(_lastPassiveIncomeTime!).inHours >= 24) {
+      if (_lastPassiveIncomeTime != null && secureNow.difference(_lastPassiveIncomeTime!).inHours >= 24) {
         int passiveIncome = getTotalPassiveIncomePerDay() + getPropertyRentIncomePerDay();
         if (passiveIncome > 0) {
           _cash += passiveIncome;
@@ -689,29 +720,29 @@ class PlayerProvider with ChangeNotifier {
 
       if (timer.tick % 60 == 0) { for (var tool in GameData.crimeToolsList) { if ((_durability[tool] ?? 100) < 100) { _durability[tool] = min(100.0, (_durability[tool] ?? 100) + 1.0); localChanged = true; } } }
       if (_loanAmount > 0 && _loanTime != null) {
-        if (DateTime.now().difference(_loanTime!).inHours >= 2) {
-          _loanAmount = (_loanAmount * 1.1).floor(); _loanTime = DateTime.now();
+        if (secureNow.difference(_loanTime!).inHours >= 2) {
+          _loanAmount = (_loanAmount * 1.1).floor(); _loanTime = secureNow;
           _sendSystemNotification("البنك 🏦", "تمت إضافة فوائد 10% على قرضك لتأخرك في السداد!", "bank");
           localChanged = true;
         }
       }
-      if (_isInPrison && _prisonReleaseTime != null && DateTime.now().isAfter(_prisonReleaseTime!)) {
+      if (_isInPrison && _prisonReleaseTime != null && secureNow.isAfter(_prisonReleaseTime!)) {
         _isInPrison = false; _prisonReleaseTime = null;
         _sendSystemNotification("السجن 🔒", "تم الإفراج عنك من السجن!", "prison");
         localChanged = true;
       }
-      if (_isHospitalized && _hospitalReleaseTime != null && DateTime.now().isAfter(_hospitalReleaseTime!)) {
+      if (_isHospitalized && _hospitalReleaseTime != null && secureNow.isAfter(_hospitalReleaseTime!)) {
         _isHospitalized = false; _hospitalReleaseTime = null; _health = (maxHealth * 0.25).toInt();
         _sendSystemNotification("المستشفى 🏥", "تم خروجك من المستشفى!", "hospital");
         localChanged = true;
       }
-      if (_lockedUntil != null && DateTime.now().isAfter(_lockedUntil!)) {
+      if (_lockedUntil != null && secureNow.isAfter(_lockedUntil!)) {
         int total = _lockedBalance + _lockedProfits; _bankBalance += total; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
         _sendSystemNotification("الاستثمار 📈", "انتهى الاستثمار! استلمت $total كاش", "invest");
         localChanged = true;
       }
-      if (isUnderContract && _lastContractRewardTime != null && DateTime.now().difference(_lastContractRewardTime!).inMinutes >= 1) {
-        _cash += _contractSalary; _lastContractRewardTime = DateTime.now(); _addTransaction("راتب عقد: $_activeContractName", _contractSalary, true); _workXP += 5;
+      if (isUnderContract && _lastContractRewardTime != null && secureNow.difference(_lastContractRewardTime!).inMinutes >= 1) {
+        _cash += _contractSalary; _lastContractRewardTime = secureNow; _addTransaction("راتب عقد: $_activeContractName", _contractSalary, true); _workXP += 5;
         if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; }
         localChanged = true;
       }
@@ -738,7 +769,7 @@ class PlayerProvider with ChangeNotifier {
     if (_gold >= cost) {
       _gold -= cost;
       _totalVipDays += days;
-      DateTime start = isVIP ? _vipUntil! : DateTime.now();
+      DateTime start = isVIP ? _vipUntil! : secureNow;
       _vipUntil = start.add(Duration(days: days));
       _syncWithFirestore();
       notifyListeners();
@@ -748,7 +779,7 @@ class PlayerProvider with ChangeNotifier {
   void incrementLabCrafts() { _totalLabCrafts++; _syncWithFirestore(); notifyListeners(); }
   void incrementLuckyWheelSpins() { _luckyWheelSpins++; _syncWithFirestore(); notifyListeners(); }
 
-  void _addTransaction(String title, int amount, bool isPositive, {String? senderUid}) { _transactions.insert(0, Transaction(title: title, amount: amount, date: DateTime.now(), isPositive: isPositive, senderUid: senderUid)); if (_transactions.length > 20) _transactions.removeLast(); }
+  void _addTransaction(String title, int amount, bool isPositive, {String? senderUid}) { _transactions.insert(0, Transaction(title: title, amount: amount, date: secureNow, isPositive: isPositive, senderUid: senderUid)); if (_transactions.length > 20) _transactions.removeLast(); }
 
   void updateTitle(String newTitle) {
     _selectedTitle = newTitle;
@@ -772,7 +803,7 @@ class PlayerProvider with ChangeNotifier {
     _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {};
     crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
     _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ';
-    _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null; _lastPassiveIncomeTime = DateTime.now();
+    _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null; _lastPassiveIncomeTime = secureNow;
     _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _pvpWins = 0; _totalStolenCash = 0; _perks = {}; _selectedTitle = null; _baseMaxHealth = 100;
     await _syncWithFirestore(); notifyListeners();
   }
@@ -791,5 +822,12 @@ class PlayerProvider with ChangeNotifier {
   }
 
   @override
-  void dispose() { _playerDataSubscription?.cancel(); _gameLoopTimer?.cancel(); _notificationStream.close(); super.dispose(); }
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _playerDataSubscription?.cancel();
+    _gameLoopTimer?.cancel();
+    _notificationStream.close();
+    _sessionTimer.stop();
+    super.dispose();
+  }
 }

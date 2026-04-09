@@ -4,35 +4,41 @@ part of 'player_provider.dart';
 
 extension PlayerCombatLogic on PlayerProvider {
 
-  void buyAndUseSteroids(int price) {
+  Future<void> buyAndUseSteroids(int price) async {
+    int cooldownTime = _inventory['steroid_cooldown'] ?? 0;
+    if (secureNow.millisecondsSinceEpoch < cooldownTime) return;
+
     if (_cash >= price) {
       _cash -= price;
-      _activeSteroidEndTime = DateTime.now().add(const Duration(hours: 1));
+      _activeSteroidEndTime = secureNow.add(const Duration(minutes: 20));
+      _inventory['steroid_cooldown'] = secureNow.add(const Duration(hours: 6, minutes: 20)).millisecondsSinceEpoch;
+
       _addTransaction("شراء منشطات", price, false);
-      _showNotification("💉 حقنت نفسك بالمنشطات! التدريب سيتضاعف لمدة ساعة.");
-      _syncWithFirestore();
+      // 🟢 تم إلغاء الإشعار عند الشراء بناءً على طلبك
+      await _syncWithFirestore();
       notifyListeners();
-    } else {
-      _showNotification("⚠️ كاش غير كافي لشراء المنشطات!");
     }
   }
 
-  void hireCoach(String coachId, int price) {
+  Future<void> hireCoach(String coachId, int price) async {
+    int cooldownTime = _inventory['coach_cooldown'] ?? 0;
+    if (secureNow.millisecondsSinceEpoch < cooldownTime) return;
+
     if (_cash >= price) {
       _cash -= price;
       _activeCoach = coachId;
-      _coachEndTime = DateTime.now().add(const Duration(hours: 24));
+      _coachEndTime = secureNow.add(const Duration(minutes: 30));
+      _inventory['coach_cooldown'] = secureNow.add(const Duration(hours: 6, minutes: 30)).millisecondsSinceEpoch;
+
       _addTransaction("استئجار مدرب خاص", price, false);
-      _showNotification("🥊 تم التعاقد مع المدرب بنجاح لمدة 24 ساعة!");
-      _syncWithFirestore();
+      // 🟢 تم إلغاء الإشعار عند الاستئجار بناءً على طلبك
+      await _syncWithFirestore();
       notifyListeners();
-    } else {
-      _showNotification("⚠️ كاش غير كافي لاستئجار المدرب!");
     }
   }
 
   void addCrimeXP(int amount) {
-    if (_crimeLevel >= 400) return; // 🟢 تم التعديل إلى 400
+    if (_crimeLevel >= 400) return;
     _crimeXP += amount;
     bool leveledUp = false;
     while (_crimeXP >= xpToNextLevel && _crimeLevel < 400) {
@@ -40,7 +46,7 @@ extension PlayerCombatLogic on PlayerProvider {
       int oldBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
       _crimeLevel++;
       int newBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
-      _baseMaxHealth += (newBase - oldBase); // 🟢 نرفع البيس، والـ Perk بينحسب عليه تلقائي 🟢
+      _baseMaxHealth += (newBase - oldBase);
       if (_baseMaxHealth > 50000000) _baseMaxHealth = 50000000;
       leveledUp = true;
     }
@@ -73,13 +79,14 @@ extension PlayerCombatLogic on PlayerProvider {
   double get maxGymStats => 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0);
   double get currentBaseStats => _baseStrength + _baseDefense + _baseSkill + _baseSpeed;
 
-  void trainMultipleStats(int strE, int defE, int skillE, int spdE) {
+  // 🟢 ترجع مجموع الإحصائيات المكتسبة عشان نعرضها في الواجهة كرسالة طائرة
+  Future<double> trainMultipleStats(int strE, int defE, int skillE, int spdE) async {
     int totalEnergy = strE + defE + skillE + spdE;
-    if (_energy < totalEnergy || totalEnergy <= 0) return;
-    if (currentBaseStats >= maxGymStats) { _showNotification("🚨 وصلت للحد الأقصى لجسمك في هذا المستوى! ارفع لفلك."); return; }
+    if (_energy < totalEnergy || totalEnergy <= 0) return 0.0;
+    if (currentBaseStats >= maxGymStats) return 0.0;
 
     double gainPerEnergy = 0.01 + (_happiness * 0.0002);
-    double steroidMultiplier = (_activeSteroidEndTime != null && DateTime.now().isBefore(_activeSteroidEndTime!)) ? 2.0 : 1.0;
+    double steroidMultiplier = (_activeSteroidEndTime != null && secureNow.isBefore(_activeSteroidEndTime!)) ? 2.0 : 1.0;
 
     double coachStrMod = _activeCoach == 'russian' ? 1.5 : 1.0;
     double coachDefMod = _activeCoach == 'tactical' ? 1.5 : 1.0;
@@ -97,6 +104,7 @@ extension PlayerCombatLogic on PlayerProvider {
     if (totalGain > availableRoom) {
       double scale = availableRoom / totalGain;
       strGain *= scale; defGain *= scale; skillGain *= scale; spdGain *= scale;
+      totalGain = availableRoom; // المجموع الفعلي بعد التعديل
     }
 
     _energy -= totalEnergy;
@@ -108,10 +116,13 @@ extension PlayerCombatLogic on PlayerProvider {
       int hpBoost = (defGain * randomMultiplier).toInt();
       if (hpBoost > 0) {
         _baseMaxHealth = min(50000000, _baseMaxHealth + hpBoost);
-        _showNotification("🛡️ تمرين الدفاع زاد صحتك القصوى بمقدار +$hpBoost نقطة!");
+        // 🟢 تم إلغاء الإشعار المزعج للمستشفى/الصحة عند التدريب
       }
     }
-    _syncWithFirestore(); notifyListeners();
+
+    await _syncWithFirestore();
+    notifyListeners();
+    return totalGain; // نرسل القيمة للواجهة
   }
 
   void incrementArenaLevel() { _arenaLevel++; _syncWithFirestore(); notifyListeners(); }
@@ -123,18 +134,20 @@ extension PlayerCombatLogic on PlayerProvider {
     _syncWithFirestore(); notifyListeners();
   }
 
-  void setEnergy(int value) { _energy = value.clamp(0, maxEnergy); _syncWithFirestore(); notifyListeners(); }
+  void setEnergy(int value) {
+    _energy = value.clamp(0, maxEnergy);
+    _syncWithFirestore();
+    notifyListeners();
+  }
+
   void setCourage(int value) { _courage = value.clamp(0, maxCourage); _syncWithFirestore(); notifyListeners(); }
 
   void enterHospital(int minutes) {
     _isHospitalized = true;
     _health = 0;
-
-    // 🟢 تطبيق ميزة تقليل وقت المستشفى 🟢
     int reducedMinutes = minutes - ((minutes * hospitalTimeReductionPercent) ~/ 100);
-    reducedMinutes = max(1, reducedMinutes); // على الأقل دقيقة وحدة
-
-    _hospitalReleaseTime = DateTime.now().add(Duration(minutes: reducedMinutes));
+    reducedMinutes = max(1, reducedMinutes);
+    _hospitalReleaseTime = secureNow.add(Duration(minutes: reducedMinutes));
     _syncWithFirestore(); notifyListeners();
   }
 
@@ -153,12 +166,10 @@ extension PlayerCombatLogic on PlayerProvider {
 
   void startPrisonTimer(int minutes) {
     _isInPrison = true;
-    // ميزة تقليل وقت السجن القديمة إذا كانت موجودة
     int reduction = (_perks['corrupt_lawyer'] ?? 0) * 15;
     int reducedMinutes = minutes - ((minutes * reduction) ~/ 100);
     reducedMinutes = max(1, reducedMinutes);
-
-    _prisonReleaseTime = DateTime.now().add(Duration(minutes: reducedMinutes));
+    _prisonReleaseTime = secureNow.add(Duration(minutes: reducedMinutes));
     _syncWithFirestore(); notifyListeners();
   }
 
@@ -190,14 +201,14 @@ extension PlayerCombatLogic on PlayerProvider {
           Map<String, dynamic> updates = {};
 
           if (data['isHospitalized'] == true && data['hospitalReleaseTime'] != null) {
-            if (DateTime.now().isAfter(DateTime.parse(data['hospitalReleaseTime']))) {
+            if (secureNow.isAfter(DateTime.parse(data['hospitalReleaseTime']))) {
               data['isHospitalized'] = false; data['health'] = (data['maxHealth'] ?? 100) ~/ 4;
               updates['isHospitalized'] = false; updates['hospitalReleaseTime'] = null; updates['health'] = data['health'];
               needsUpdate = true;
             }
           }
           if (data['isInPrison'] == true && data['prisonReleaseTime'] != null) {
-            if (DateTime.now().isAfter(DateTime.parse(data['prisonReleaseTime']))) {
+            if (secureNow.isAfter(DateTime.parse(data['prisonReleaseTime']))) {
               data['isInPrison'] = false; updates['isInPrison'] = false; updates['prisonReleaseTime'] = null;
               needsUpdate = true;
             }
@@ -237,11 +248,11 @@ extension PlayerCombatLogic on PlayerProvider {
 
         if (result == 'win') {
           int finalReward = min(reward, enemyCash);
-          updates['cash'] = enemyCash - finalReward; updates['health'] = 0; updates['isHospitalized'] = true; updates['hospitalReleaseTime'] = DateTime.now().add(Duration(minutes: hospitalMinutes)).toIso8601String();
+          updates['cash'] = enemyCash - finalReward; updates['health'] = 0; updates['isHospitalized'] = true; updates['hospitalReleaseTime'] = secureNow.add(Duration(minutes: hospitalMinutes)).toIso8601String();
           logData['stolenAmount'] = finalReward;
         } else if (result == 'draw') {
           int newHealth = max(1, enemyHealth - 20); updates['health'] = newHealth;
-          if (newHealth <= 1) { updates['health'] = 0; updates['isHospitalized'] = true; updates['hospitalReleaseTime'] = DateTime.now().add(const Duration(minutes: 15)).toIso8601String(); }
+          if (newHealth <= 1) { updates['health'] = 0; updates['isHospitalized'] = true; updates['hospitalReleaseTime'] = secureNow.add(const Duration(minutes: 15)).toIso8601String(); }
         }
         if (updates.isNotEmpty) transaction.update(enemyRef, updates);
         transaction.set(logRef, logData);
