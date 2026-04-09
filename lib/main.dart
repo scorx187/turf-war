@@ -14,7 +14,8 @@ import 'screens/game_screen.dart';
 import 'providers/player_provider.dart';
 import 'providers/audio_provider.dart';
 import 'providers/market_provider.dart';
-import 'utils/local_notification_service.dart'; // 🟢 تم إضافة استدعاء الإشعارات
+import 'utils/local_notification_service.dart';
+import 'views/version_check_view.dart'; // 🟢 تم استدعاء شاشة فحص الإصدار
 
 // 🔥 تعريف الألوان الخاصة باللعبة هنا لسهولة الوصول إليها
 class GameColors {
@@ -33,7 +34,6 @@ void main() async {
 
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-  // 🟢 تهيئة إشعارات الجوال مع بداية تشغيل التطبيق
   await LocalNotificationService.initialize();
 
   runApp(
@@ -243,7 +243,8 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
       );
     }
 
-    return const AuthWrapper();
+    // 🟢 بدلاً من الدخول مباشرة، نوجه اللاعب لشاشة فحص الإصدار 🟢
+    return const VersionCheckView();
   }
 }
 

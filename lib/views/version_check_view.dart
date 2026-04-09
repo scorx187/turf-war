@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-// استدعِ شاشة تسجيل الدخول أو شاشتك الرئيسية هنا
-// import 'login_view.dart';
+import '../main.dart'; // لاستخدام الألوان وشاشة AuthWrapper
 
 class VersionCheckView extends StatefulWidget {
   const VersionCheckView({super.key});
@@ -15,115 +14,121 @@ class VersionCheckView extends StatefulWidget {
 }
 
 class _VersionCheckViewState extends State<VersionCheckView> {
-  bool _isLoading = true;
-  bool _needsUpdate = false;
-  String _storeUrl = '';
+  String _currentVersion = '';
+  bool _isLoadingVersion = true;
 
   @override
   void initState() {
     super.initState();
-    _checkForUpdate();
+    _initAppVersion();
   }
 
-  Future<void> _checkForUpdate() async {
+  // جلب إصدار التطبيق من جوال اللاعب لمرة واحدة عند تشغيل اللعبة
+  Future<void> _initAppVersion() async {
     try {
-      // 1. جلب رقم إصدار التطبيق الحالي من جوال اللاعب
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      String currentVersion = packageInfo.version;
-
-      // 2. جلب الإصدار المطلوب من فايربيس
-      DocumentSnapshot settingsDoc = await FirebaseFirestore.instance.collection('settings').doc('app_info').get();
-
-      if (settingsDoc.exists) {
-        String minVersion = settingsDoc['min_version'] ?? '1.0.0';
-        _storeUrl = settingsDoc['play_store_url'] ?? 'https://play.google.com';
-
-        // 3. مقارنة الإصدارات (بشكل مبسط)
-        if (_isUpdateRequired(currentVersion, minVersion)) {
-          setState(() {
-            _needsUpdate = true;
-            _isLoading = false;
-          });
-          return;
-        }
+      if (mounted) {
+        setState(() {
+          _currentVersion = packageInfo.version;
+          _isLoadingVersion = false;
+        });
       }
-
-      // 🟢 إذا الإصدار سليم، ننتقل لشاشة اللعبة أو تسجيل الدخول 🟢
-      _goToGame();
-
     } catch (e) {
-      // في حال فشل الاتصال بالنت، نمشيه للعبة ونخلي الفايربيس يتعامل مع الأوفلاين
-      _goToGame();
+      if (mounted) {
+        setState(() {
+          _currentVersion = '1.0.0'; // قيمة افتراضية في حال فشل الجلب
+          _isLoadingVersion = false;
+        });
+      }
     }
   }
 
-  // دالة لمقارنة الأرقام (مثلاً 1.0.1 مع 1.0.2)
+  // مقارنة الإصدارات (اللاعب ضد السيرفر)
   bool _isUpdateRequired(String current, String minimum) {
-    List<int> currentParts = current.split('.').map(int.parse).toList();
-    List<int> minParts = minimum.split('.').map(int.parse).toList();
+    if (current.isEmpty) return false;
+
+    List<int> currentParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    List<int> minParts = minimum.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
     for (int i = 0; i < currentParts.length; i++) {
-      if (currentParts[i] < minParts[i]) return true; // يحتاج تحديث
-      if (currentParts[i] > minParts[i]) return false; // إصداره أحدث من المطلوب
+      int c = currentParts[i];
+      int m = i < minParts.length ? minParts[i] : 0;
+      if (c < m) return true; // يحتاج تحديث
+      if (c > m) return false; // إصدار أحدث
     }
     return false; // متطابق
   }
 
-  void _goToGame() {
-    // ⚠️ هنا غير الـ LoginView باسم شاشة البداية حقتك
-    // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginView()));
-  }
-
-  Future<void> _launchStore() async {
-    final Uri url = Uri.parse(_storeUrl);
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+  Future<void> _launchStore(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       debugPrint('لا يمكن فتح الرابط');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: _isLoading
-            ? const CircularProgressIndicator(color: Colors.amber)
-            : _needsUpdate
-            ? Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.system_update, size: 100, color: Colors.redAccent),
-              const SizedBox(height: 20),
-              const Text(
-                "تحديث هام متاح! 🚨",
-                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Changa'),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "أضفنا ميزات جديدة وأصلحنا بعض الأخطاء.\nيجب عليك تحديث اللعبة للاستمرار في اللعب.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Changa'),
-              ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    // انتظار تحميل رقم الإصدار من الجوال
+    if (_isLoadingVersion) {
+      return const GameBackgroundScaffold(
+        showOverlay: true,
+        child: Center(child: CircularProgressIndicator(color: GameColors.primary)),
+      );
+    }
+
+    // 🟢 السحر هنا: استخدام StreamBuilder لمراقبة التحديثات بشكل حي ومباشر 🟢
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('settings').doc('app_info').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+          var data = snapshot.data!.data() as Map<String, dynamic>?;
+
+          if (data != null) {
+            String minVersion = data['min_version'] ?? '1.0.0';
+            String storeUrl = data['play_store_url'] ?? 'https://play.google.com';
+
+            bool needsUpdate = _isUpdateRequired(_currentVersion, minVersion);
+
+            // 🔴 إذا نزل تحديث، الشاشة هذي بتمسح اللعبة من قدام اللاعب وتطلع له التنبيه فوراً 🔴
+            if (needsUpdate) {
+              return GameBackgroundScaffold(
+                showOverlay: true,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "تحديث هام متاح! 🚨",
+                          style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Changa'),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          "أضفنا ميزات جديدة وأصلحنا بعض الأخطاء.\nيجب عليك تحديث اللعبة للاستمرار في اللعب.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Changa'),
+                        ),
+                        const SizedBox(height: 40),
+                        GameActionButton(
+                          onPressed: () => _launchStore(storeUrl),
+                          label: "تحديث الآن",
+                          isPrimary: true,
+                          icon: Icons.download,
+                        ),
+                      ],
+                    ),
                   ),
-                  onPressed: _launchStore,
-                  child: const Text("تحديث الآن", style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                 ),
-              ),
-            ],
-          ),
-        )
-            : const SizedBox(),
-      ),
+              );
+            }
+          }
+        }
+
+        // 🟢 إذا ما يحتاج تحديث، اللعبة تستمر بشكل طبيعي 🟢
+        // استخدمنا const عشان الفلاتر ما يسوي إعادة بناء للعبة بالكامل بدون سبب
+        return const AuthWrapper();
+      },
     );
   }
 }

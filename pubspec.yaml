@@ -21,6 +21,8 @@ dependencies:
   firebase_storage: ^13.2.0 # 🟢 الإضافة الأولى: رفع الصور
   cached_network_image: ^3.4.1 # 🟢 الإضافة الثانية: الذاكرة المؤقتة للصور
   awesome_notifications: ^0.11.0
+  package_info_plus: ^9.0.1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
