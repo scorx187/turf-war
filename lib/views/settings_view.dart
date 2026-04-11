@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../providers/player_provider.dart';
+import '../main.dart'; // للوصول إلى AuthWrapper
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -12,9 +15,7 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
 
-  // دالة حذف الحساب مع نافذة التأكيد
   Future<void> _deleteAccount(BuildContext context) async {
-    // 1. إظهار رسالة تأكيد تحذيرية للاعب لمنع الحذف بالخطأ
     bool confirm = await showDialog(
       context: context,
       builder: (ctx) => Directionality(
@@ -38,12 +39,12 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx, false), // زر الإلغاء (يرجع false)
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('إلغاء', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 16)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red[800]),
-              onPressed: () => Navigator.pop(ctx, true), // زر التأكيد (يرجع true)
+              onPressed: () => Navigator.pop(ctx, true),
               child: const Text('نعم، احذف حسابي', style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
             ),
           ],
@@ -51,12 +52,9 @@ class _SettingsViewState extends State<SettingsView> {
       ),
     ) ?? false;
 
-    // إذا ضغط إلغاء، نوقف العملية هنا
     if (!confirm) return;
 
-    // 2. البدء بعملية الحذف الفعلي إذا وافق
     try {
-      // إظهار مؤشر تحميل (دائرة تدور) حتى يكتمل الحذف
       showDialog(
           context: context,
           barrierDismissible: false,
@@ -65,30 +63,35 @@ class _SettingsViewState extends State<SettingsView> {
 
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // أ. حذف بيانات اللاعب من قاعدة البيانات Firestore
+        // 1. حذف اللاعب من قاعدة البيانات
         await FirebaseFirestore.instance.collection('players').doc(user.uid).delete();
 
-        // ب. حذف حساب المستخدم من نظام التوثيق Firebase Authentication
+        // 2. حذف المستخدم من المصادقة وتسجيل الخروج
         await user.delete();
-
-        // تأكيد تسجيل الخروج من فايربيز
         await FirebaseAuth.instance.signOut();
 
-        // مسح جميع البيانات المخزنة في ذاكرة الجوال (الكاش)
+        // 3. مسح الكاش من ذاكرة الجوال
         final prefs = await SharedPreferences.getInstance();
         await prefs.clear();
-        // ج. إغلاق مؤشر التحميل
-        if (context.mounted) Navigator.pop(context);
 
-        // د. توجيه اللاعب فوراً إلى الشاشة الرئيسية (شاشة تسجيل الدخول) ومسح الشاشات السابقة
+        // 4. تصفير الذاكرة الحية (البروفايدر) 🟢 (هذا هو الحل لمشكلتك)
         if (context.mounted) {
-          Navigator.of(context).pushNamedAndRemoveUntil('/', (Route<dynamic> route) => false);
+          Provider.of<PlayerProvider>(context, listen: false).resetPlayerData();
+        }
+
+        if (context.mounted) Navigator.pop(context); // إغلاق التحميل
+
+        // 5. إرجاع اللاعب لشاشة البداية (تسجيل الدخول) وإغلاق كل الشاشات السابقة
+        if (context.mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const AuthWrapper()),
+                (Route<dynamic> route) => false,
+          );
         }
       }
     } on FirebaseAuthException catch (e) {
-      if (context.mounted) Navigator.pop(context); // إغلاق التحميل في حال حدوث خطأ
+      if (context.mounted) Navigator.pop(context);
 
-      // نظام الأمان في جوجل يطلب إعادة تسجيل الدخول إذا مر وقت طويل على الجلسة
       if (e.code == 'requires-recent-login') {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
