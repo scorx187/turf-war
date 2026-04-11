@@ -12,7 +12,6 @@ class ArmoryView extends StatelessWidget {
 
   const ArmoryView({super.key, this.onBack});
 
-  // 🟢 ترجمة أسماء الأسلحة والدروع (مع إضافة حزمة علاء الدين) 🟢
   String _translateItemId(String id) {
     Map<String, String> names = {
       'dagger': 'خنجر', 'revolver': 'مسدس', 'katana': 'سيف كاتانا', 'shotgun': 'بندقية صيد', 'sniper': 'قناصة',
@@ -23,6 +22,14 @@ class ArmoryView extends StatelessWidget {
       'a_aladdin_evasion': 'عباءة علاء الدين',
       't_aladdin_lamp': 'المصباح السحري',
       't_aladdin_carpet': 'البساط الطائر',
+      't_magic_ring': 'خاتم السلطة',
+      't_dragon_heart': 'قلب التنين',
+      't_crystal_skull': 'جمجمة كريستال',
+      't_golden_apple': 'تفاحة ذهبية',
+      't_lion_mane': 'عرف الأسد',
+      't_phoenix_feather': 'ريشة العنقاء',
+      't_time_hourglass': 'ساعة الزمن',
+      't_midas_touch': 'قفاز ميداس',
     };
     if (names.containsKey(id)) return names[id]!;
 
@@ -48,11 +55,35 @@ class ArmoryView extends StatelessWidget {
     return id;
   }
 
-  // 🟢 أيقونات الأسلحة والدروع والأدوات 🟢
+  // 🟢 وصف الأدوات الخاصة داخل التسليح ليعرف اللاعب فائدتها قبل التجهيز 🟢
+  String _getSpecialItemStats(String id) {
+    Map<String, String> desc = {
+      't_aladdin_lamp': 'سعادة: +300 | قوة: +7% | سرعة: +3%',
+      't_aladdin_carpet': 'سعادة: +300 | سرعة: +8% | دفاع: +2%',
+      't_magic_ring': 'سعادة: +200 | دفاع: +6% | طاقة: +15',
+      't_dragon_heart': 'سعادة: +500 | طاقة: +20 | شجاعة: +10',
+      't_crystal_skull': 'سعادة: +250 | مهارة: +7% | قوة: +3%',
+      't_golden_apple': 'سعادة: +400 | صحة: +10% | دفاع: +4%',
+      't_lion_mane': 'سعادة: +200 | شجاعة: +15 | قوة: +4%',
+      't_phoenix_feather': 'سعادة: +600 | تعافي: +15% | صحة: +5%',
+      't_time_hourglass': 'سعادة: +550 | جميع الخصائص: +3% | تعافي: +5%',
+      't_midas_touch': 'سعادة: +600 | عائد الجرائم: +15% | شجاعة: +5',
+    };
+    return desc[id] ?? 'أداة أسطورية نادرة';
+  }
+
   IconData _getItemIcon(String id) {
     if (id == 't_aladdin_lamp') return Icons.lightbulb;
     if (id == 't_aladdin_carpet') return Icons.map;
-    if (id == 'a_aladdin_evasion') return Icons.air;
+    if (id == 't_magic_ring') return Icons.radio_button_checked;
+    if (id == 't_dragon_heart') return Icons.favorite;
+    if (id == 't_crystal_skull') return Icons.sentiment_very_dissatisfied;
+    if (id == 't_golden_apple') return Icons.apple;
+    if (id == 't_lion_mane') return Icons.pets;
+    if (id == 't_phoenix_feather') return Icons.local_fire_department;
+    if (id == 't_time_hourglass') return Icons.hourglass_empty;
+    if (id == 't_midas_touch') return Icons.front_hand;
+
     if (id.startsWith('w_') || ['dagger','revolver','katana','shotgun','sniper'].contains(id)) return Icons.hardware;
     if (id.startsWith('a_') || ['riot_shield','kevlar_vest','ninja_suit','steel_armor','exoskeleton'].contains(id)) return Icons.shield;
     return Icons.category;
@@ -87,10 +118,9 @@ class ArmoryView extends StatelessWidget {
     );
   }
 
-  // 🟢 تعديل المربعات لتكون من اليمين إلى اليسار 🟢
   Widget _buildEquippedSlotsRow(PlayerProvider player) {
     return Directionality(
-      textDirection: TextDirection.rtl, // هذا التعديل خلى السلاح يمين، والدرع جنبه، وهكذا!
+      textDirection: TextDirection.rtl,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         child: Row(
@@ -99,15 +129,15 @@ class ArmoryView extends StatelessWidget {
           children: [
             _buildEquipSlot('سلاح', player.equippedWeaponId, Icons.hardware, Colors.deepOrange),
             _buildEquipSlot('درع', player.equippedArmorId, Icons.shield, Colors.blue),
-            _buildEquipSlot('أداة خاصة', player.equippedCrimeToolId, Icons.build, Colors.amber),
-            _buildEquipSlot('كيمياء', null, Icons.science, Colors.green), // قيد الإنشاء
+            // 🟢 استخدام الأداة الخاصة هنا بدلاً من أداة الجريمة 🟢
+            _buildEquipSlot('أداة خاصة', player.equippedSpecialId, Icons.auto_awesome, Colors.amber),
+            _buildEquipSlot('كيمياء', null, Icons.science, Colors.green),
           ],
         ),
       ),
     );
   }
 
-  // قائمة بناء الأسلحة والدروع
   Widget _buildInventoryList(PlayerProvider player, AudioProvider audio, Map<String, Map<String, double>> itemStats, String? currentEquippedId, Color themeColor) {
     var items = player.inventory.entries.where((e) => itemStats.containsKey(e.key)).toList();
 
@@ -178,7 +208,7 @@ class ArmoryView extends StatelessWidget {
     );
   }
 
-  // 🟢 قائمة جديدة مخصصة للأدوات الخاصة (عشان البساط والمصباح يظهرون فيها وتقدر تجهزهم) 🟢
+  // 🟢 قائمة التجهيز المخصصة للأدوات الخاصة 🟢
   Widget _buildToolsInventoryList(PlayerProvider player, AudioProvider audio, List<String> toolIds, String? currentEquippedId, Color themeColor) {
     var items = player.inventory.entries.where((e) => toolIds.contains(e.key)).toList();
 
@@ -189,7 +219,7 @@ class ArmoryView extends StatelessWidget {
           children: [
             Icon(Icons.inventory_2_outlined, size: 60, color: Colors.white.withOpacity(0.2)),
             const SizedBox(height: 15),
-            const Text("لا تملك أي أدوات هنا", style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 16)),
+            const Text("لا تملك أي أدوات خاصة هنا", style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 16)),
           ],
         ),
       );
@@ -219,7 +249,8 @@ class ArmoryView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 4),
-                  const Text("أداة خاصة (المزايا قيد التطوير)", style: TextStyle(color: Colors.amberAccent, fontSize: 11, fontFamily: 'Changa')),
+                  // عرض الخصائص الموزونة هنا!
+                  Text(_getSpecialItemStats(itemId), style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontFamily: 'Changa')),
                   const SizedBox(height: 2),
                   Text("الكمية: $count", style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'Changa')),
                 ],
@@ -231,7 +262,7 @@ class ArmoryView extends StatelessWidget {
                 ),
                 onPressed: () {
                   audio.playEffect('click.mp3');
-                  player.useItem(itemId);
+                  player.toggleSpecialItem(itemId); // 🟢 استدعاء التجهيز الحصري
                 },
                 child: Text(isEquipped ? 'خلع' : 'تجهيز', style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
               ),
@@ -261,6 +292,13 @@ class ArmoryView extends StatelessWidget {
     final player = Provider.of<PlayerProvider>(context);
     final audio = Provider.of<AudioProvider>(context, listen: false);
 
+    // قائمة معرفات الأدوات الخاصة
+    final List<String> specialItemsIds = [
+      't_aladdin_lamp', 't_aladdin_carpet', 't_magic_ring', 't_dragon_heart',
+      't_crystal_skull', 't_golden_apple', 't_lion_mane', 't_phoenix_feather',
+      't_time_hourglass', 't_midas_touch'
+    ];
+
     return DefaultTabController(
       length: 4,
       child: Scaffold(
@@ -288,7 +326,7 @@ class ArmoryView extends StatelessWidget {
                 tabs: const [
                   Tab(text: 'الأسلحة', icon: Icon(Icons.hardware)),
                   Tab(text: 'الدروع', icon: Icon(Icons.shield)),
-                  Tab(text: 'أدوات خاصة', icon: Icon(Icons.construction)),
+                  Tab(text: 'أدوات خاصة', icon: Icon(Icons.auto_awesome)),
                   Tab(text: 'كيمياء', icon: Icon(Icons.science)),
                 ],
               ),
@@ -301,7 +339,7 @@ class ArmoryView extends StatelessWidget {
                   children: [
                     _buildInventoryList(player, audio, GameData.weaponStats, player.equippedWeaponId, Colors.deepOrange),
                     _buildInventoryList(player, audio, GameData.armorStats, player.equippedArmorId, Colors.blue),
-                    _buildToolsInventoryList(player, audio, GameData.crimeToolsList, player.equippedCrimeToolId, Colors.amber),
+                    _buildToolsInventoryList(player, audio, specialItemsIds, player.equippedSpecialId, Colors.amber),
                     _buildPlaceholder('الكيمياء', Icons.science),
                   ],
                 ),
@@ -325,7 +363,7 @@ class ArmoryView extends StatelessWidget {
                     child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24), SizedBox(height: 4), Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
                   ),
                   GestureDetector(
-                    onTap: () { audio.playEffect('click.mp3'); showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF1A1A1D), shape: RoundedRectangleBorder(side: const BorderSide(color: Colors.amber, width: 2), borderRadius: BorderRadius.circular(15)), title: const Text('شرح التسليح', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold), textAlign: TextAlign.right), content: const Text('المربعات العلوية تظهر عتادك المجهز حالياً.\n\nتجهيز الأسلحة سيزيد من قوتك في الهجوم ضد اللاعبين، وتجهيز الدروع سيقلل الأضرار التي تتلقاها.', style: TextStyle(color: Colors.white, fontFamily: 'Changa', height: 1.5), textAlign: TextAlign.right), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('فهمت', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold)))])); },
+                    onTap: () { audio.playEffect('click.mp3'); showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF1A1A1D), shape: RoundedRectangleBorder(side: const BorderSide(color: Colors.amber, width: 2), borderRadius: BorderRadius.circular(15)), title: const Text('شرح التسليح', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold), textAlign: TextAlign.right), content: const Text('المربعات العلوية تظهر عتادك المجهز حالياً.\n\nتجهيز الأسلحة سيزيد من قوتك في الهجوم ضد اللاعبين، وتجهيز الدروع سيقلل الأضرار التي تتلقاها. والأدوات الخاصة تمنحك سعادة وخصائص إضافية دائمة طالما أنها مجهزة.', style: TextStyle(color: Colors.white, fontFamily: 'Changa', height: 1.5), textAlign: TextAlign.right), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('فهمت', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold)))])); },
                     child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.help_outline, color: Colors.white70, size: 24), SizedBox(height: 4), Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
                   ),
                 ],

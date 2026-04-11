@@ -2,14 +2,70 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart' hide TextDirection; // 🟢 لحل مشكلة اتجاه النص
+import 'package:intl/intl.dart' hide TextDirection;
 import '../providers/player_provider.dart';
+import '../providers/audio_provider.dart';
 import '../utils/game_data.dart';
 
-class BlackMarketView extends StatelessWidget {
+class BlackMarketView extends StatefulWidget {
   final VoidCallback onBack;
 
   const BlackMarketView({super.key, required this.onBack});
+
+  @override
+  State<BlackMarketView> createState() => _BlackMarketViewState();
+}
+
+class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  String? _activeGroupName;
+  List<Map<String, dynamic>>? _activeGroupItems;
+  Color _activeGroupColor = Colors.redAccent;
+  IconData _activeGroupIcon = Icons.list;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 6, vsync: this);
+
+    // يمسح المجموعة المفتوحة فقط إذا قام اللاعب بتغيير التبويب الرئيسي من فوق
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging && _activeGroupName != null) {
+        setState(() {
+          _activeGroupName = null;
+          _activeGroupItems = null;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _openGroup(String name, List<Map<String, dynamic>> items, Color color, IconData icon) {
+    setState(() {
+      _activeGroupName = name;
+      _activeGroupItems = items;
+      _activeGroupColor = color;
+      _activeGroupIcon = icon;
+    });
+  }
+
+  void _handleBack() {
+    if (_activeGroupName != null) {
+      // 🟢 الرجوع لقائمة المجموعات (مع البقاء في نفس التبويب) 🟢
+      setState(() {
+        _activeGroupName = null;
+        _activeGroupItems = null;
+      });
+    } else {
+      // الرجوع للخريطة الأساسية
+      widget.onBack();
+    }
+  }
 
   List<Map<String, dynamic>> _generateEquipment(PlayerProvider player) {
     List<Map<String, dynamic>> equipment = [];
@@ -43,35 +99,13 @@ class BlackMarketView extends StatelessWidget {
         String itemId = 'w_${r['id']}_${w['id']}';
         int strVal = ((GameData.weaponStats[itemId]?['str'] ?? 0.0) * 100).toInt();
         int spdVal = ((GameData.weaponStats[itemId]?['spd'] ?? 0.0) * 100).toInt();
-
-        equipment.add({
-          'id': itemId,
-          'name': '${w['name']} ${r['name']}',
-          'description': 'قوة: +$strVal%\nسرعة: +$spdVal%',
-          'price': r['price'],
-          'currency': r['curr'],
-          'icon': w['icon'],
-          'color': r['color'],
-          'type': 'weapon',
-          'isConsumable': false
-        });
+        equipment.add({'id': itemId, 'name': '${w['name']} ${r['name']}', 'description': 'قوة: +$strVal%\nسرعة: +$spdVal%', 'price': r['price'], 'currency': r['curr'], 'icon': w['icon'], 'color': r['color'], 'type': 'weapon', 'isConsumable': false});
       }
       for (var a in armorTypes) {
         String itemId = 'a_${r['id']}_${a['id']}';
         int defVal = ((GameData.armorStats[itemId]?['def'] ?? 0.0) * 100).toInt();
         int sklVal = ((GameData.armorStats[itemId]?['skl'] ?? 0.0) * 100).toInt();
-
-        equipment.add({
-          'id': itemId,
-          'name': '${a['name']} ${r['name']}',
-          'description': 'دفاع: +$defVal%\nمهارة: +$sklVal%',
-          'price': r['price'],
-          'currency': r['curr'],
-          'icon': a['icon'],
-          'color': r['color'],
-          'type': 'armor',
-          'isConsumable': false
-        });
+        equipment.add({'id': itemId, 'name': '${a['name']} ${r['name']}', 'description': 'دفاع: +$defVal%\nمهارة: +$sklVal%', 'price': r['price'], 'currency': r['curr'], 'icon': a['icon'], 'color': r['color'], 'type': 'armor', 'isConsumable': false});
       }
     }
     return equipment;
@@ -95,11 +129,11 @@ class BlackMarketView extends StatelessWidget {
           content: const SingleChildScrollView(
             child: Text(
               'المتجر الأسود هو الملاذ السري لزعماء المافيا لشراء أقوى العتاد والأسلحة:\n\n'
-                  '🗡️ الأسلحة والدروع: تزيد من قوتك ودفاعك في المعارك.\n'
-                  '✨ الأدوات الخاصة: مقتنيات أسطورية تمنحك سعادة عالية جداً ومزايا دائمة (ميزتين لكل أداة) مخفية في بروفايلك بمجرد امتلاكها!\n'
-                  '🛠️ عتاد الجرائم: أدوات وأقنعة تقلل نسبة فشلك في الجرائم وتسهل هروبك.\n'
+                  '🗡️ الأسلحة والدروع: مقسمة لمجموعات لسهولة التصفح. تزيد من قوتك ودفاعك.\n'
+                  '✨ الأدوات الخاصة: مقتنيات أسطورية تمنحك سعادة وخصائص دائمة بمجرد تجهيزها.\n'
+                  '🛠️ عتاد الجرائم: أدوات وأقنعة تقلل نسبة فشلك وتسهل هروبك.\n'
                   '💊 الأدوات: علاجات ومنشطات مؤقتة تستخدمها وقت الحاجة.\n'
-                  '👑 VIP: تمنحك طاقة إضافية وميزات حصرية طوال فترة الاشتراك.',
+                  '👑 VIP: تمنحك طاقة إضافية وميزات حصرية.',
               style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 14, height: 1.8),
             ),
           ),
@@ -114,11 +148,88 @@ class BlackMarketView extends StatelessWidget {
     );
   }
 
+  // 🟢 دالة بناء قائمة المجموعات العمودية (بديل المربعات) 🟢
+  Widget _buildGroupList(List<Map<String, dynamic>> groups) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: groups.length,
+      itemBuilder: (context, index) {
+        final group = groups[index];
+        final Color color = group['color'];
+        return Card(
+          color: Colors.black54,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+            side: BorderSide(color: color.withOpacity(0.5), width: 1.5),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(15),
+            onTap: () {
+              Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+              _openGroup(group['name'], group['items'], color, group['icon']);
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
+                    child: Icon(group['icon'], size: 28, color: color),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(group['name'], style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text('متوفر ${group['items'].length} عناصر', style: const TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 🟢 دالة لعرض محتوى التبويب بشكل ذكي يحافظ على حالة اللاعب
+  Widget _buildTabBody(PlayerProvider player, List<Map<String, dynamic>> groups, int currentTabIndex) {
+    // إذا اللاعب فتح مجموعة وتأكدنا أنه ما زال في نفس التبويب
+    if (_activeGroupName != null && _activeGroupItems != null && _tabController.index == currentTabIndex) {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            color: Colors.black45,
+            child: Row(
+              children: [
+                Icon(_activeGroupIcon, color: _activeGroupColor, size: 24),
+                const SizedBox(width: 10),
+                Text(_activeGroupName!, style: TextStyle(color: _activeGroupColor, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                const Spacer(),
+                Text('${_activeGroupItems!.length} عناصر', style: const TextStyle(color: Colors.white54, fontSize: 12, fontFamily: 'Changa')),
+              ],
+            ),
+          ),
+          Expanded(child: _buildItemsList(player, _activeGroupItems!)),
+        ],
+      );
+    }
+    // وإلا يظهر له قائمة المجموعات العادية
+    return _buildGroupList(groups);
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // --- قائمة بضاعة المتجر الكاملة مع الموازنة الجديدة (السعادة ماكس 2000 وميزتين لكل أداة) ---
     final List<Map<String, dynamic>> items = [
       ..._generateEquipment(player),
 
@@ -132,24 +243,26 @@ class BlackMarketView extends StatelessWidget {
       {'id': 'riot_shield', 'name': 'درع شغب كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +20%', 'price': 3000, 'currency': 'cash', 'icon': Icons.shield_outlined, 'color': Colors.blue, 'type': 'armor', 'isConsumable': false},
       {'id': 'kevlar_vest', 'name': 'سترة كلاسيكية', 'description': 'دفاع: +75%\nمهارة: +75%', 'price': 25000, 'currency': 'cash', 'icon': Icons.shield, 'color': Colors.green, 'type': 'armor', 'isConsumable': false},
       {'id': 'steel_armor', 'name': 'فولاذ كلاسيكي', 'description': 'دفاع: +190%\nمهارة: +60%', 'price': 120000, 'currency': 'cash', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor', 'isConsumable': false},
-      {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +190%', 'price': 500000, 'currency': 'cash', 'icon': Icons.accessibility_new, 'color': Colors.black, 'type': 'armor', 'isConsumable': false},
       {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'دفاع: +175%\nمهارة: +175%', 'price': 2500, 'currency': 'gold', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor', 'isConsumable': false},
       {'id': 'a_aladdin_defense', 'name': 'درع الجني الفولاذي', 'description': 'دفاع صلب لا يمكن اختراقه\nدفاع: +500% | مهارة: +100%', 'price': 50000, 'currency': 'gold', 'icon': Icons.shield, 'color': Colors.redAccent, 'type': 'armor', 'isConsumable': false},
-      {'id': 'a_aladdin_evasion', 'name': 'عباءة علاء الدين', 'description': 'تفادي جميع الضربات بخفة\nدفاع: +100% | مهارة: +500%', 'price': 50000, 'currency': 'gold', 'icon': Icons.air, 'color': Colors.redAccent, 'type': 'armor', 'isConsumable': false},
 
-      // 🟢 الأدوات الخاصة (تمت الموازنة: سعادة ماكس 2000، كل أداة تعطي ميزتين)
-      {'id': 't_aladdin_lamp', 'name': 'المصباح السحري', 'description': 'سعادة: +500\nقوة: +5% | سرعة: +5%', 'price': 25000, 'currency': 'gold', 'icon': Icons.lightbulb, 'color': Colors.amberAccent, 'type': 'special', 'isConsumable': false},
-      {'id': 't_aladdin_carpet', 'name': 'البساط الطائر', 'description': 'سعادة: +500\nسرعة: +5% | مهارة: +5%', 'price': 25000, 'currency': 'gold', 'icon': Icons.map, 'color': Colors.purpleAccent, 'type': 'special', 'isConsumable': false},
-      {'id': 't_magic_ring', 'name': 'خاتم السلطة', 'description': 'سعادة: +400\nدفاع: +5% | طاقة: +10', 'price': 15000, 'currency': 'gold', 'icon': Icons.radio_button_checked, 'color': Colors.orange, 'type': 'special', 'isConsumable': false},
-      {'id': 't_dragon_heart', 'name': 'قلب التنين', 'description': 'سعادة: +1500\nطاقة: +10 | شجاعة: +5', 'price': 50000, 'currency': 'gold', 'icon': Icons.favorite, 'color': Colors.red, 'type': 'special', 'isConsumable': false},
-      {'id': 't_crystal_skull', 'name': 'جمجمة كريستال', 'description': 'سعادة: +800\nمهارة: +5% | قوة: +5%', 'price': 20000, 'currency': 'gold', 'icon': Icons.sentiment_very_dissatisfied, 'color': Colors.cyanAccent, 'type': 'special', 'isConsumable': false},
-      {'id': 't_golden_apple', 'name': 'تفاحة ذهبية', 'description': 'سعادة: +1200\nصحة: +5% | دفاع: +5%', 'price': 30000, 'currency': 'gold', 'icon': Icons.apple, 'color': Colors.yellow, 'type': 'special', 'isConsumable': false},
-      {'id': 't_lion_mane', 'name': 'عرف الأسد', 'description': 'سعادة: +600\nشجاعة: +5 | قوة: +5%', 'price': 10000, 'currency': 'gold', 'icon': Icons.pets, 'color': Colors.orangeAccent, 'type': 'special', 'isConsumable': false},
-      {'id': 't_phoenix_feather', 'name': 'ريشة العنقاء', 'description': 'سعادة: +2000\nتعافي: +10% | صحة: +5%', 'price': 75000, 'currency': 'gold', 'icon': Icons.local_fire_department, 'color': Colors.deepOrange, 'type': 'special', 'isConsumable': false},
-      {'id': 't_time_hourglass', 'name': 'ساعة الزمن', 'description': 'سعادة: +1800\nجميع الخصائص: +2% | تعافي: +5%', 'price': 100000, 'currency': 'gold', 'icon': Icons.hourglass_empty, 'color': Colors.blueAccent, 'type': 'special', 'isConsumable': false},
-      {'id': 't_midas_touch', 'name': 'قفاز ميداس', 'description': 'سعادة: +2000\nعائد الجرائم: +10% | شجاعة: +5', 'price': 150000, 'currency': 'gold', 'icon': Icons.front_hand, 'color': Colors.amber, 'type': 'special', 'isConsumable': false},
+      // 🟢 تم تغيير الألوان السيئة (الأسود) إلى ألوان زاهية وجميلة
+      {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +190%', 'price': 500000, 'currency': 'cash', 'icon': Icons.accessibility_new, 'color': Colors.cyanAccent, 'type': 'armor', 'isConsumable': false},
+      {'id': 'a_aladdin_evasion', 'name': 'عباءة علاء الدين', 'description': 'تفادي جميع الضربات بخفة\nدفاع: +100% | مهارة: +500%', 'price': 50000, 'currency': 'gold', 'icon': Icons.air, 'color': Colors.cyanAccent, 'type': 'armor', 'isConsumable': false},
 
-      {'id': 'black_mask', 'name': 'قناع أسود', 'description': 'مطلوب لسرقة السيارات ويهربك 35%', 'price': 15000, 'currency': 'cash', 'icon': Icons.theater_comedy, 'color': Colors.black, 'type': 'crime_tool', 'isConsumable': false},
+      {'id': 't_aladdin_lamp', 'name': 'المصباح السحري', 'description': 'سعادة: +300\nقوة: +7% | سرعة: +3%', 'price': 800, 'currency': 'gold', 'icon': Icons.lightbulb, 'color': Colors.amberAccent, 'type': 'special', 'isConsumable': false},
+      {'id': 't_aladdin_carpet', 'name': 'البساط الطائر', 'description': 'سعادة: +300\nسرعة: +8% | دفاع: +2%', 'price': 800, 'currency': 'gold', 'icon': Icons.map, 'color': Colors.purpleAccent, 'type': 'special', 'isConsumable': false},
+      {'id': 't_magic_ring', 'name': 'خاتم السلطة', 'description': 'سعادة: +200\nدفاع: +6% | طاقة: +15', 'price': 500, 'currency': 'gold', 'icon': Icons.radio_button_checked, 'color': Colors.orange, 'type': 'special', 'isConsumable': false},
+      {'id': 't_dragon_heart', 'name': 'قلب التنين', 'description': 'سعادة: +500\nطاقة: +20 | شجاعة: +10', 'price': 1200, 'currency': 'gold', 'icon': Icons.favorite, 'color': Colors.red, 'type': 'special', 'isConsumable': false},
+      {'id': 't_crystal_skull', 'name': 'جمجمة كريستال', 'description': 'سعادة: +250\nمهارة: +7% | قوة: +3%', 'price': 600, 'currency': 'gold', 'icon': Icons.sentiment_very_dissatisfied, 'color': Colors.cyanAccent, 'type': 'special', 'isConsumable': false},
+      {'id': 't_golden_apple', 'name': 'تفاحة ذهبية', 'description': 'سعادة: +400\nصحة: +10% | دفاع: +4%', 'price': 700, 'currency': 'gold', 'icon': Icons.apple, 'color': Colors.yellow, 'type': 'special', 'isConsumable': false},
+      {'id': 't_lion_mane', 'name': 'عرف الأسد', 'description': 'سعادة: +200\nشجاعة: +15 | قوة: +4%', 'price': 400, 'currency': 'gold', 'icon': Icons.pets, 'color': Colors.orangeAccent, 'type': 'special', 'isConsumable': false},
+      {'id': 't_phoenix_feather', 'name': 'ريشة العنقاء', 'description': 'سعادة: +600\nتعافي: +15% | صحة: +5%', 'price': 1500, 'currency': 'gold', 'icon': Icons.local_fire_department, 'color': Colors.deepOrange, 'type': 'special', 'isConsumable': false},
+      {'id': 't_time_hourglass', 'name': 'ساعة الزمن', 'description': 'سعادة: +550\nجميع الخصائص: +3% | تعافي: +5%', 'price': 2000, 'currency': 'gold', 'icon': Icons.hourglass_empty, 'color': Colors.blueAccent, 'type': 'special', 'isConsumable': false},
+      {'id': 't_midas_touch', 'name': 'قفاز ميداس', 'description': 'سعادة: +600\nعائد الجرائم: +15% | شجاعة: +5', 'price': 2500, 'currency': 'gold', 'icon': Icons.front_hand, 'color': Colors.amber, 'type': 'special', 'isConsumable': false},
+
+      // 🟢 تعديل القناع الأسود للون البنفسجي عشان يكون واضح
+      {'id': 'black_mask', 'name': 'قناع تنكر', 'description': 'مطلوب لسرقة السيارات ويهربك 35%', 'price': 15000, 'currency': 'cash', 'icon': Icons.theater_comedy, 'color': Colors.deepPurpleAccent, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'silicon_mask', 'name': 'قناع سيليكون', 'description': 'مطلوب لسطو البنك ويهربك 55%', 'price': 120000, 'currency': 'cash', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'crowbar', 'name': 'عتلة فولاذية', 'description': 'تخفض فشل السطو 5%', 'price': 2500, 'currency': 'cash', 'icon': Icons.hardware, 'color': Colors.grey, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'slim_jim', 'name': 'مفتاح مسطرة', 'description': 'تخفض فشل السيارات 10%', 'price': 5000, 'currency': 'cash', 'icon': Icons.horizontal_rule, 'color': Colors.blueGrey, 'type': 'crime_tool', 'isConsumable': false},
@@ -173,11 +286,46 @@ class BlackMarketView extends StatelessWidget {
       {'id': 'smoke_bomb', 'name': 'قنبلة دخانية', 'description': 'هروب فوري من السجن', 'price': 25, 'currency': 'gold', 'icon': Icons.air, 'color': Colors.grey, 'type': 'consumable', 'isConsumable': true},
     ];
 
-    final weapons = items.where((item) => item['type'] == 'weapon').toList();
-    final armors = items.where((item) => item['type'] == 'armor').toList();
-    final specialTools = items.where((item) => item['type'] == 'special').toList();
-    final crimeGear = items.where((item) => item['type'] == 'crime_tool').toList();
-    final tools = items.where((item) => item['type'] == 'consumable').toList();
+    List<Map<String, dynamic>> filterItems(List<String> keywords) {
+      return items.where((item) => keywords.any((kw) => item['id'].toString().contains(kw))).toList();
+    }
+
+    final weaponGroups = [
+      {'name': 'مسدسات', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'items': filterItems(['revolver'])},
+      {'name': 'خناجر', 'icon': Icons.colorize, 'color': Colors.grey, 'items': filterItems(['dagger', 'agile', 'w_aladdin_accuracy'])},
+      {'name': 'سيوف', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'items': filterItems(['katana', 'w_aladdin_damage'])},
+      {'name': 'بنادق صيد', 'icon': Icons.settings_overscan, 'color': Colors.orange, 'items': filterItems(['shotgun', 'balanced'])},
+      {'name': 'قناصات', 'icon': Icons.track_changes, 'color': Colors.red, 'items': filterItems(['sniper', 'tactical'])},
+      {'name': 'أسلحة ثقيلة', 'icon': Icons.hardware, 'color': Colors.deepOrange, 'items': filterItems(['heavy'])},
+    ];
+
+    // 🟢 تعديل لون مجموعة الدروع الخفيفة لـ سماوي مضيء (CyanAccent) 🟢
+    final armorGroups = [
+      {'name': 'دروع خفيفة', 'icon': Icons.speed, 'color': Colors.cyanAccent, 'items': filterItems(['ninja_suit', 'agile', 'a_aladdin_evasion'])},
+      {'name': 'دروع تكتيكية', 'icon': Icons.directions_run, 'color': Colors.green, 'items': filterItems(['kevlar_vest', 'tactical'])},
+      {'name': 'دروع متوازنة', 'icon': Icons.accessibility_new, 'color': Colors.blue, 'items': filterItems(['balanced'])},
+      {'name': 'دروع ثقيلة', 'icon': Icons.security, 'color': Colors.grey, 'items': filterItems(['riot_shield', 'steel_armor', 'heavy'])},
+      {'name': 'دروع خارقة', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'items': filterItems(['exoskeleton', 'a_aladdin_defense'])},
+    ];
+
+    final specialGroups = [
+      {'name': 'تحف أسطورية', 'icon': Icons.auto_awesome, 'color': Colors.amberAccent, 'items': filterItems(['t_aladdin_lamp', 't_aladdin_carpet', 't_golden_apple', 't_phoenix_feather', 't_time_hourglass'])},
+      {'name': 'مجوهرات وتمائم', 'icon': Icons.radio_button_checked, 'color': Colors.cyanAccent, 'items': filterItems(['t_magic_ring', 't_crystal_skull', 't_midas_touch'])},
+      {'name': 'غنائم وحوش', 'icon': Icons.pets, 'color': Colors.redAccent, 'items': filterItems(['t_dragon_heart', 't_lion_mane'])},
+    ];
+
+    final crimeGroups = [
+      {'name': 'أقنعة وتنكر', 'icon': Icons.theater_comedy, 'color': Colors.pinkAccent, 'items': filterItems(['black_mask', 'silicon_mask'])},
+      {'name': 'أدوات اقتحام', 'icon': Icons.hardware, 'color': Colors.redAccent, 'items': filterItems(['crowbar', 'glass_cutter', 'hydraulic', 'thermite'])},
+      {'name': 'أجهزة إلكترونية', 'icon': Icons.laptop_mac, 'color': Colors.deepPurpleAccent, 'items': filterItems(['jammer', 'laptop', 'emp_device'])},
+      {'name': 'مفاتيح متخصصة', 'icon': Icons.vpn_key, 'color': Colors.amber, 'items': filterItems(['slim_jim', 'lockpick', 'stethoscope', 'master_key'])},
+    ];
+
+    final consumableGroups = [
+      {'name': 'مستلزمات طبية', 'icon': Icons.medical_services, 'color': Colors.redAccent, 'items': filterItems(['bandage', 'medkit', 'steroids'])},
+      {'name': 'رشاوي وتزوير', 'icon': Icons.handshake, 'color': Colors.teal, 'items': filterItems(['bribe_small', 'fake_plates', 'bribe_big'])},
+      {'name': 'منشطات وهروب', 'icon': Icons.coffee, 'color': Colors.brown, 'items': filterItems(['coffee', 'smoke_bomb'])},
+    ];
 
     final List<Map<String, dynamic>> vips = [
       {'id': 'vip_1', 'name': 'عضوية يوم', 'days': 1, 'price': 50},
@@ -201,52 +349,54 @@ class BlackMarketView extends StatelessWidget {
             textDirection: TextDirection.rtl,
             child: Column(
               children: [
-                // التوب بار محذوف من هنا لأنه يعرض أصلاً في GameScreen
-                const SizedBox(height: 10),
+                // 🟢 تقليل الفراغ العلوي 🟢
+                const SizedBox(height: 5),
+
+                // عنوان المتجر
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.shopping_cart_checkout, color: Colors.redAccent, size: 28),
+                    Icon(Icons.shopping_cart_checkout, color: Colors.redAccent, size: 24),
                     SizedBox(width: 8),
-                    Text('المتجر الأسود 🌑', style: TextStyle(color: Colors.redAccent, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                    Text('المتجر الأسود 🌑', style: TextStyle(color: Colors.redAccent, fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 5),
 
+                // 🟢 التبويبات ثابتة دائماً ومحاذية لليمين باستخدام tabAlignment 🟢
+                TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start, // يحل مشكلة الفراغ في اليمين بشكل قطعي
+                  padding: EdgeInsets.zero,
+                  indicatorPadding: EdgeInsets.zero,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  indicatorColor: Colors.redAccent,
+                  labelColor: Colors.redAccent,
+                  unselectedLabelColor: Colors.white54,
+                  labelStyle: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold),
+                  tabs: const [
+                    Tab(text: 'الأسلحة', icon: Icon(Icons.colorize)),
+                    Tab(text: 'الدروع', icon: Icon(Icons.shield)),
+                    Tab(text: 'الأدوات الخاصة', icon: Icon(Icons.auto_awesome)),
+                    Tab(text: 'عتاد الجرائم', icon: Icon(Icons.engineering)),
+                    Tab(text: 'أدوات', icon: Icon(Icons.medical_services)),
+                    Tab(text: 'VIP', icon: Icon(Icons.workspace_premium)),
+                  ],
+                ),
+
+                // 🟢 محتوى التبويبات الذكي يحافظ على حالته 🟢
                 Expanded(
-                  child: DefaultTabController(
-                    length: 6,
-                    child: Column(
-                      children: [
-                        const TabBar(
-                          isScrollable: true,
-                          indicatorColor: Colors.redAccent,
-                          labelColor: Colors.redAccent,
-                          unselectedLabelColor: Colors.white54,
-                          labelStyle: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold),
-                          tabs: [
-                            Tab(text: 'الأسلحة', icon: Icon(Icons.colorize)),
-                            Tab(text: 'الدروع', icon: Icon(Icons.shield)),
-                            Tab(text: 'الأدوات الخاصة', icon: Icon(Icons.auto_awesome)),
-                            Tab(text: 'عتاد الجرائم', icon: Icon(Icons.engineering)),
-                            Tab(text: 'أدوات', icon: Icon(Icons.medical_services)),
-                            Tab(text: 'VIP', icon: Icon(Icons.workspace_premium)),
-                          ],
-                        ),
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              _buildItemsList(player, weapons),
-                              _buildItemsList(player, armors),
-                              _buildItemsList(player, specialTools),
-                              _buildItemsList(player, crimeGear),
-                              _buildItemsList(player, tools),
-                              _buildVIPList(player, vips),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildTabBody(player, weaponGroups, 0),
+                      _buildTabBody(player, armorGroups, 1),
+                      _buildTabBody(player, specialGroups, 2),
+                      _buildTabBody(player, crimeGroups, 3),
+                      _buildTabBody(player, consumableGroups, 4),
+                      _buildVIPList(player, vips),
+                    ],
                   ),
                 ),
               ],
@@ -255,7 +405,6 @@ class BlackMarketView extends StatelessWidget {
         ),
       ),
 
-      // 🟢 النافبار السفلي الخاص بالمتجر الأسود (نفس العقارات، رجوع يمين وشرح يسار)
       bottomNavigationBar: Directionality(
         textDirection: TextDirection.rtl,
         child: Container(
@@ -283,9 +432,11 @@ class BlackMarketView extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // الزر الأول في Row مع اتجاه RTL يكون على اليمين (وهو الرجوع)
                 GestureDetector(
-                  onTap: onBack,
+                  onTap: () {
+                    Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                    _handleBack();
+                  },
                   behavior: HitTestBehavior.opaque,
                   child: const Column(
                     mainAxisSize: MainAxisSize.min,
@@ -297,7 +448,6 @@ class BlackMarketView extends StatelessWidget {
                   ),
                 ),
 
-                // الزر الثاني في Row مع اتجاه RTL يكون على اليسار (وهو الشرح)
                 GestureDetector(
                   onTap: () => _showHelpDialog(context),
                   behavior: HitTestBehavior.opaque,
@@ -319,6 +469,12 @@ class BlackMarketView extends StatelessWidget {
   }
 
   Widget _buildItemsList(PlayerProvider player, List<Map<String, dynamic>> items) {
+    if (items.isEmpty) {
+      return const Center(
+        child: Text("لا توجد عناصر في هذا القسم حالياً", style: TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 16)),
+      );
+    }
+
     return ListView.builder(
       itemCount: items.length,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -369,11 +525,12 @@ class BlackMarketView extends StatelessWidget {
                       if (!isConsumable && hasItem) return;
                       bool canBuy = currency == 'cash' ? player.cash >= item['price'] : player.gold >= item['price'];
                       if (canBuy) {
+                        Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
                         player.buyItem(item['id'], item['price'], isConsumable: isConsumable, currency: currency);
                         if (isSpecial) {
                           ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('مبروك! حصلت على ${item['name']} 🌟', style: const TextStyle(fontFamily: 'Changa')),
+                                content: Text('مبروك! حصلت على ${item['name']} 🌟 اذهب للتسليح لتجهيزه', style: const TextStyle(fontFamily: 'Changa')),
                                 backgroundColor: item['color'],
                               )
                           );
@@ -458,7 +615,10 @@ class BlackMarketView extends StatelessWidget {
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
                           ),
-                          onPressed: player.isVIP ? null : () => player.buyVIP(vip['days'], vip['price']),
+                          onPressed: player.isVIP ? null : () {
+                            Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                            player.buyVIP(vip['days'], vip['price']);
+                          },
                           child: const Text('تفعيل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'Changa')),
                         ),
                       )

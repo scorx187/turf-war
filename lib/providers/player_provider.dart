@@ -72,6 +72,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _spareParts = 0;
   Map<String, double> _durability = {};
   String? _equippedCrimeToolId;
+  String? _equippedSpecialId; // 🟢 المتغير الجديد للأداة الخاصة المجهزة
 
   double _baseStrength = 5.0;
   double _baseDefense = 5.0;
@@ -187,16 +188,16 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return max(0, earnedPerkPoints - spent);
   }
 
-  // 🟢 --- قسم جلب الخصائص مع تأثيرات الأدوات (ميزتين لكل أداة) --- 🟢
+  // 🟢 --- الحسابات الديناميكية (لا تعمل إلا إذا كانت الأداة مجهزة) --- 🟢
 
   double get strength {
     double str = _baseStrength;
     if (_perks.containsKey('base_str')) str += str * (_perks['base_str']! * 0.01);
 
-    if (_inventory.containsKey('t_aladdin_lamp')) str += _baseStrength * 0.05;
-    if (_inventory.containsKey('t_crystal_skull')) str += _baseStrength * 0.05;
-    if (_inventory.containsKey('t_lion_mane')) str += _baseStrength * 0.05;
-    if (_inventory.containsKey('t_time_hourglass')) str += _baseStrength * 0.02;
+    if (_equippedSpecialId == 't_aladdin_lamp') str += _baseStrength * 0.07;
+    if (_equippedSpecialId == 't_crystal_skull') str += _baseStrength * 0.03;
+    if (_equippedSpecialId == 't_lion_mane') str += _baseStrength * 0.04;
+    if (_equippedSpecialId == 't_time_hourglass') str += _baseStrength * 0.03;
 
     double weaponBonus = (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) ? str * GameData.weaponStats[_equippedWeaponId]!['str']! : 0.0;
     if (_perks.containsKey('weapon_master')) weaponBonus += weaponBonus * (_perks['weapon_master']! * 0.05);
@@ -207,9 +208,9 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     double spd = _baseSpeed;
     if (_perks.containsKey('base_spd')) spd += spd * (_perks['base_spd']! * 0.01);
 
-    if (_inventory.containsKey('t_aladdin_lamp')) spd += _baseSpeed * 0.05;
-    if (_inventory.containsKey('t_aladdin_carpet')) spd += _baseSpeed * 0.05;
-    if (_inventory.containsKey('t_time_hourglass')) spd += _baseSpeed * 0.02;
+    if (_equippedSpecialId == 't_aladdin_lamp') spd += _baseSpeed * 0.03;
+    if (_equippedSpecialId == 't_aladdin_carpet') spd += _baseSpeed * 0.08;
+    if (_equippedSpecialId == 't_time_hourglass') spd += _baseSpeed * 0.03;
 
     double weaponBonus = (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) ? spd * GameData.weaponStats[_equippedWeaponId]!['spd']! : 0.0;
     if (_perks.containsKey('weapon_master')) weaponBonus += weaponBonus * (_perks['weapon_master']! * 0.05);
@@ -220,9 +221,10 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     double def = _baseDefense;
     if (_perks.containsKey('base_def')) def += def * (_perks['base_def']! * 0.01);
 
-    if (_inventory.containsKey('t_magic_ring')) def += _baseDefense * 0.05;
-    if (_inventory.containsKey('t_golden_apple')) def += _baseDefense * 0.05;
-    if (_inventory.containsKey('t_time_hourglass')) def += _baseDefense * 0.02;
+    if (_equippedSpecialId == 't_aladdin_carpet') def += _baseDefense * 0.02;
+    if (_equippedSpecialId == 't_magic_ring') def += _baseDefense * 0.06;
+    if (_equippedSpecialId == 't_golden_apple') def += _baseDefense * 0.04;
+    if (_equippedSpecialId == 't_time_hourglass') def += _baseDefense * 0.03;
 
     double armorBonus = (_equippedArmorId != null && GameData.armorStats.containsKey(_equippedArmorId)) ? def * GameData.armorStats[_equippedArmorId]!['def']! : 0.0;
     if (_perks.containsKey('armor_master')) armorBonus += armorBonus * (_perks['armor_master']! * 0.05);
@@ -233,9 +235,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     double skl = _baseSkill;
     if (_perks.containsKey('base_skl')) skl += skl * (_perks['base_skl']! * 0.01);
 
-    if (_inventory.containsKey('t_aladdin_carpet')) skl += _baseSkill * 0.05;
-    if (_inventory.containsKey('t_crystal_skull')) skl += _baseSkill * 0.05;
-    if (_inventory.containsKey('t_time_hourglass')) skl += _baseSkill * 0.02;
+    if (_equippedSpecialId == 't_crystal_skull') skl += _baseSkill * 0.07;
+    if (_equippedSpecialId == 't_time_hourglass') skl += _baseSkill * 0.03;
 
     double armorBonus = (_equippedArmorId != null && GameData.armorStats.containsKey(_equippedArmorId)) ? skl * GameData.armorStats[_equippedArmorId]!['skl']! : 0.0;
     if (_perks.containsKey('armor_master')) armorBonus += armorBonus * (_perks['armor_master']! * 0.05);
@@ -246,8 +247,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     double hp = _baseMaxHealth.toDouble();
     if (_perks.containsKey('max_hp_boost')) hp += hp * (_perks['max_hp_boost']! * 0.02);
 
-    if (_inventory.containsKey('t_golden_apple')) hp += _baseMaxHealth * 0.05;
-    if (_inventory.containsKey('t_phoenix_feather')) hp += _baseMaxHealth * 0.05;
+    if (_equippedSpecialId == 't_golden_apple') hp += _baseMaxHealth * 0.10;
+    if (_equippedSpecialId == 't_phoenix_feather') hp += _baseMaxHealth * 0.05;
 
     return hp.toInt();
   }
@@ -256,8 +257,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     int nrg = isVIP ? 200 : 100;
     if (_perks.containsKey('max_energy_boost')) nrg += (_perks['max_energy_boost']! * 2);
 
-    if (_inventory.containsKey('t_magic_ring')) nrg += 10;
-    if (_inventory.containsKey('t_dragon_heart')) nrg += 10;
+    if (_equippedSpecialId == 't_magic_ring') nrg += 15;
+    if (_equippedSpecialId == 't_dragon_heart') nrg += 20;
 
     return nrg;
   }
@@ -266,39 +267,38 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     int crg = (isVIP ? 200 : 100) + _crimeLevel;
     if (_perks.containsKey('max_courage_boost')) crg += (_perks['max_courage_boost']! * 1);
 
-    if (_inventory.containsKey('t_dragon_heart')) crg += 5;
-    if (_inventory.containsKey('t_lion_mane')) crg += 5;
-    if (_inventory.containsKey('t_midas_touch')) crg += 5;
+    if (_equippedSpecialId == 't_dragon_heart') crg += 10;
+    if (_equippedSpecialId == 't_lion_mane') crg += 15;
+    if (_equippedSpecialId == 't_midas_touch') crg += 5;
 
     return crg;
   }
 
   int get happiness {
     int total = _happiness;
-    // 🟢 السعادة الموزونة (ماكس 2000 إذا امتلك جميع الأدوات)
-    if (_inventory.containsKey('t_aladdin_lamp')) total += 200;
-    if (_inventory.containsKey('t_aladdin_carpet')) total += 200;
-    if (_inventory.containsKey('t_magic_ring')) total += 150;
-    if (_inventory.containsKey('t_dragon_heart')) total += 250;
-    if (_inventory.containsKey('t_crystal_skull')) total += 150;
-    if (_inventory.containsKey('t_golden_apple')) total += 200;
-    if (_inventory.containsKey('t_lion_mane')) total += 150;
-    if (_inventory.containsKey('t_phoenix_feather')) total += 300;
-    if (_inventory.containsKey('t_time_hourglass')) total += 200;
-    if (_inventory.containsKey('t_midas_touch')) total += 200;
+    if (_equippedSpecialId == 't_aladdin_lamp') total += 300;
+    if (_equippedSpecialId == 't_aladdin_carpet') total += 300;
+    if (_equippedSpecialId == 't_magic_ring') total += 200;
+    if (_equippedSpecialId == 't_dragon_heart') total += 500;
+    if (_equippedSpecialId == 't_crystal_skull') total += 250;
+    if (_equippedSpecialId == 't_golden_apple') total += 400;
+    if (_equippedSpecialId == 't_lion_mane') total += 200;
+    if (_equippedSpecialId == 't_phoenix_feather') total += 600;
+    if (_equippedSpecialId == 't_time_hourglass') total += 550;
+    if (_equippedSpecialId == 't_midas_touch') total += 600;
     return total;
   }
 
   double get crimeBonusMultiplier {
     double multi = 1.0 + ((_perks['crime_master'] ?? 0) * 0.03);
-    if (_inventory.containsKey('t_midas_touch')) multi += 0.10;
+    if (_equippedSpecialId == 't_midas_touch') multi += 0.15;
     return multi;
   }
 
   int get hospitalTimeReductionPercent {
     int reduction = (_perks['fast_recovery'] ?? 0) * 5;
-    if (_inventory.containsKey('t_phoenix_feather')) reduction += 10;
-    if (_inventory.containsKey('t_time_hourglass')) reduction += 5;
+    if (_equippedSpecialId == 't_phoenix_feather') reduction += 15;
+    if (_equippedSpecialId == 't_time_hourglass') reduction += 5;
     return reduction;
   }
 
@@ -332,6 +332,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   String? get equippedArmorId => _equippedArmorId;
   String? get equippedMaskId => _equippedMaskId;
   String? get equippedCrimeToolId => _equippedCrimeToolId;
+  String? get equippedSpecialId => _equippedSpecialId; // Getter للأداة الخاصة
   List<String> get ownedCars => _ownedCars;
   String? get activeCarId => _activeCarId;
   double get heat => _heat;
@@ -589,8 +590,15 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _activeContractName = data['activeContractName']; _contractSalary = data['contractSalary'] ?? 0; _ownedCars = List<String>.from(data['ownedCars'] ?? []); _activeCarId = data['activeCarId'];
     if (data['chopShopEndTime'] != null) _chopShopEndTime = DateTime.parse(data['chopShopEndTime']); _isChopping = data['isChopping'] ?? false;
     if (data['labEndTime'] != null) _labEndTime = DateTime.parse(data['labEndTime']); _isCrafting = data['isCrafting'] ?? false; _craftingItemId = data['craftingItemId'];
-    _heat = (data['heat'] ?? 0.0).toDouble(); _spareParts = data['spareParts'] ?? 0; _equippedWeaponId = data['equippedWeaponId']; _equippedArmorId = data['equippedArmorId']; _equippedMaskId = data['equippedMaskId']; _equippedCrimeToolId = data['equippedCrimeToolId'];
-    if (data['durability'] != null) _durability = Map<String, double>.from(data['durability'].map((k, v) => MapEntry(k, v.toDouble())));
+    _heat = (data['heat'] ?? 0.0).toDouble(); _spareParts = data['spareParts'] ?? 0;
+    _durability = data['durability'] != null ? Map<String, double>.from(data['durability'].map((k, v) => MapEntry(k, v.toDouble()))) : {};
+
+    _equippedWeaponId = data['equippedWeaponId'];
+    _equippedArmorId = data['equippedArmorId'];
+    _equippedMaskId = data['equippedMaskId'];
+    _equippedCrimeToolId = data['equippedCrimeToolId'];
+    _equippedSpecialId = data['equippedSpecialId']; // 🟢 قراءة الأداة المجهزة
+
     if (data['transactions'] != null) _transactions = (data['transactions'] as List).map((t) => Transaction.fromJson(Map<String, dynamic>.from(t))).toList();
     if (data['crimeSuccessCountsMap'] != null) crimeSuccessCountsMap = Map<String, int>.from(data['crimeSuccessCountsMap']);
 
@@ -650,7 +658,10 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
         'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _baseMaxHealth, 'happiness': _happiness, 'strength': _baseStrength, 'defense': _baseDefense, 'skill': _baseSkill, 'speed': _baseSpeed,
         'activeSteroidEndTime': _activeSteroidEndTime?.toIso8601String(), 'activeCoach': _activeCoach, 'coachEndTime': _coachEndTime?.toIso8601String(),
         'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),
-        'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'totalVipDays': _totalVipDays, 'totalLabCrafts': _totalLabCrafts, 'luckyWheelSpins': _luckyWheelSpins, 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability, 'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName, 'bailCost': _playerBailCost,
+        'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'totalVipDays': _totalVipDays, 'totalLabCrafts': _totalLabCrafts, 'luckyWheelSpins': _luckyWheelSpins, 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability,
+        'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId,
+        'equippedSpecialId': _equippedSpecialId, // 🟢 حفظ الأداة
+        'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName, 'bailCost': _playerBailCost,
         'pvpWins': _pvpWins,
         'totalStolenCash': _totalStolenCash,
         'perks': _perks,
@@ -658,6 +669,17 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
         'unlockedTitlesList': _unlockedTitlesList,
       }, SetOptions(merge: true));
     } catch (e) {}
+  }
+
+  // 🟢 دالة التجهيز الخاصة بالأدوات في التسليح 🟢
+  void toggleSpecialItem(String itemId) {
+    if (_equippedSpecialId == itemId) {
+      _equippedSpecialId = null; // خلع
+    } else {
+      _equippedSpecialId = itemId; // تجهيز
+    }
+    _syncWithFirestore();
+    notifyListeners();
   }
 
   void _checkNewTitles() {
@@ -858,7 +880,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> resetPlayerData() async {
     _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 100; _prestige = 100; _baseStrength = 5; _baseDefense = 5; _baseSkill = 5; _baseSpeed = 5;
     _ownedProperties = []; _activePropertyId = null; _ownedBusinesses = {}; _happiness = 0; _inventory = {'name_change_card': 1};
-    _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _vipUntil = null; _totalVipDays = 0; _totalLabCrafts = 0; _luckyWheelSpins = 0; _unlockedTitlesList = [];
+    _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _equippedSpecialId = null; _vipUntil = null; _totalVipDays = 0; _totalLabCrafts = 0; _luckyWheelSpins = 0; _unlockedTitlesList = [];
     _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
     _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {};
     crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
@@ -882,7 +904,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _ownedBusinesses = {}; _inventory = {}; _ownedCars = []; _activeCarId = null;
 
     _transactions = []; _unlockedTitlesList = []; _perks = {}; crimeSuccessCountsMap = {};
-    _durability = {}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _equippedCrimeToolId = null;
+    _durability = {}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _equippedCrimeToolId = null; _equippedSpecialId = null;
 
     _playerName = "لاعب جديد"; _gameId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال.";
     _profilePicUrl = null; _backgroundPicUrl = null; _gangName = null; _gangRank = "عضو";
