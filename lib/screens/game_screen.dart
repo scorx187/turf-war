@@ -297,8 +297,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         ),
       ),
 
-      // 🟢 التعديل هنا: إخفاء النافبار في العقارات، صالة التدريب، وشاشة الزعيم (رقم 5) 🟢
-      bottomNavigationBar: ((_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب')) || _selectedIndex == 5)
+      // 🟢 التعديل هنا: إخفاء النافبار الأساسي في العقارات، صالة التدريب، المتجر الأسود، وشاشة الزعيم 🟢
+      bottomNavigationBar: ((_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5)
           ? null
           : (player.isInPrison || player.isHospitalized)
           ? BottomNavBar(

@@ -187,9 +187,17 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return max(0, earnedPerkPoints - spent);
   }
 
+  // 🟢 --- قسم جلب الخصائص مع تأثيرات الأدوات (ميزتين لكل أداة) --- 🟢
+
   double get strength {
     double str = _baseStrength;
     if (_perks.containsKey('base_str')) str += str * (_perks['base_str']! * 0.01);
+
+    if (_inventory.containsKey('t_aladdin_lamp')) str += _baseStrength * 0.05;
+    if (_inventory.containsKey('t_crystal_skull')) str += _baseStrength * 0.05;
+    if (_inventory.containsKey('t_lion_mane')) str += _baseStrength * 0.05;
+    if (_inventory.containsKey('t_time_hourglass')) str += _baseStrength * 0.02;
+
     double weaponBonus = (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) ? str * GameData.weaponStats[_equippedWeaponId]!['str']! : 0.0;
     if (_perks.containsKey('weapon_master')) weaponBonus += weaponBonus * (_perks['weapon_master']! * 0.05);
     return str + weaponBonus;
@@ -198,6 +206,11 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   double get speed {
     double spd = _baseSpeed;
     if (_perks.containsKey('base_spd')) spd += spd * (_perks['base_spd']! * 0.01);
+
+    if (_inventory.containsKey('t_aladdin_lamp')) spd += _baseSpeed * 0.05;
+    if (_inventory.containsKey('t_aladdin_carpet')) spd += _baseSpeed * 0.05;
+    if (_inventory.containsKey('t_time_hourglass')) spd += _baseSpeed * 0.02;
+
     double weaponBonus = (_equippedWeaponId != null && GameData.weaponStats.containsKey(_equippedWeaponId)) ? spd * GameData.weaponStats[_equippedWeaponId]!['spd']! : 0.0;
     if (_perks.containsKey('weapon_master')) weaponBonus += weaponBonus * (_perks['weapon_master']! * 0.05);
     return spd + weaponBonus;
@@ -206,6 +219,11 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   double get defense {
     double def = _baseDefense;
     if (_perks.containsKey('base_def')) def += def * (_perks['base_def']! * 0.01);
+
+    if (_inventory.containsKey('t_magic_ring')) def += _baseDefense * 0.05;
+    if (_inventory.containsKey('t_golden_apple')) def += _baseDefense * 0.05;
+    if (_inventory.containsKey('t_time_hourglass')) def += _baseDefense * 0.02;
+
     double armorBonus = (_equippedArmorId != null && GameData.armorStats.containsKey(_equippedArmorId)) ? def * GameData.armorStats[_equippedArmorId]!['def']! : 0.0;
     if (_perks.containsKey('armor_master')) armorBonus += armorBonus * (_perks['armor_master']! * 0.05);
     return def + armorBonus;
@@ -214,6 +232,11 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   double get skill {
     double skl = _baseSkill;
     if (_perks.containsKey('base_skl')) skl += skl * (_perks['base_skl']! * 0.01);
+
+    if (_inventory.containsKey('t_aladdin_carpet')) skl += _baseSkill * 0.05;
+    if (_inventory.containsKey('t_crystal_skull')) skl += _baseSkill * 0.05;
+    if (_inventory.containsKey('t_time_hourglass')) skl += _baseSkill * 0.02;
+
     double armorBonus = (_equippedArmorId != null && GameData.armorStats.containsKey(_equippedArmorId)) ? skl * GameData.armorStats[_equippedArmorId]!['skl']! : 0.0;
     if (_perks.containsKey('armor_master')) armorBonus += armorBonus * (_perks['armor_master']! * 0.05);
     return skl + armorBonus;
@@ -222,23 +245,64 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int get maxHealth {
     double hp = _baseMaxHealth.toDouble();
     if (_perks.containsKey('max_hp_boost')) hp += hp * (_perks['max_hp_boost']! * 0.02);
+
+    if (_inventory.containsKey('t_golden_apple')) hp += _baseMaxHealth * 0.05;
+    if (_inventory.containsKey('t_phoenix_feather')) hp += _baseMaxHealth * 0.05;
+
     return hp.toInt();
   }
 
   int get maxEnergy {
     int nrg = isVIP ? 200 : 100;
     if (_perks.containsKey('max_energy_boost')) nrg += (_perks['max_energy_boost']! * 2);
+
+    if (_inventory.containsKey('t_magic_ring')) nrg += 10;
+    if (_inventory.containsKey('t_dragon_heart')) nrg += 10;
+
     return nrg;
   }
 
   int get maxCourage {
     int crg = (isVIP ? 200 : 100) + _crimeLevel;
     if (_perks.containsKey('max_courage_boost')) crg += (_perks['max_courage_boost']! * 1);
+
+    if (_inventory.containsKey('t_dragon_heart')) crg += 5;
+    if (_inventory.containsKey('t_lion_mane')) crg += 5;
+    if (_inventory.containsKey('t_midas_touch')) crg += 5;
+
     return crg;
   }
 
-  double get crimeBonusMultiplier { return 1.0 + ((_perks['crime_master'] ?? 0) * 0.03); }
-  int get hospitalTimeReductionPercent { return (_perks['fast_recovery'] ?? 0) * 5; }
+  int get happiness {
+    int total = _happiness;
+    // 🟢 السعادة الموزونة (ماكس 2000 إذا امتلك جميع الأدوات)
+    if (_inventory.containsKey('t_aladdin_lamp')) total += 200;
+    if (_inventory.containsKey('t_aladdin_carpet')) total += 200;
+    if (_inventory.containsKey('t_magic_ring')) total += 150;
+    if (_inventory.containsKey('t_dragon_heart')) total += 250;
+    if (_inventory.containsKey('t_crystal_skull')) total += 150;
+    if (_inventory.containsKey('t_golden_apple')) total += 200;
+    if (_inventory.containsKey('t_lion_mane')) total += 150;
+    if (_inventory.containsKey('t_phoenix_feather')) total += 300;
+    if (_inventory.containsKey('t_time_hourglass')) total += 200;
+    if (_inventory.containsKey('t_midas_touch')) total += 200;
+    return total;
+  }
+
+  double get crimeBonusMultiplier {
+    double multi = 1.0 + ((_perks['crime_master'] ?? 0) * 0.03);
+    if (_inventory.containsKey('t_midas_touch')) multi += 0.10;
+    return multi;
+  }
+
+  int get hospitalTimeReductionPercent {
+    int reduction = (_perks['fast_recovery'] ?? 0) * 5;
+    if (_inventory.containsKey('t_phoenix_feather')) reduction += 10;
+    if (_inventory.containsKey('t_time_hourglass')) reduction += 5;
+    return reduction;
+  }
+
+  // 🟢 ---------------------------------------------------- 🟢
 
   double get baseStrength => _baseStrength;
   double get baseDefense => _baseDefense;
@@ -256,7 +320,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int get energy => _energy;
   int get courage => _courage;
   int get health => _health;
-  int get happiness => _happiness;
   String get playerName => _playerName;
   bool get isInPrison => _isInPrison;
   DateTime? get prisonReleaseTime => _prisonReleaseTime;
@@ -386,11 +449,11 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       {'name': 'زعيم المافيا 🎩', 'desc': 'نفذ 10,000 جريمة ناجحة', 'unlocked': cr >= 10000},
       {'name': 'كابوس المدينة 🦇', 'desc': 'نفذ 50,000 جريمة ناجحة', 'unlocked': cr >= 50000},
       {'name': 'شيطان الشوارع 👹', 'desc': 'نفذ 100,000 جريمة ناجحة', 'unlocked': cr >= 100000},
-      {'name': 'رجل أعمال سعيد 💼', 'desc': 'صل إلى 500 نقطة سعادة', 'unlocked': _happiness >= 500},
-      {'name': 'مواطن VIP 🥂', 'desc': 'صل إلى 2,000 نقطة سعادة', 'unlocked': _happiness >= 2000},
-      {'name': 'سيد الرفاهية 🏰', 'desc': 'صل إلى 5,000 نقطة سعادة', 'unlocked': _happiness >= 5000},
-      {'name': 'إمبراطور النعيم 👑', 'desc': 'صل إلى 10,000 نقطة سعادة', 'unlocked': _happiness >= 10000},
-      {'name': 'أسطورة السعادة 🌈', 'desc': 'صل إلى 50,000 نقطة سعادة', 'unlocked': _happiness >= 50000},
+      {'name': 'رجل أعمال سعيد 💼', 'desc': 'صل إلى 500 نقطة سعادة', 'unlocked': happiness >= 500},
+      {'name': 'مواطن VIP 🥂', 'desc': 'صل إلى 2,000 نقطة سعادة', 'unlocked': happiness >= 2000},
+      {'name': 'سيد الرفاهية 🏰', 'desc': 'صل إلى 5,000 نقطة سعادة', 'unlocked': happiness >= 5000},
+      {'name': 'إمبراطور النعيم 👑', 'desc': 'صل إلى 10,000 نقطة سعادة', 'unlocked': happiness >= 10000},
+      {'name': 'أسطورة السعادة 🌈', 'desc': 'صل إلى 50,000 نقطة سعادة', 'unlocked': happiness >= 50000},
       {'name': 'مواطن مستقر 🏠', 'desc': 'اشتر أول عقار لك واسكن فيه', 'unlocked': _ownedProperties.isNotEmpty && isHoused},
       {'name': 'مستثمر عقاري 🏢', 'desc': 'اشتر 5 عقارات واسكن في أحدها', 'unlocked': _ownedProperties.length >= 5 && isHoused},
       {'name': 'ملك العقارات 🏙️', 'desc': 'اشتر جميع العقارات واسكن في أحدها', 'unlocked': _ownedProperties.length >= GameData.residentialProperties.length && isHoused},
@@ -648,20 +711,17 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
         _checkNewTitles();
       }
 
-      // 🟢 إنهاء مفعول المنشط بصمت
       if (_activeSteroidEndTime != null && secureNow.isAfter(_activeSteroidEndTime!)) {
         _activeSteroidEndTime = null;
         localChanged = true;
       }
 
-      // 🟢 إنهاء مفعول المدرب بصمت
       if (_coachEndTime != null && secureNow.isAfter(_coachEndTime!)) {
         _activeCoach = null;
         _coachEndTime = null;
         localChanged = true;
       }
 
-      // 🟢 إرسال إشعار عند انتهاء الـ Cooldown وإزالته من المخزون
       int steroidCooldown = _inventory['steroid_cooldown'] ?? 0;
       if (steroidCooldown > 0 && secureNow.millisecondsSinceEpoch > steroidCooldown) {
         _inventory.remove('steroid_cooldown');
@@ -808,9 +868,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     await _syncWithFirestore(); notifyListeners();
   }
 
-  // دالة مسح البيانات بالكامل وإيقاف الحفظ التلقائي عند تسجيل الخروج أو الحذف
   void clearDataOnLogout() {
-    _uid = null; // 🟢 أهم سطر: إيقاف الحفظ التلقائي في السيرفر
+    _uid = null;
     _playerDataSubscription?.cancel();
 
     _cash = 100; _gold = 0; _bankBalance = 0;

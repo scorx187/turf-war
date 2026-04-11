@@ -1,5 +1,3 @@
-// المسار: lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -15,9 +13,8 @@ import 'providers/player_provider.dart';
 import 'providers/audio_provider.dart';
 import 'providers/market_provider.dart';
 import 'utils/local_notification_service.dart';
-import 'views/version_check_view.dart'; // 🟢 تم استدعاء شاشة فحص الإصدار
+import 'views/version_check_view.dart';
 
-// 🔥 تعريف الألوان الخاصة باللعبة هنا لسهولة الوصول إليها
 class GameColors {
   static const Color primary = Colors.amber;
   static const Color background = Colors.black;
@@ -55,6 +52,13 @@ class MyGame extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      // 🟢 الكود السحري لإخفاء الكيبورد في كامل اللعبة عند الضغط في أي مكان فارغ
+      builder: (context, child) {
+        return GestureDetector(
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: child!,
+        );
+      },
       theme: ThemeData(
         brightness: Brightness.dark,
         primaryColor: GameColors.primary,
@@ -69,7 +73,6 @@ class MyGame extends StatelessWidget {
   }
 }
 
-// 🧱 ويدجت الخلفية المشتركة
 class GameBackgroundScaffold extends StatelessWidget {
   final Widget child;
   final bool showOverlay;
@@ -243,7 +246,6 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
       );
     }
 
-    // 🟢 بدلاً من الدخول مباشرة، نوجه اللاعب لشاشة فحص الإصدار 🟢
     return const VersionCheckView();
   }
 }
