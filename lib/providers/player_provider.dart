@@ -808,6 +808,35 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     await _syncWithFirestore(); notifyListeners();
   }
 
+  // دالة مسح البيانات بالكامل وإيقاف الحفظ التلقائي عند تسجيل الخروج أو الحذف
+  void clearDataOnLogout() {
+    _uid = null; // 🟢 أهم سطر: إيقاف الحفظ التلقائي في السيرفر
+    _playerDataSubscription?.cancel();
+
+    _cash = 100; _gold = 0; _bankBalance = 0;
+    _energy = 100; _courage = 100; _health = 100; _prestige = 100; _baseMaxHealth = 100;
+    _baseStrength = 5.0; _baseDefense = 5.0; _baseSkill = 5.0; _baseSpeed = 5.0;
+
+    _crimeLevel = 1; _crimeXP = 0; _workLevel = 1; _workXP = 0; _arenaLevel = 1;
+
+    _ownedProperties = []; _activePropertyId = null; _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null;
+    _ownedBusinesses = {}; _inventory = {}; _ownedCars = []; _activeCarId = null;
+
+    _transactions = []; _unlockedTitlesList = []; _perks = {}; crimeSuccessCountsMap = {};
+    _durability = {}; _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _equippedCrimeToolId = null;
+
+    _playerName = "لاعب جديد"; _gameId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال.";
+    _profilePicUrl = null; _backgroundPicUrl = null; _gangName = null; _gangRank = "عضو";
+
+    _pvpWins = 0; _totalStolenCash = 0; _totalVipDays = 0; _totalLabCrafts = 0; _luckyWheelSpins = 0;
+    _isHospitalized = false; _isInPrison = false; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
+    _loanAmount = 0; _creditScore = 0; _loanTime = null;
+    _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
+    _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _contractEndTime = null; _activeContractName = null;
+
+    notifyListeners();
+  }
+
   void upgradePerk(String perkId) {
     int currentLvl = _perks[perkId] ?? 0;
     int maxLvl = GameData.perksList.firstWhere((p) => p['id'] == perkId)['maxLevel'];
