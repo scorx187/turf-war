@@ -28,7 +28,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
 
-    // يمسح المجموعة المفتوحة فقط إذا قام اللاعب بتغيير التبويب الرئيسي من فوق
     _tabController.addListener(() {
       if (_tabController.indexIsChanging && _activeGroupName != null) {
         setState(() {
@@ -56,13 +55,11 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
 
   void _handleBack() {
     if (_activeGroupName != null) {
-      // 🟢 الرجوع لقائمة المجموعات (مع البقاء في نفس التبويب) 🟢
       setState(() {
         _activeGroupName = null;
         _activeGroupItems = null;
       });
     } else {
-      // الرجوع للخريطة الأساسية
       widget.onBack();
     }
   }
@@ -148,7 +145,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
     );
   }
 
-  // 🟢 دالة بناء قائمة المجموعات العمودية (بديل المربعات) 🟢
   Widget _buildGroupList(List<Map<String, dynamic>> groups) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -157,7 +153,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
         final group = groups[index];
         final Color color = group['color'];
         return Card(
-          color: Colors.black54,
+          color: const Color(0xFF262630), // لون الكرت أفتح قليلاً من الخلفية
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
@@ -199,9 +195,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
     );
   }
 
-  // 🟢 دالة لعرض محتوى التبويب بشكل ذكي يحافظ على حالة اللاعب
   Widget _buildTabBody(PlayerProvider player, List<Map<String, dynamic>> groups, int currentTabIndex) {
-    // إذا اللاعب فتح مجموعة وتأكدنا أنه ما زال في نفس التبويب
     if (_activeGroupName != null && _activeGroupItems != null && _tabController.index == currentTabIndex) {
       return Column(
         children: [
@@ -222,7 +216,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
         ],
       );
     }
-    // وإلا يظهر له قائمة المجموعات العادية
     return _buildGroupList(groups);
   }
 
@@ -246,7 +239,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
       {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'دفاع: +175%\nمهارة: +175%', 'price': 2500, 'currency': 'gold', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor', 'isConsumable': false},
       {'id': 'a_aladdin_defense', 'name': 'درع الجني الفولاذي', 'description': 'دفاع صلب لا يمكن اختراقه\nدفاع: +500% | مهارة: +100%', 'price': 50000, 'currency': 'gold', 'icon': Icons.shield, 'color': Colors.redAccent, 'type': 'armor', 'isConsumable': false},
 
-      // 🟢 تم تغيير الألوان السيئة (الأسود) إلى ألوان زاهية وجميلة
       {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +190%', 'price': 500000, 'currency': 'cash', 'icon': Icons.accessibility_new, 'color': Colors.cyanAccent, 'type': 'armor', 'isConsumable': false},
       {'id': 'a_aladdin_evasion', 'name': 'عباءة علاء الدين', 'description': 'تفادي جميع الضربات بخفة\nدفاع: +100% | مهارة: +500%', 'price': 50000, 'currency': 'gold', 'icon': Icons.air, 'color': Colors.cyanAccent, 'type': 'armor', 'isConsumable': false},
 
@@ -261,7 +253,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
       {'id': 't_time_hourglass', 'name': 'ساعة الزمن', 'description': 'سعادة: +550\nجميع الخصائص: +3% | تعافي: +5%', 'price': 2000, 'currency': 'gold', 'icon': Icons.hourglass_empty, 'color': Colors.blueAccent, 'type': 'special', 'isConsumable': false},
       {'id': 't_midas_touch', 'name': 'قفاز ميداس', 'description': 'سعادة: +600\nعائد الجرائم: +15% | شجاعة: +5', 'price': 2500, 'currency': 'gold', 'icon': Icons.front_hand, 'color': Colors.amber, 'type': 'special', 'isConsumable': false},
 
-      // 🟢 تعديل القناع الأسود للون البنفسجي عشان يكون واضح
       {'id': 'black_mask', 'name': 'قناع تنكر', 'description': 'مطلوب لسرقة السيارات ويهربك 35%', 'price': 15000, 'currency': 'cash', 'icon': Icons.theater_comedy, 'color': Colors.deepPurpleAccent, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'silicon_mask', 'name': 'قناع سيليكون', 'description': 'مطلوب لسطو البنك ويهربك 55%', 'price': 120000, 'currency': 'cash', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'crowbar', 'name': 'عتلة فولاذية', 'description': 'تخفض فشل السطو 5%', 'price': 2500, 'currency': 'cash', 'icon': Icons.hardware, 'color': Colors.grey, 'type': 'crime_tool', 'isConsumable': false},
@@ -299,7 +290,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
       {'name': 'أسلحة ثقيلة', 'icon': Icons.hardware, 'color': Colors.deepOrange, 'items': filterItems(['heavy'])},
     ];
 
-    // 🟢 تعديل لون مجموعة الدروع الخفيفة لـ سماوي مضيء (CyanAccent) 🟢
     final armorGroups = [
       {'name': 'دروع خفيفة', 'icon': Icons.speed, 'color': Colors.cyanAccent, 'items': filterItems(['ninja_suit', 'agile', 'a_aladdin_evasion'])},
       {'name': 'دروع تكتيكية', 'icon': Icons.directions_run, 'color': Colors.green, 'items': filterItems(['kevlar_vest', 'tactical'])},
@@ -335,24 +325,17 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
     ];
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/ui/crime_bg.jpg'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: Column(
-              children: [
-                // 🟢 تقليل الفراغ العلوي 🟢
-                const SizedBox(height: 5),
+      // 🟢 تم إزالة الصورة ووضع لون ثابت فخم ومريح للعين 🟢
+      backgroundColor: const Color(0xFF1E1E24),
+      body: SafeArea(
+        bottom: false,
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Column(
+            children: [
+              const SizedBox(height: 5),
 
-                // عنوان المتجر
+              if (_activeGroupName == null) ...[
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -363,29 +346,34 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
                 ),
                 const SizedBox(height: 5),
 
-                // 🟢 التبويبات ثابتة دائماً ومحاذية لليمين باستخدام tabAlignment 🟢
-                TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start, // يحل مشكلة الفراغ في اليمين بشكل قطعي
-                  padding: EdgeInsets.zero,
-                  indicatorPadding: EdgeInsets.zero,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  indicatorColor: Colors.redAccent,
-                  labelColor: Colors.redAccent,
-                  unselectedLabelColor: Colors.white54,
-                  labelStyle: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold),
-                  tabs: const [
-                    Tab(text: 'الأسلحة', icon: Icon(Icons.colorize)),
-                    Tab(text: 'الدروع', icon: Icon(Icons.shield)),
-                    Tab(text: 'الأدوات الخاصة', icon: Icon(Icons.auto_awesome)),
-                    Tab(text: 'عتاد الجرائم', icon: Icon(Icons.engineering)),
-                    Tab(text: 'أدوات', icon: Icon(Icons.medical_services)),
-                    Tab(text: 'VIP', icon: Icon(Icons.workspace_premium)),
-                  ],
+                Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Container(
+                    width: double.infinity,
+                    alignment: Alignment.centerRight,
+                    child: TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      padding: EdgeInsets.zero,
+                      indicatorPadding: EdgeInsets.zero,
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      indicatorColor: Colors.redAccent,
+                      labelColor: Colors.redAccent,
+                      unselectedLabelColor: Colors.white54,
+                      labelStyle: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold),
+                      tabs: const [
+                        Tab(text: 'الأسلحة', icon: Icon(Icons.colorize)),
+                        Tab(text: 'الدروع', icon: Icon(Icons.shield)),
+                        Tab(text: 'الأدوات الخاصة', icon: Icon(Icons.auto_awesome)),
+                        Tab(text: 'عتاد الجرائم', icon: Icon(Icons.engineering)),
+                        Tab(text: 'أدوات', icon: Icon(Icons.medical_services)),
+                        Tab(text: 'VIP', icon: Icon(Icons.workspace_premium)),
+                      ],
+                    ),
+                  ),
                 ),
 
-                // 🟢 محتوى التبويبات الذكي يحافظ على حالته 🟢
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
@@ -399,8 +387,21 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
                     ],
                   ),
                 ),
-              ],
-            ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(_activeGroupIcon, color: _activeGroupColor, size: 28),
+                    const SizedBox(width: 8),
+                    Text(_activeGroupName!, style: TextStyle(color: _activeGroupColor, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Expanded(
+                  child: _buildItemsList(player, _activeGroupItems!),
+                )
+              ]
+            ],
           ),
         ),
       ),
@@ -486,7 +487,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
         final bool isSpecial = item['type'] == 'special';
 
         return Card(
-          color: Colors.black54,
+          color: const Color(0xFF262630), // لون الكرت متناسق مع الخلفية
           margin: const EdgeInsets.only(bottom: 12),
           elevation: isSpecial ? 8 : 2,
           shadowColor: isSpecial ? (item['color'] as Color).withOpacity(0.5) : Colors.black,
@@ -590,7 +591,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
             itemBuilder: (context, index) {
               final vip = vips[index];
               return Card(
-                color: Colors.black54,
+                color: const Color(0xFF262630),
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),

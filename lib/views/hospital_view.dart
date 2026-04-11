@@ -60,11 +60,7 @@ class _HospitalViewState extends State<HospitalView> {
     final player = Provider.of<PlayerProvider>(context);
     final audio = Provider.of<AudioProvider>(context, listen: false);
 
-    if (player.health > 0 && !player.isHospitalized && widget.onBack != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onBack!();
-      });
-    }
+    // 🟢 تم إزالة كود "الطرد التلقائي" من هنا لكي يتمكن اللاعب من البقاء في المستشفى 🟢
 
     int missingHealth = player.maxHealth - player.health;
     int healCost = player.isVIP ? (missingHealth * 0.8).toInt() : missingHealth;
@@ -78,9 +74,9 @@ class _HospitalViewState extends State<HospitalView> {
             children: [
               const Icon(Icons.local_hospital, color: Colors.redAccent, size: 100),
               const SizedBox(height: 20),
-              const Text(
-                'أنت تتعالج في المستشفى! 🏥',
-                style: TextStyle(
+              Text(
+                player.isHospitalized ? 'أنت تتعالج في المستشفى! 🏥' : 'عيادة الطوارئ 🏥',
+                style: const TextStyle(
                     color: Colors.redAccent,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -136,6 +132,7 @@ class _HospitalViewState extends State<HospitalView> {
                 const SizedBox(height: 15),
               ],
 
+              // 🟢 زر العلاج للمصابين إصابات طفيفة (غير منومين لكن صحتهم ناقصة)
               if (player.health < player.maxHealth)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -161,7 +158,7 @@ class _HospitalViewState extends State<HospitalView> {
 
               const SizedBox(height: 15),
 
-              if (player.isHospitalized)
+              if (player.isHospitalized || player.health < player.maxHealth)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: ElevatedButton.icon(
@@ -195,12 +192,15 @@ class _HospitalViewState extends State<HospitalView> {
               if (!player.isHospitalized && widget.onBack != null) ...[
                 const SizedBox(height: 30),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800]),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[800],
+                    minimumSize: const Size(200, 50),
+                  ),
                   onPressed: () {
                     audio.playEffect('click.mp3');
                     widget.onBack!();
                   },
-                  child: const Text('مغادرة المستشفى', style: TextStyle(color: Colors.white, fontFamily: 'Changa')),
+                  child: const Text('مغادرة المستشفى', style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 16)),
                 )
               ]
             ],

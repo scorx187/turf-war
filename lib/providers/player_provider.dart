@@ -52,6 +52,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _health = 100;
   int _baseMaxHealth = 100;
   int _prestige = 100;
+  int _bonusPerkPoints = 0; // 🟢 المتغير الجديد لنقاط الامتياز المكتسبة من العجلة
 
   double _fractionalHealth = 0.0;
 
@@ -72,7 +73,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _spareParts = 0;
   Map<String, double> _durability = {};
   String? _equippedCrimeToolId;
-  String? _equippedSpecialId; // 🟢 المتغير الجديد للأداة الخاصة المجهزة
+  String? _equippedSpecialId;
 
   double _baseStrength = 5.0;
   double _baseDefense = 5.0;
@@ -180,15 +181,15 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int get totalVipDays => _totalVipDays;
   int get totalLabCrafts => _totalLabCrafts;
   int get luckyWheelSpins => _luckyWheelSpins;
+  int get bonusPerkPoints => _bonusPerkPoints;
 
   int get earnedPerkPoints { return getAllTitles().where((t) => t['unlocked'] == true).length - 1; }
 
   int get unspentSkillPoints {
     int spent = _perks.values.fold(0, (sum, val) => sum + val);
-    return max(0, earnedPerkPoints - spent);
+    // 🟢 حساب النقاط الإضافية المكتسبة من العجلة مع نقاط الألقاب
+    return max(0, earnedPerkPoints + _bonusPerkPoints - spent);
   }
-
-  // 🟢 --- الحسابات الديناميكية (لا تعمل إلا إذا كانت الأداة مجهزة) --- 🟢
 
   double get strength {
     double str = _baseStrength;
@@ -302,8 +303,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return reduction;
   }
 
-  // 🟢 ---------------------------------------------------- 🟢
-
   double get baseStrength => _baseStrength;
   double get baseDefense => _baseDefense;
   double get baseSkill => _baseSkill;
@@ -332,7 +331,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   String? get equippedArmorId => _equippedArmorId;
   String? get equippedMaskId => _equippedMaskId;
   String? get equippedCrimeToolId => _equippedCrimeToolId;
-  String? get equippedSpecialId => _equippedSpecialId; // Getter للأداة الخاصة
+  String? get equippedSpecialId => _equippedSpecialId;
   List<String> get ownedCars => _ownedCars;
   String? get activeCarId => _activeCarId;
   double get heat => _heat;
@@ -558,6 +557,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _energy = data['energy'] ?? _energy; _courage = data['courage'] ?? _courage; _prestige = data['prestige'] ?? 100;
     _health = data['health'] ?? _health; _baseMaxHealth = data['maxHealth'] ?? _baseMaxHealth; _happiness = data['happiness'] ?? _happiness;
     _baseStrength = (data['strength'] ?? 5.0).toDouble(); _baseDefense = (data['defense'] ?? 5.0).toDouble(); _baseSkill = (data['skill'] ?? 5.0).toDouble(); _baseSpeed = (data['speed'] ?? 5.0).toDouble();
+    _bonusPerkPoints = data['bonusPerkPoints'] ?? 0; // 🟢 جلب النقاط
 
     if (data['activeSteroidEndTime'] != null) _activeSteroidEndTime = DateTime.parse(data['activeSteroidEndTime']);
     _activeCoach = data['activeCoach'];
@@ -597,7 +597,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _equippedArmorId = data['equippedArmorId'];
     _equippedMaskId = data['equippedMaskId'];
     _equippedCrimeToolId = data['equippedCrimeToolId'];
-    _equippedSpecialId = data['equippedSpecialId']; // 🟢 قراءة الأداة المجهزة
+    _equippedSpecialId = data['equippedSpecialId'];
 
     if (data['transactions'] != null) _transactions = (data['transactions'] as List).map((t) => Transaction.fromJson(Map<String, dynamic>.from(t))).toList();
     if (data['crimeSuccessCountsMap'] != null) crimeSuccessCountsMap = Map<String, int>.from(data['crimeSuccessCountsMap']);
@@ -659,8 +659,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
         'activeSteroidEndTime': _activeSteroidEndTime?.toIso8601String(), 'activeCoach': _activeCoach, 'coachEndTime': _coachEndTime?.toIso8601String(),
         'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),
         'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'totalVipDays': _totalVipDays, 'totalLabCrafts': _totalLabCrafts, 'luckyWheelSpins': _luckyWheelSpins, 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability,
-        'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId,
-        'equippedSpecialId': _equippedSpecialId, // 🟢 حفظ الأداة
+        'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'equippedSpecialId': _equippedSpecialId,
+        'bonusPerkPoints': _bonusPerkPoints, // 🟢 حفظ النقاط الإضافية
         'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName, 'bailCost': _playerBailCost,
         'pvpWins': _pvpWins,
         'totalStolenCash': _totalStolenCash,
@@ -671,12 +671,25 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     } catch (e) {}
   }
 
-  // 🟢 دالة التجهيز الخاصة بالأدوات في التسليح 🟢
+  // 🟢 دالة لإضافة أغراض للمخزن من العجلة (تخلي الـ VIP يروح المخزن مباشرة) 🟢
+  void addInventoryItem(String itemId, int quantity) {
+    _inventory[itemId] = (_inventory[itemId] ?? 0) + quantity;
+    _syncWithFirestore();
+    notifyListeners();
+  }
+
+  // 🟢 دالة لإضافة نقطة امتياز فورية 🟢
+  void addBonusPerkPoint(int amount) {
+    _bonusPerkPoints += amount;
+    _syncWithFirestore();
+    notifyListeners();
+  }
+
   void toggleSpecialItem(String itemId) {
     if (_equippedSpecialId == itemId) {
-      _equippedSpecialId = null; // خلع
+      _equippedSpecialId = null;
     } else {
-      _equippedSpecialId = itemId; // تجهيز
+      _equippedSpecialId = itemId;
     }
     _syncWithFirestore();
     notifyListeners();
@@ -886,7 +899,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
     _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ';
     _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null; _lastPassiveIncomeTime = secureNow;
-    _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _pvpWins = 0; _totalStolenCash = 0; _perks = {}; _selectedTitle = null; _baseMaxHealth = 100;
+    _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _pvpWins = 0; _totalStolenCash = 0; _perks = {}; _selectedTitle = null; _baseMaxHealth = 100; _bonusPerkPoints = 0;
     await _syncWithFirestore(); notifyListeners();
   }
 
@@ -895,7 +908,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _playerDataSubscription?.cancel();
 
     _cash = 100; _gold = 0; _bankBalance = 0;
-    _energy = 100; _courage = 100; _health = 100; _prestige = 100; _baseMaxHealth = 100;
+    _energy = 100; _courage = 100; _health = 100; _prestige = 100; _baseMaxHealth = 100; _bonusPerkPoints = 0;
     _baseStrength = 5.0; _baseDefense = 5.0; _baseSkill = 5.0; _baseSpeed = 5.0;
 
     _crimeLevel = 1; _crimeXP = 0; _workLevel = 1; _workXP = 0; _arenaLevel = 1;
