@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({Key? key}) : super(key: key);
@@ -70,6 +71,12 @@ class _SettingsViewState extends State<SettingsView> {
         // ب. حذف حساب المستخدم من نظام التوثيق Firebase Authentication
         await user.delete();
 
+        // تأكيد تسجيل الخروج من فايربيز
+        await FirebaseAuth.instance.signOut();
+
+        // مسح جميع البيانات المخزنة في ذاكرة الجوال (الكاش)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
         // ج. إغلاق مؤشر التحميل
         if (context.mounted) Navigator.pop(context);
 
