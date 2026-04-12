@@ -43,10 +43,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _bailPrice = 1500;
   int get bailPrice => _bailPrice;
   int _playerBailCost = 1500;
+  int get playerBailCost => _playerBailCost; // 🟢 التعديل: إضافة قراءة قيمة الكفالة
 
   String? _gameId;
   String? get gameId => _gameId;
   String _lastCrimeName = "تسكع في الشوارع";
+  String get lastCrimeName => _lastCrimeName; // 🟢 التعديل: إضافة قراءة اسم الجريمة
 
   int _cash = 100;
   int _gold = 0;

@@ -17,6 +17,7 @@ dependencies:
   firebase_auth: ^6.3.0
   google_sign_in: ^6.2.1
   cloud_firestore: ^6.2.0
+  cloud_functions: 6.1.0
   image_picker: ^1.2.1
   firebase_storage: ^13.2.0 # 🟢 الإضافة الأولى: رفع الصور
   cached_network_image: ^3.4.1 # 🟢 الإضافة الثانية: الذاكرة المؤقتة للصور

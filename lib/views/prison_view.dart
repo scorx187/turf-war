@@ -61,10 +61,43 @@ class _PrisonViewState extends State<PrisonView> {
             child: StreamBuilder<QuerySnapshot>(
               stream: _prisonStream,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                // 🟢 تجميع البيانات فورياً لعرض اللاعب الحالي بدون انتظار السيرفر
+                List<Map<String, dynamic>> prisonersList = [];
+                Set<String> addedIds = {};
+
+                // 1. إضافة اللاعب الحالي مباشرة إذا كان مسجوناً لتجنب وقت التحميل
+                if (playerProvider.isInPrison && playerProvider.uid != null) {
+                  prisonersList.add({
+                    'uid': playerProvider.uid,
+                    'playerName': playerProvider.playerName,
+                    'crimeLevel': playerProvider.crimeLevel,
+                    'lastCrimeName': playerProvider.lastCrimeName,
+                    'bailCost': playerProvider.playerBailCost,
+                    'prisonReleaseTime': playerProvider.prisonReleaseTime?.toIso8601String(),
+                    'profilePicUrl': playerProvider.profilePicUrl,
+                  });
+                  addedIds.add(playerProvider.uid!);
+                }
+
+                // 2. إضافة باقي المساجين من السيرفر إن وجدوا
+                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                  for (var doc in snapshot.data!.docs) {
+                    if (!addedIds.contains(doc.id)) {
+                      var data = doc.data() as Map<String, dynamic>;
+                      data['uid'] = doc.id;
+                      prisonersList.add(data);
+                      addedIds.add(doc.id);
+                    }
+                  }
+                }
+
+                // 3. عرض دائرة التحميل فقط إذا لم يكن اللاعب مسجوناً والسيرفر ما زال يجمع البيانات
+                if (snapshot.connectionState == ConnectionState.waiting && prisonersList.isEmpty) {
                   return const Center(child: CircularProgressIndicator(color: Colors.orange));
                 }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+
+                // 4. حالة السجن خالي
+                if (prisonersList.isEmpty) {
                   return const Center(
                     child: Text(
                       'السجن خالي حالياً! \nيبدو أن الجميع ملتزمون بالقانون.',
@@ -74,16 +107,14 @@ class _PrisonViewState extends State<PrisonView> {
                   );
                 }
 
-                final prisoners = snapshot.data!.docs;
-
+                // 5. عرض القائمة فوراً
                 return ListView.builder(
-                  itemCount: prisoners.length,
+                  itemCount: prisonersList.length,
                   padding: const EdgeInsets.only(top: 10, bottom: 20),
                   itemBuilder: (context, index) {
-                    var data = prisoners[index].data() as Map<String, dynamic>;
-                    String docId = prisoners[index].id;
+                    var data = prisonersList[index];
+                    String docId = data['uid'] ?? '';
 
-                    // 🟢 استدعاء ويدجت خاصة لكل سجين عشان تحسب الوقت بدون ما تخلي الشاشة كلها ترمش
                     return PrisonPlayerCard(
                       data: data,
                       docId: docId,
