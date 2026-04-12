@@ -81,7 +81,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
 
     setState(() {
       _isSpinning = true;
-      _statusText = ""; // 🟢 إخفاء النص عند بدء الدوران
+      _statusText = "";
     });
 
     try {
@@ -104,17 +104,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
           });
         }
 
-        // 🟢 3. رفع اسم الفائز في الخلفية مباشرة لضمان ظهوره وعدم تعليق الشاشة
-        String safePlayerName = player.playerName.isEmpty ? "الزعيم" : player.playerName;
-        FirebaseFirestore.instance.collection('wheel_winners').add({
-          'uid': player.uid,
-          'playerName': safePlayerName,
-          'profilePicUrl': player.profilePicUrl ?? '',
-          'isVIP': player.isVIP,
-          'prizeName': wonPrizes.first['name'],
-          'prizeColor': wonPrizes.first['color'].value,
-          'timestamp': FieldValue.serverTimestamp(),
-        }).catchError((e) => debugPrint("خطأ رفع الفائز: $e"));
+        // 🔴 تم إزالة كود رفع اسم الفائز من التطبيق، السيرفر سيقوم بها الآن بأمان تام.
 
         // 🟢 4. تشغيل حركة العجلة بمرونة
         int targetIndex = prizes.indexWhere((p) => p['id'] == wonPrizes.last['id']);
@@ -137,20 +127,12 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
 
         audio.playEffect('click.mp3');
 
-        // 🟢 5. بعد ما تخلص العجلة دوران، نحدث الأرقام محلياً (بدون استدعاء السيرفر لمنع خطأ التزامن)
+        // 🟢 5. بعد انتهاء العجلة دوران
         if (mounted) {
-          player.gold -= cost;
-
-          for (var p in wonPrizes) {
-            if (p['id'] == 'cash_10m') player.cash += 10000000;
-            else if (p['id'] == 'cash_50m') player.cash += 50000000;
-            else if (p['id'] == 'gold_600') player.gold += 600;
-            else if (p['id'] == 'perk_point') player.bonusPerkPoints += 1;
-            else player.inventory[p['id']] = (player.inventory[p['id']] ?? 0) + 1;
-          }
-
-          // نرسل تحديث للشاشة فقط
-          player.notifyListeners();
+          // 🔴 حذفنا الإضافة اليدوية للذهب والكاش لأن السيرفر أضافها بالفعل
+          // نقوم فقط بإبلاغ الشاشة العلوية بتحديث الأرقام المعروضة لتظهر فوراً
+          widget.onCashChanged(player.cash);
+          widget.onGoldChanged(player.gold);
 
           setState(() {
             _isSpinning = false; // فك التعليق
@@ -170,7 +152,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isSpinning = false; // فك التعليق في حال حدوث خطأ
+          _isSpinning = false;
           _statusText = "";
         });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));

@@ -159,13 +159,8 @@ class _StoreCard extends StatelessWidget {
         Navigator.pop(context); // إغلاق التحميل
 
         if (result.data['success'] == true) {
-          // نحدث الشاشة محلياً فقط لكي تظهر فوراً
-          if (isGold) {
-            player.gold += amount;
-          } else {
-            player.cash += amount;
-          }
-          player.notifyListeners();
+          // 🔴 تم إزالة الإضافة المحلية هنا لأن الـ Snapshot في PlayerProvider
+          // سيقوم بتحديث الرصيد تلقائياً بمجرد تغيره في السيرفر.
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -178,8 +173,14 @@ class _StoreCard extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context);
+        // 🟢 الآن سيظهر لك الخطأ الحقيقي لمعرفة سبب الرفض
+        debugPrint("TopUp Error: $e");
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في الشحن: السيرفر يرفض العملية!', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('خطأ في الشحن: $e', style: const TextStyle(fontFamily: 'Changa')),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5), // زيادة الوقت لتقرأ الخطأ
+          ),
         );
       }
     }

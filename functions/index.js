@@ -222,7 +222,7 @@ exports.buyItem = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 5. 🟢 دالة عجلة الحظ (تحديد الجائزة من السيرفر)
+// 5. 🟢 دالة عجلة الحظ (تحديد الجائزة من السيرفر وتسجيل الفائز)
 // =======================================================
 exports.spinLuckyWheel = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -233,6 +233,8 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
     const cost = times === 1 ? 500 : 4500;
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
+    // 🟢 إنشاء مرجع جديد لتوثيق الفائز في السجل بأمان من جهة السيرفر
+    const winnerRef = db.collection('wheel_winners').doc();
 
     return db.runTransaction(async (transaction) => {
         const pDoc = await transaction.get(playerRef);
@@ -286,7 +288,22 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
             }
         }
 
+        // تحديث بيانات اللاعب
         transaction.update(playerRef, updates);
+
+        // 🟢 تسجيل الفائز في القائمة العامة مباشرة من السيرفر
+        const firstPrize = wonPrizes[0];
+        const safePlayerName = pData.playerName || "الزعيم";
+        transaction.set(winnerRef, {
+            uid: uid,
+            playerName: safePlayerName,
+            profilePicUrl: pData.profilePicUrl || '',
+            isVIP: pData.isVIP || false,
+            prizeName: firstPrize.name,
+            prizeColor: firstPrize.colorValue,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
         return { success: true, wonPrizes: wonPrizes };
     });
 });
@@ -347,11 +364,16 @@ exports.healPlayer = functions.https.onCall(async (request) => {
 // 7. 🟢 دالة الشحن الآمنة (شحن الكاش والذهب)
 // =======================================================
 exports.topUpBalance = functions.https.onCall(async (request) => {
+    // الطريقة الآمنة لاستخراج البيانات مهما كان إصدار Firebase
     const payload = request.data || request;
-    const { uid, currencyType, amount } = payload; // currencyType: 'gold' or 'cash'
+    const { uid, currencyType, amount } = payload;
 
+    // أضفنا المتغيرات في رسالة الخطأ لكي تظهر لك في التطبيق ونعرف من هو المفقود!
     if (!uid || !currencyType || !amount) {
-        throw new functions.https.HttpsError('invalid-argument', 'بيانات الشحن ناقصة');
+        throw new functions.https.HttpsError(
+            'invalid-argument',
+            `بيانات الشحن ناقصة! -> رقم اللاعب: ${uid}, العملة: ${currencyType}, الكمية: ${amount}`
+        );
     }
 
     const db = admin.firestore();
