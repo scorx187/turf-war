@@ -107,6 +107,7 @@ class InventoryView extends StatelessWidget {
       {'id': 'bribe_small', 'name': 'رشوة محقق', 'description': 'تبريد الحرارة (20 درجة)', 'icon': Icons.handshake, 'color': Colors.teal, 'type': 'consumable'},
       {'id': 'fake_plates', 'name': 'لوحات مزورة', 'description': 'تبريد الحرارة (40 درجة)', 'icon': Icons.subtitles, 'color': Colors.lightBlue, 'type': 'consumable'},
       {'id': 'bribe_big', 'name': 'رشوة كبرى', 'description': 'تصفر الملاحقة فوراً', 'icon': Icons.account_balance_sharp, 'color': Colors.amber, 'type': 'consumable'},
+      {'id': 'vip_7', 'name': 'بطاقة VIP (أسبوع)', 'description': 'تضيف 7 أيام لاشتراكك الحالي', 'icon': Icons.workspace_premium, 'color': Colors.amber, 'type': 'consumable'},
       {'id': 'master_key', 'name': 'المفتاح الرئيسي', 'description': 'يفتح أبواب الفلل الفاخرة', 'icon': Icons.vpn_key, 'color': Colors.amber, 'type': 'passive'},
       {'id': 'stolen_car', 'name': 'سيارة مسروقة', 'description': 'جاهزة للفك في التشليح لقطع غيار', 'icon': Icons.directions_car, 'color': Colors.deepOrange, 'type': 'passive'},
       {'id': 'name_change_card', 'name': 'بطاقة تغيير الاسم', 'description': 'تغيير هوية اللاعب فوراً', 'icon': Icons.badge, 'color': Colors.cyan, 'type': 'consumable'},

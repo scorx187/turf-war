@@ -28,6 +28,11 @@ extension PlayerInventoryLogic on PlayerProvider {
         else if (itemId == 'bribe_small') { reduceHeat(20.0); isConsumed = true; }
         else if (itemId == 'fake_plates') { reduceHeat(40.0); isConsumed = true; }
         else if (itemId == 'bribe_big') { _heat = 0.0; isConsumed = true; }
+        else if (itemId == 'vip_7') {
+          buyVIP(7, 0); // استدعاء دالة إضافة الـ VIP بدون تكلفة ذهب
+          isConsumed = true;
+          _showNotification("👑 تم تفعيل أو تمديد اشتراك VIP لمدة 7 أيام!");
+        }
         else if (itemId == 'smoke_bomb') {
           if (_isInPrison) { _isInPrison = false; _prisonReleaseTime = null; _showNotification("💨 استخدمت القنبلة الدخانية وهربت من السجن!"); isConsumed = true; }
           else { _showNotification("لا يمكنك استخدام هذا إلا في السجن!"); }

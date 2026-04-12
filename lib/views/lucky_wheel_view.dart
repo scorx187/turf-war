@@ -41,20 +41,19 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
   int _currentIndex = 0;
   String _statusText = "";
 
-  // 🟢 الترتيب الهندسي للجوائز والنسب الجديدة 🟢
   final List<Map<String, dynamic>> prizes = [
-    {'id': 'gold_600', 'name': '600 ذهب', 'icon': Icons.monetization_on, 'color': Colors.yellow, 'chance': 0.20}, // 20%
-    {'id': 'cash_50m', 'name': '50 مليون', 'icon': Icons.money, 'color': Colors.lightGreenAccent, 'chance': 0.05}, // 5%
-    {'id': 'cash_10m', 'name': '10 مليون', 'icon': Icons.attach_money, 'color': Colors.green, 'chance': 0.25}, // 25% 🚀
-    {'id': 't_aladdin_lamp', 'name': 'المصباح السحري', 'icon': Icons.lightbulb, 'color': Colors.amberAccent, 'chance': 0.06}, // 6%
-    {'id': 't_aladdin_carpet', 'name': 'البساط الطائر', 'icon': Icons.map, 'color': Colors.purpleAccent, 'chance': 0.06}, // 6%
-    {'id': 't_magic_ring', 'name': 'خاتم السلطة', 'icon': Icons.radio_button_checked, 'color': Colors.orange, 'chance': 0.06}, // 6%
-    {'id': 'w_aladdin_damage', 'name': 'سيف الضرر', 'icon': Icons.hardware, 'color': Colors.redAccent, 'chance': 0.03}, // 3% 🔥
-    {'id': 'a_aladdin_evasion', 'name': 'عباءة مراوغة', 'icon': Icons.air, 'color': Colors.cyanAccent, 'chance': 0.03}, // 3% 🔥
-    {'id': 'a_aladdin_defense', 'name': 'درع دفاع', 'icon': Icons.shield, 'color': Colors.blue, 'chance': 0.03}, // 3% 🔥
-    {'id': 'w_aladdin_accuracy', 'name': 'خنجر الدقة', 'icon': Icons.flash_on, 'color': Colors.deepOrange, 'chance': 0.03}, // 3% 🔥
-    {'id': 'vip_7', 'name': 'VIP أسبوع', 'icon': Icons.workspace_premium, 'color': Colors.amber, 'chance': 0.10}, // 10% 🚀
-    {'id': 'perk_point', 'name': 'نقطة امتياز', 'icon': Icons.star, 'color': Colors.blueAccent, 'chance': 0.10}, // 10%
+    {'id': 'gold_600', 'name': '600 ذهب', 'icon': Icons.monetization_on, 'color': Colors.yellow, 'chance': 0.20},
+    {'id': 'cash_50m', 'name': '50 مليون', 'icon': Icons.money, 'color': Colors.lightGreenAccent, 'chance': 0.05},
+    {'id': 'cash_10m', 'name': '10 مليون', 'icon': Icons.attach_money, 'color': Colors.green, 'chance': 0.25},
+    {'id': 't_aladdin_lamp', 'name': 'المصباح السحري', 'icon': Icons.lightbulb, 'color': Colors.amberAccent, 'chance': 0.06},
+    {'id': 't_aladdin_carpet', 'name': 'البساط الطائر', 'icon': Icons.map, 'color': Colors.purpleAccent, 'chance': 0.06},
+    {'id': 't_magic_ring', 'name': 'خاتم السلطة', 'icon': Icons.radio_button_checked, 'color': Colors.orange, 'chance': 0.06},
+    {'id': 'w_aladdin_damage', 'name': 'سيف الضرر', 'icon': Icons.hardware, 'color': Colors.redAccent, 'chance': 0.03},
+    {'id': 'a_aladdin_evasion', 'name': 'عباءة مراوغة', 'icon': Icons.air, 'color': Colors.cyanAccent, 'chance': 0.03},
+    {'id': 'a_aladdin_defense', 'name': 'درع دفاع', 'icon': Icons.shield, 'color': Colors.blue, 'chance': 0.03},
+    {'id': 'w_aladdin_accuracy', 'name': 'خنجر الدقة', 'icon': Icons.flash_on, 'color': Colors.deepOrange, 'chance': 0.03},
+    {'id': 'vip_7', 'name': 'VIP أسبوع', 'icon': Icons.workspace_premium, 'color': Colors.amber, 'chance': 0.10},
+    {'id': 'perk_point', 'name': 'نقطة امتياز', 'icon': Icons.star, 'color': Colors.blueAccent, 'chance': 0.10},
   ];
 
   Future<void> _spin(int times, AudioProvider audio, PlayerProvider player) async {
@@ -126,7 +125,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
       else if (p['id'] == 'cash_50m') player.addCash(50000000, reason: "عجلة الحظ");
       else if (p['id'] == 'gold_600') player.addGold(600);
       else if (p['id'] == 'perk_point') player.addBonusPerkPoint(1);
-      else player.addInventoryItem(p['id'], 1);
+      else player.addInventoryItem(p['id'], 1); // الـ VIP بيروح المخزن من هنا تلقائياً
     }
 
     audio.playEffect('click.mp3');
@@ -208,29 +207,32 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
         aspectRatio: 1,
         child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            margin: const EdgeInsets.all(2), // تصغير الفراغ لضغط الشاشة
+            margin: const EdgeInsets.all(1),
             decoration: BoxDecoration(
               color: isHighlighted ? prize['color'].withOpacity(0.3) : Colors.black54,
               border: Border.all(
                   color: isHighlighted ? Colors.yellowAccent : Colors.white12,
                   width: isHighlighted ? 3 : 1
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               boxShadow: isHighlighted ? [BoxShadow(color: Colors.yellowAccent.withOpacity(0.8), blurRadius: 15, spreadRadius: 2)] : [],
             ),
-            child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(prize['icon'], color: prize['color'], size: 24), // تصغير الأيقونة
-                  const SizedBox(height: 2),
-                  Text(
-                    prize['name'],
-                    style: const TextStyle(fontSize: 8, color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ]
+            child: Padding(
+              padding: const EdgeInsets.all(2.0),
+              child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(child: Icon(prize['icon'], color: prize['color'], size: 20)),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        prize['name'],
+                        style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ]
+              ),
             )
         )
     );
@@ -238,20 +240,23 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
 
   Widget _buildCenterTop(AudioProvider audio, PlayerProvider player) {
     return Container(
-      margin: const EdgeInsets.only(top: 2, left: 2, right: 2, bottom: 2),
+      margin: const EdgeInsets.all(1),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.orange[800],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Colors.orangeAccent)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: const BorderSide(color: Colors.orangeAccent)),
           padding: EdgeInsets.zero,
         ),
         onPressed: _isSpinning ? null : () => _spin(1, audio, player),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('لفة واحدة', style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 10)),
-            Text('500 ذهب', style: TextStyle(color: Colors.yellowAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 9)),
-          ],
+        child: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('لفة واحدة', style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+              Text('500 ذهب', style: TextStyle(color: Colors.yellowAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+            ],
+          ),
         ),
       ),
     );
@@ -259,26 +264,28 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
 
   Widget _buildCenterBot(AudioProvider audio, PlayerProvider player) {
     return Container(
-      margin: const EdgeInsets.only(top: 2, left: 2, right: 2, bottom: 2),
+      margin: const EdgeInsets.all(1),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.red[800],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Colors.redAccent)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: const BorderSide(color: Colors.redAccent)),
           padding: EdgeInsets.zero,
         ),
         onPressed: _isSpinning ? null : () => _spin(10, audio, player),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('10 لفات', style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 10)),
-            Text('4500 ذهب', style: TextStyle(color: Colors.yellowAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 9)),
-          ],
+        child: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('10 لفات', style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+              Text('4500 ذهب', style: TextStyle(color: Colors.yellowAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // 🟢 شريط الفائزين المضغوط (يأخذ المساحة المتبقية من الشاشة) 🟢
   Widget _buildWinnersFeed(PlayerProvider player) {
     return Expanded(
       child: Container(
@@ -303,19 +310,14 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('wheel_winners')
                     .orderBy('timestamp', descending: true)
-                    .limit(20) // جلب 20 لكنها تظهر كلها بدون سكرول تقريباً
+                    .limit(20)
                     .snapshots(),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting && !_isSpinning) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2));
                   }
 
                   List<Widget> listItems = [];
-
-                  // 🟢 إضافة الأنيميشن الوهمي للمسار إذا كان يلف حالياً 🟢
-                  if (_isSpinning) {
-                    listItems.add(_BlinkingPendingWinner(playerName: player.playerName));
-                  }
 
                   if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
                     var docs = snapshot.data!.docs;
@@ -342,15 +344,15 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
                               )));
                             },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8), // مسافات صغيرة جداً
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.stars, color: Colors.amber, size: 14),
+                                  const Icon(Icons.stars, color: Colors.amber, size: 16),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: RichText(
                                         text: TextSpan(
-                                            style: const TextStyle(fontFamily: 'Changa', fontSize: 10),
+                                            style: const TextStyle(fontFamily: 'Changa', fontSize: 11),
                                             children: [
                                               const TextSpan(text: 'كسب اللاعب ', style: TextStyle(color: Colors.white70)),
                                               TextSpan(text: '${data['playerName']}', style: TextStyle(color: isMe ? Colors.amber : Colors.blueAccent, fontWeight: FontWeight.bold)),
@@ -360,7 +362,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
                                         )
                                     ),
                                   ),
-                                  Text(timeStr, style: const TextStyle(color: Colors.white38, fontSize: 9, fontFamily: 'Changa')),
+                                  Text(timeStr, style: const TextStyle(color: Colors.white38, fontSize: 10, fontFamily: 'Changa')),
                                 ],
                               ),
                             ),
@@ -393,7 +395,6 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
     final audio = Provider.of<AudioProvider>(context, listen: false);
     final player = Provider.of<PlayerProvider>(context, listen: false);
 
-    // 🟢 الشاشة بالكامل عبارة عن Column (بدون SingleChildScrollView) لتكون شاشة واحدة 🟢
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Column(
@@ -411,9 +412,9 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
             ),
           ),
 
-          // العجلة المصغرة
+          // 🟢 تم زيادة الهوامش لتصغير حجم العجلة وإعطاء مساحة ضخمة لقائمة الأسماء 🟢
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 65), // زادت من 25 إلى 65 لتقليص الحجم تماماً
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
                 color: Colors.black45,
@@ -428,7 +429,15 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
                 Row(
                   children: [
                     Expanded(child: Column(children: [ _buildCell(11), _buildCell(10) ])),
-                    Expanded(flex: 2, child: Column(children: [ _buildCenterTop(audio, player), _buildCenterBot(audio, player) ])),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        children: [
+                          AspectRatio(aspectRatio: 2 / 1, child: _buildCenterTop(audio, player)),
+                          AspectRatio(aspectRatio: 2 / 1, child: _buildCenterBot(audio, player)),
+                        ],
+                      ),
+                    ),
                     Expanded(child: Column(children: [ _buildCell(4), _buildCell(5) ])),
                   ],
                 ),
@@ -442,66 +451,12 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
           if (_statusText.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text(_statusText, style: TextStyle(color: Colors.orangeAccent, fontSize: 14, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+              child: Text(_statusText, style: const TextStyle(color: Colors.orangeAccent, fontSize: 14, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
             ),
 
-          // 🟢 شريط الفائزين يأخذ باقي المساحة ويتسع لـ 15+ عنصر 🟢
+          // شريط الفائزين صار ياخذ مساحة ممتازة وواضحة جداً
           _buildWinnersFeed(player),
         ],
-      ),
-    );
-  }
-}
-
-// 🟢 كلاس مخصص للأنيميشن (يخلي اسم اللاعب يطفي ويشتغل وقت اللف) 🟢
-class _BlinkingPendingWinner extends StatefulWidget {
-  final String playerName;
-  const _BlinkingPendingWinner({required this.playerName});
-
-  @override
-  State<_BlinkingPendingWinner> createState() => _BlinkingPendingWinnerState();
-}
-
-class _BlinkingPendingWinnerState extends State<_BlinkingPendingWinner> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _ctrl,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-        child: Row(
-          children: [
-            const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2)),
-            const SizedBox(width: 6),
-            Expanded(
-              child: RichText(
-                  text: TextSpan(
-                      style: const TextStyle(fontFamily: 'Changa', fontSize: 10),
-                      children: [
-                        const TextSpan(text: 'كسب اللاعب ', style: TextStyle(color: Colors.white70)),
-                        TextSpan(text: widget.playerName, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                        const TextSpan(text: ' على ', style: TextStyle(color: Colors.white70)),
-                        const TextSpan(text: 'جاري التدوير...', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                      ]
-                  )
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
