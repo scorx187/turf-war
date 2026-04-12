@@ -42,6 +42,9 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
   int _currentIndex = 0;
   String _statusText = "";
 
+  // 🟢 1. تثبيت الستريم هنا لمنع رمش واختفاء الأسماء أثناء دوران العجلة
+  late Stream<QuerySnapshot> _winnersStream;
+
   final List<Map<String, dynamic>> prizes = [
     {'id': 'gold_600', 'name': '600 ذهب', 'icon': Icons.monetization_on, 'color': Colors.yellow, 'chance': 0.20},
     {'id': 'cash_50m', 'name': '50 مليون', 'icon': Icons.money, 'color': Colors.lightGreenAccent, 'chance': 0.05},
@@ -57,6 +60,17 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
     {'id': 'perk_point', 'name': 'نقطة امتياز', 'icon': Icons.star, 'color': Colors.blueAccent, 'chance': 0.10},
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    // 🟢 2. تهيئة الستريم مرة واحدة فقط عند فتح الشاشة
+    _winnersStream = FirebaseFirestore.instance
+        .collection('wheel_winners')
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .snapshots();
+  }
+
   Future<void> _spin(int times, AudioProvider audio, PlayerProvider player) async {
     int cost = times == 1 ? 500 : 4500;
 
@@ -67,11 +81,10 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
 
     setState(() {
       _isSpinning = true;
-      _statusText = "🎰 جاري استدعاء السيرفر...";
+      _statusText = ""; // 🟢 إخفاء النص عند بدء الدوران
     });
 
     try {
-      // 🟢 1. استدعاء السيرفر لضمان الأمان
       final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('spinLuckyWheel');
       final result = await callable.call({
         'uid': player.uid,
@@ -79,11 +92,6 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
       });
 
       if (result.data['success'] == true) {
-        setState(() {
-          _statusText = "🎰 جاري تدوير العجلة...";
-        });
-
-        // 🟢 2. تحويل البيانات القادمة من السيرفر إلى الجوائز
         List<dynamic> serverPrizes = result.data['wonPrizes'];
         List<Map<String, dynamic>> wonPrizes = [];
 
@@ -92,25 +100,26 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
             'id': sp['id'],
             'name': sp['name'],
             'color': Color(sp['colorValue']),
-            'icon': prizes.firstWhere((p) => p['id'] == sp['id'])['icon'], // جلب الأيقونة محلياً
+            'icon': prizes.firstWhere((p) => p['id'] == sp['id'], orElse: () => prizes.first)['icon'],
           });
         }
 
-        // 🟢 3. تحديث الأرقام بالشاشة محلياً كمنظر فقط (السيرفر خصم وحفظ كل شيء)
-        player.removeGold(cost);
-        for(int i = 0; i < times; i++) {
-          player.incrementLuckyWheelSpins();
-        }
-        for (var p in wonPrizes) {
-          if (p['id'] == 'cash_10m') player.addCash(10000000, reason: "عجلة الحظ");
-          else if (p['id'] == 'cash_50m') player.addCash(50000000, reason: "عجلة الحظ");
-          else if (p['id'] == 'gold_600') player.addGold(600);
-          else if (p['id'] == 'perk_point') player.addBonusPerkPoint(1);
-          else player.addInventoryItem(p['id'], 1);
-        }
+        // 🟢 3. رفع اسم الفائز في الخلفية مباشرة لضمان ظهوره وعدم تعليق الشاشة
+        String safePlayerName = player.playerName.isEmpty ? "الزعيم" : player.playerName;
+        FirebaseFirestore.instance.collection('wheel_winners').add({
+          'uid': player.uid,
+          'playerName': safePlayerName,
+          'profilePicUrl': player.profilePicUrl ?? '',
+          'isVIP': player.isVIP,
+          'prizeName': wonPrizes.first['name'],
+          'prizeColor': wonPrizes.first['color'].value,
+          'timestamp': FieldValue.serverTimestamp(),
+        }).catchError((e) => debugPrint("خطأ رفع الفائز: $e"));
 
-        // 🟢 4. تشغيل الأنيميشن المرئي للعجلة
+        // 🟢 4. تشغيل حركة العجلة بمرونة
         int targetIndex = prizes.indexWhere((p) => p['id'] == wonPrizes.last['id']);
+        if (targetIndex == -1) targetIndex = 0;
+
         int totalSteps = (12 * 3) + targetIndex - _currentIndex;
         if (totalSteps < 12) totalSteps += 12;
 
@@ -126,27 +135,25 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
           if (totalSteps - i < 5) delay += 40;
         }
 
-        // 🟢 5. حفظ الفائزين في الـ Feed (يتم محلياً للعرض السريع)
-        WriteBatch batch = FirebaseFirestore.instance.batch();
-        for (var p in wonPrizes) {
-          var docRef = FirebaseFirestore.instance.collection('wheel_winners').doc();
-          batch.set(docRef, {
-            'uid': player.uid,
-            'playerName': player.playerName,
-            'profilePicUrl': player.profilePicUrl,
-            'isVIP': player.isVIP,
-            'prizeName': p['name'],
-            'prizeColor': p['color'].value,
-            'timestamp': FieldValue.serverTimestamp(),
-          });
-        }
-        await batch.commit();
-
         audio.playEffect('click.mp3');
 
+        // 🟢 5. بعد ما تخلص العجلة دوران، نحدث الأرقام محلياً (بدون استدعاء السيرفر لمنع خطأ التزامن)
         if (mounted) {
+          player.gold -= cost;
+
+          for (var p in wonPrizes) {
+            if (p['id'] == 'cash_10m') player.cash += 10000000;
+            else if (p['id'] == 'cash_50m') player.cash += 50000000;
+            else if (p['id'] == 'gold_600') player.gold += 600;
+            else if (p['id'] == 'perk_point') player.bonusPerkPoints += 1;
+            else player.inventory[p['id']] = (player.inventory[p['id']] ?? 0) + 1;
+          }
+
+          // نرسل تحديث للشاشة فقط
+          player.notifyListeners();
+
           setState(() {
-            _isSpinning = false;
+            _isSpinning = false; // فك التعليق
             _statusText = "";
           });
 
@@ -163,10 +170,10 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isSpinning = false;
+          _isSpinning = false; // فك التعليق في حال حدوث خطأ
           _statusText = "";
         });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('مرفوض من السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
       }
     }
   }
@@ -332,10 +339,8 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
             ),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('wheel_winners')
-                    .orderBy('timestamp', descending: true)
-                    .limit(20)
-                    .snapshots(),
+                // 🟢 استخدام الستريم المحفوظ لضمان الثبات
+                stream: _winnersStream,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2));
@@ -436,9 +441,8 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
             ),
           ),
 
-          // 🟢 تم زيادة الهوامش لتصغير حجم العجلة وإعطاء مساحة ضخمة لقائمة الأسماء 🟢
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 65), // زادت من 25 إلى 65 لتقليص الحجم تماماً
+            margin: const EdgeInsets.symmetric(horizontal: 65),
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
                 color: Colors.black45,
@@ -478,7 +482,6 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
               child: Text(_statusText, style: const TextStyle(color: Colors.orangeAccent, fontSize: 14, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
             ),
 
-          // شريط الفائزين صار ياخذ مساحة ممتازة وواضحة جداً
           _buildWinnersFeed(player),
         ],
       ),

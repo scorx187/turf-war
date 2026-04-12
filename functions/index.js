@@ -342,3 +342,30 @@ exports.healPlayer = functions.https.onCall(async (request) => {
         return { success: true, message: 'تم العلاج بنجاح' };
     });
 });
+
+// =======================================================
+// 7. 🟢 دالة الشحن الآمنة (شحن الكاش والذهب)
+// =======================================================
+exports.topUpBalance = functions.https.onCall(async (request) => {
+    const payload = request.data || request;
+    const { uid, currencyType, amount } = payload; // currencyType: 'gold' or 'cash'
+
+    if (!uid || !currencyType || !amount) {
+        throw new functions.https.HttpsError('invalid-argument', 'بيانات الشحن ناقصة');
+    }
+
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const pDoc = await transaction.get(playerRef);
+        if (!pDoc.exists) throw new functions.https.HttpsError('not-found', 'اللاعب غير موجود');
+
+        let updates = {};
+        // 🟢 إضافة المبلغ بشكل آمن ومحمي
+        updates[currencyType] = admin.firestore.FieldValue.increment(amount);
+
+        transaction.update(playerRef, updates);
+        return { success: true };
+    });
+});

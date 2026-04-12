@@ -43,12 +43,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _bailPrice = 1500;
   int get bailPrice => _bailPrice;
   int _playerBailCost = 1500;
-  int get playerBailCost => _playerBailCost; // 🟢 التعديل: إضافة قراءة قيمة الكفالة
+  int get playerBailCost => _playerBailCost;
 
   String? _gameId;
   String? get gameId => _gameId;
   String _lastCrimeName = "تسكع في الشوارع";
-  String get lastCrimeName => _lastCrimeName; // 🟢 التعديل: إضافة قراءة اسم الجريمة
+  String get lastCrimeName => _lastCrimeName;
 
   int _cash = 100;
   int _gold = 0;
@@ -194,8 +194,17 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   double get bonusSkill => skill - _baseSkill;
 
   String? get uid => _uid;
+
+  // 🟢 الموارد القابلة للتعديل محلياً بدون إرسال للسيرفر (مثل عجلة الحظ)
   int get cash => _cash;
+  set cash(int value) => _cash = value;
+
   int get gold => _gold;
+  set gold(int value) => _gold = value;
+
+  int get bonusPerkPoints => _bonusPerkPoints;
+  set bonusPerkPoints(int value) => _bonusPerkPoints = value;
+
   int get bankBalance => _bankBalance;
   int get energy => _energy;
   int get courage => _courage;
@@ -259,7 +268,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int get totalVipDays => _totalVipDays;
   int get totalLabCrafts => _totalLabCrafts;
   int get luckyWheelSpins => _luckyWheelSpins;
-  int get bonusPerkPoints => _bonusPerkPoints;
 
   final StreamController<String> _notificationStream = StreamController<String>.broadcast();
   Stream<String> get notificationStream => _notificationStream.stream;
@@ -301,7 +309,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     LocalNotificationService.showNotification(title, message);
   }
 
-  // 🟢 الدالة التي تسببت في الخطأ تم إرجاعها هنا
   void _showNotification(String message) {
     _notificationStream.add(message);
   }
@@ -783,7 +790,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // دالة الخروج من المستشفى
   void releaseFromHospital() {
     _isHospitalized = false;
     _hospitalReleaseTime = null;
@@ -791,14 +797,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _syncWithFirestore();
   }
 
-  // 🟢 دالة الإفراج الفوري من السجن لإنهاء الانتظار
   void releaseFromPrison() {
     _isInPrison = false;
     _prisonReleaseTime = null;
     notifyListeners();
   }
 
-  // دالة تحديد مستوى الملاحقة الأمنية
   void setHeat(double value) {
     _heat = value;
     if (_heat < 0) _heat = 0;

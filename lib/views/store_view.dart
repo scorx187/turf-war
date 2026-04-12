@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_functions/cloud_functions.dart'; // 🟢 استدعاء الكلاود
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 
@@ -21,7 +22,7 @@ class StoreView extends StatelessWidget {
           backgroundColor: const Color(0xFF1A1A1D),
           appBar: AppBar(
             backgroundColor: Colors.black87,
-            title: const Text('السوق السوداء (شراء موارد) 💎', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+            title: const Text('السوق السوداء (شحن) 💎', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
             centerTitle: true,
             iconTheme: const IconThemeData(color: Colors.amber),
             bottom: const TabBar(
@@ -123,7 +124,8 @@ class _StoreCard extends StatelessWidget {
     return number.toString().replaceAllMapped(reg, (Match match) => '${match[1]},');
   }
 
-  void _simulatePurchase(BuildContext context) {
+  // 🟢 التعديل الأهم: التواصل مع السيرفر لإتمام الشحن بشكل شرعي
+  void _simulatePurchase(BuildContext context) async {
     final audio = Provider.of<AudioProvider>(context, listen: false);
     audio.playEffect('click.mp3');
 
@@ -137,32 +139,50 @@ class _StoreCard extends StatelessWidget {
           children: const [
             CircularProgressIndicator(color: Colors.amber),
             SizedBox(height: 20),
-            Text('جاري الاتصال بمتجر الدفع...', style: TextStyle(color: Colors.white, fontFamily: 'Changa')),
+            Text('جاري إتمام الشراء بأمان...', style: TextStyle(color: Colors.white, fontFamily: 'Changa')),
           ],
         ),
       ),
     );
 
-    // محاكاة الشراء الحقيقي IAP (سيتم استبداله مستقبلاً بـ In-App Purchases)
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      final player = Provider.of<PlayerProvider>(context, listen: false);
+      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('topUpBalance');
+
+      final result = await callable.call({
+        'uid': player.uid,
+        'currencyType': isGold ? 'gold' : 'cash',
+        'amount': amount,
+      });
+
+      if (context.mounted) {
+        Navigator.pop(context); // إغلاق التحميل
+
+        if (result.data['success'] == true) {
+          // نحدث الشاشة محلياً فقط لكي تظهر فوراً
+          if (isGold) {
+            player.gold += amount;
+          } else {
+            player.cash += amount;
+          }
+          player.notifyListeners();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('شحن ناجح! تم إضافة ${_formatWithCommas(amount)} ${isGold ? 'ذهب 🪙' : 'كاش 💵'} لمحفظتك', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
       if (context.mounted) {
         Navigator.pop(context);
-
-        final player = Provider.of<PlayerProvider>(context, listen: false);
-        if (isGold) {
-          player.addGold(amount); // هنا الإضافة مباشرة لأنها فلوس حقيقية
-        } else {
-          player.addCash(amount, reason: 'شحن رصيد 🛒');
-        }
-
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('شحن ناجح! تم إضافة ${_formatWithCommas(amount)} ${isGold ? 'ذهب 🪙' : 'كاش 💵'} لمحفظتك', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.green,
-          ),
+          SnackBar(content: Text('خطأ في الشحن: السيرفر يرفض العملية!', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red),
         );
       }
-    });
+    }
   }
 
   @override
