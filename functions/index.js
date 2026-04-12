@@ -2,16 +2,20 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 admin.initializeApp();
 
-exports.commitCrime = functions.https.onCall(async (data, context) => {
-    // 🟢 التعديل هنا: نأخذ الـ uid من التطبيق مباشرة بدلاً من نظام Auth
-    const uid = data.uid;
+// 🟢 التعديل: استخدام `request` لاستقبال البيانات حسب تحديث قوقل الأخير
+exports.commitCrime = functions.https.onCall(async (request) => {
+
+    // فك التغليف عن البيانات القادمة من فلاتر بشكل آمن
+    const payload = request.data || request;
+
+    const uid = payload.uid;
 
     if (!uid) {
         throw new functions.https.HttpsError('invalid-argument', 'رقم اللاعب مفقود');
     }
 
-    // استلام البيانات من جهاز اللاعب
-    const { crimeId, crimeName, reqCourage, finalFailChance, minCash, maxCash, xp } = data;
+    // استلام باقي البيانات من جهاز اللاعب
+    const { crimeId, crimeName, reqCourage, finalFailChance, minCash, maxCash, xp } = payload;
 
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
