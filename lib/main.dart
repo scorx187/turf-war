@@ -163,7 +163,8 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
       );
 
       FirebaseFirestore.instance.settings = const Settings(
-        persistenceEnabled: false,
+        persistenceEnabled: true,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED, // اختياري: للسماح بتخزين بيانات أكثر
       );
 
       setState(() {

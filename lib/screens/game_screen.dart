@@ -155,6 +155,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   final TransformationController _mapTransformationController = TransformationController();
 
+  // 🟢 المتغير لتخزين الخريطة ومنع إعادة رسمها
+  Widget? _cachedMapWidget;
+
   final List<Map<String, dynamic>> locations = [
     {'name': 'المطار', 'icon': Icons.airplanemode_active, 'color': Colors.blue},
     {'name': 'عجلة الحظ', 'icon': Icons.casino, 'color': Colors.orange},
@@ -268,11 +271,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final player = Provider.of<PlayerProvider>(context);
+    // 🟢 الحل الجديد هنا: نطلب من الشاشة الاستماع *فقط* لمتغير isLoading
+    // وبذلك الشاشة تعيد بناء نفسها عند انتهاء التحميل، ثم تتجاهل باقي التحديثات!
+    bool isDataLoading = context.select<PlayerProvider, bool>((player) => player.isLoading);
 
-    if (player.isLoading || !_visualLoadingComplete) {
+    if (isDataLoading || !_visualLoadingComplete) {
       return GameLoadingView(
-        isDataLoaded: !player.isLoading,
+        isDataLoaded: !isDataLoading,
         onVisualLoadingComplete: () {
           if (mounted) { setState(() => _visualLoadingComplete = true); }
         },
@@ -285,42 +290,62 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         top: false,
         child: Column(
           children: [
-            TopBar(
-                cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy,
-                courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth,
-                prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName,
-                profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP,
-                maxXp: player.xpToNextLevel, isVIP: player.isVIP
+            // 🟢 استخدام Consumer حول الأجزاء التي تتغير فقط (البيانات العلوية)
+            Consumer<PlayerProvider>(
+                builder: (context, player, child) {
+                  return TopBar(
+                      cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy,
+                      courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth,
+                      prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName,
+                      profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP,
+                      maxXp: player.xpToNextLevel, isVIP: player.isVIP
+                  );
+                }
             ),
-            Expanded(child: _buildConditionalContent(player)),
+
+            Expanded(
+                child: Consumer<PlayerProvider>(
+                    builder: (context, player, child) {
+                      return _buildConditionalContent(player);
+                    }
+                )
+            ),
           ],
         ),
       ),
 
-      // 🟢 التعديل هنا: إخفاء النافبار الأساسي في العقارات، صالة التدريب، المتجر الأسود، وشاشة الزعيم 🟢
-      bottomNavigationBar: ((_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5)
-          ? null
-          : (player.isInPrison || player.isHospitalized)
-          ? BottomNavBar(
-        selectedIndex: _selectedIndex,
-        isHospitalized: true,
-        onItemTapped: (index) {
-          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-          if (index == 1) {
-            setState(() => _selectedIndex = _selectedIndex == 1 ? 2 : 1);
+      // 🟢 تغليف النافبار السفلي بـ Consumer للتحكم في ظهوره
+      bottomNavigationBar: Consumer<PlayerProvider>(
+          builder: (context, player, child) {
+            if ((_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5) {
+              return const SizedBox.shrink();
+            }
+
+            if (player.isInPrison || player.isHospitalized) {
+              return BottomNavBar(
+                selectedIndex: _selectedIndex,
+                isHospitalized: true,
+                onItemTapped: (index) {
+                  Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                  if (index == 1) {
+                    setState(() => _selectedIndex = _selectedIndex == 1 ? 2 : 1);
+                  }
+                },
+              );
+            }
+
+            return BottomNavBar(
+              selectedIndex: _selectedIndex,
+              isHospitalized: false,
+              onItemTapped: (index) {
+                Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                setState(() {
+                  _selectedIndex = index;
+                  if (index == 2) _activeArea = 'الخريطة';
+                });
+              },
+            );
           }
-        },
-      )
-          : BottomNavBar(
-        selectedIndex: _selectedIndex,
-        isHospitalized: player.isHospitalized,
-        onItemTapped: (index) {
-          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-          setState(() {
-            _selectedIndex = index;
-            if (index == 2) _activeArea = 'الخريطة';
-          });
-        },
       ),
     );
   }
@@ -331,6 +356,75 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (player.isHospitalized) return HospitalView(onBack: () => setState(() => _activeArea = 'الخريطة'));
 
     return _buildMainContent(player);
+  }
+
+  // 🟢 دالة لفصل وتخزين الخريطة ومنع بناءها أكثر من مرة
+  Widget _getMapLayer() {
+    _cachedMapWidget ??= LayoutBuilder(
+      builder: (context, constraints) {
+        final double imageWidth = 4096;
+        final double imageHeight = 4096;
+
+        double minScaleX = constraints.maxWidth / imageWidth;
+        double minScaleY = constraints.maxHeight / imageHeight;
+        double calculatedMinScale = minScaleX > minScaleY ? minScaleX : minScaleY;
+
+        if (!_isMapInitialized) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              double dx = (constraints.maxWidth - (imageWidth * calculatedMinScale)) / 2;
+              double dy = (constraints.maxHeight - (imageHeight * calculatedMinScale)) / 2;
+
+              _mapTransformationController.value = Matrix4.identity()
+                ..translate(dx, dy)
+                ..scale(calculatedMinScale);
+            }
+          });
+          _isMapInitialized = true;
+        }
+
+        return InteractiveViewer(
+          transformationController: _mapTransformationController,
+          minScale: calculatedMinScale,
+          maxScale: 3.0,
+          constrained: false,
+          boundaryMargin: EdgeInsets.zero,
+          child: SizedBox(
+            width: imageWidth,
+            height: imageHeight,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/city_map.jpg',
+                    fit: BoxFit.fill,
+                    filterQuality: FilterQuality.high,
+                    gaplessPlayback: true,
+                  ),
+                ),
+                _buildMapHotspot('المطار', 3500, 2600, 300, 300, Colors.blue),
+                _buildMapHotspot('عجلة الحظ', 1400, 300, 300, 300, Colors.orange),
+                _buildMapHotspot('البنك', 600, 600, 300, 300, Colors.green),
+                _buildMapHotspot('المستشفى', 3500, 1400, 300, 300, Colors.red),
+                _buildMapHotspot('السجن', 2600, 600, 300, 300, Colors.grey),
+                _buildMapHotspot('المصنع', 3200, 350, 300, 300, Colors.brown),
+                _buildMapHotspot('سباق الشوارع', 350, 1200, 300, 300, Colors.pink),
+                _buildMapHotspot('المتجر الأسود', 800, 1600, 300, 300, Colors.black),
+                _buildMapHotspot('صالة التدريب', 1800, 2400, 300, 300, Colors.blueGrey),
+                _buildMapHotspot('ساحة القتال', 1900, 1800, 300, 300, Colors.redAccent),
+                _buildMapHotspot('ساحة اللاعبين', 2200, 400, 300, 300, Colors.orangeAccent),
+                _buildMapHotspot('العقارات', 500, 2300, 300, 300, Colors.amber),
+                _buildMapHotspot('العصابات', 1800, 3300, 300, 300, Colors.deepOrange),
+                _buildMapHotspot('التشليح', 3400, 3200, 300, 300, Colors.lime),
+                _buildMapHotspot('المختبر السري', 2600, 3600, 300, 300, Colors.greenAccent),
+                _buildMapHotspot('الورشة', 2650, 2850, 300, 300, Colors.blueAccent),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    return _cachedMapWidget!;
   }
 
   Widget _buildMainContent(PlayerProvider player) {
@@ -390,72 +484,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     return Stack(
       children: [
         Positioned.fill(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final double imageWidth = 4096;
-              final double imageHeight = 4096;
-
-              double minScaleX = constraints.maxWidth / imageWidth;
-              double minScaleY = constraints.maxHeight / imageHeight;
-              double calculatedMinScale = minScaleX > minScaleY ? minScaleX : minScaleY;
-
-              if (!_isMapInitialized) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    double dx = (constraints.maxWidth - (imageWidth * calculatedMinScale)) / 2;
-                    double dy = (constraints.maxHeight - (imageHeight * calculatedMinScale)) / 2;
-
-                    _mapTransformationController.value = Matrix4.identity()
-                      ..translate(dx, dy)
-                      ..scale(calculatedMinScale);
-                  }
-                });
-                _isMapInitialized = true;
-              }
-
-              return InteractiveViewer(
-                transformationController: _mapTransformationController,
-                minScale: calculatedMinScale,
-                maxScale: 3.0,
-                constrained: false,
-                boundaryMargin: EdgeInsets.zero,
-                child: SizedBox(
-                  width: imageWidth,
-                  height: imageHeight,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Image.asset(
-                          'assets/images/city_map.jpg',
-                          fit: BoxFit.fill,
-                          filterQuality: FilterQuality.high,
-                          gaplessPlayback: true,
-                        ),
-                      ),
-                      _buildMapHotspot('المطار', 3500, 2600, 300, 300, Colors.blue),
-                      _buildMapHotspot('عجلة الحظ', 1400, 300, 300, 300, Colors.orange),
-                      _buildMapHotspot('البنك', 600, 600, 300, 300, Colors.green),
-                      _buildMapHotspot('المستشفى', 3500, 1400, 300, 300, Colors.red),
-                      _buildMapHotspot('السجن', 2600, 600, 300, 300, Colors.grey),
-                      _buildMapHotspot('المصنع', 3200, 350, 300, 300, Colors.brown),
-                      _buildMapHotspot('سباق الشوارع', 350, 1200, 300, 300, Colors.pink),
-                      _buildMapHotspot('المتجر الأسود', 800, 1600, 300, 300, Colors.black),
-                      _buildMapHotspot('صالة التدريب', 1800, 2400, 300, 300, Colors.blueGrey),
-                      _buildMapHotspot('ساحة القتال', 1900, 1800, 300, 300, Colors.redAccent),
-                      _buildMapHotspot('ساحة اللاعبين', 2200, 400, 300, 300, Colors.orangeAccent),
-                      _buildMapHotspot('العقارات', 500, 2300, 300, 300, Colors.amber),
-                      _buildMapHotspot('العصابات', 1800, 3300, 300, 300, Colors.deepOrange),
-                      _buildMapHotspot('التشليح', 3400, 3200, 300, 300, Colors.lime),
-                      _buildMapHotspot('المختبر السري', 2600, 3600, 300, 300, Colors.greenAccent),
-                      _buildMapHotspot('الورشة', 2650, 2850, 300, 300, Colors.blueAccent),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+          child: _getMapLayer(), // 🟢 الخريطة المخزنة هنا، ولن تُبنى مرة أخرى!
         ),
-
         Positioned(
           top: 15,
           right: 15,
