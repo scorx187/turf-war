@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart'; // 🟢 مكتبة الكلاود
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/top_bar.dart';
@@ -80,7 +81,7 @@ class BottomNavBar extends StatelessWidget {
                 : isInPrison
                 ? [
               _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
-              // 🟢 زر الهروب الذكي
+              // زر الهروب الذكي
               GestureDetector(
                 onTap: onEscapeTapped,
                 behavior: HitTestBehavior.opaque,
@@ -119,7 +120,6 @@ class BottomNavBar extends StatelessWidget {
 
   Widget _buildNavItem(int index, String imagePath, String label) {
     bool isSelected = selectedIndex == index;
-
     return GestureDetector(
       onTap: () => onItemTapped(index),
       behavior: HitTestBehavior.opaque,
@@ -165,7 +165,6 @@ class BottomNavBar extends StatelessWidget {
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
-
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
@@ -175,42 +174,18 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   int _profileTabIndex = 0;
   String _activeArea = 'الخريطة';
   StreamSubscription? _notificationSubscription;
-
   bool _visualLoadingComplete = false;
   bool _isMapInitialized = false;
-
   final TransformationController _mapTransformationController = TransformationController();
-
   Widget? _cachedMapWidget;
-
-  final List<Map<String, dynamic>> locations = [
-    {'name': 'المطار', 'icon': Icons.airplanemode_active, 'color': Colors.blue},
-    {'name': 'عجلة الحظ', 'icon': Icons.casino, 'color': Colors.orange},
-    {'name': 'البنك', 'icon': Icons.account_balance, 'color': Colors.green},
-    {'name': 'المستشفى', 'icon': Icons.local_hospital, 'color': Colors.red},
-    {'name': 'السجن', 'icon': Icons.lock, 'color': Colors.grey},
-    {'name': 'المصنع', 'icon': Icons.precision_manufacturing, 'color': Colors.brown},
-    {'name': 'سباق الشوارع', 'icon': Icons.directions_car, 'color': Colors.red},
-    {'name': 'المتجر الأسود', 'icon': Icons.shopping_basket, 'color': Colors.black},
-    {'name': 'صالة التدريب', 'icon': Icons.fitness_center, 'color': Colors.blueGrey},
-    {'name': 'ساحة القتال', 'icon': Icons.sports_mma, 'color': Colors.redAccent},
-    {'name': 'ساحة اللاعبين', 'icon': Icons.public, 'color': Colors.orangeAccent},
-    {'name': 'العقارات', 'icon': Icons.home_work, 'color': Colors.amber},
-    {'name': 'العصابات', 'icon': Icons.groups, 'color': Colors.deepOrange},
-    {'name': 'التشليح', 'icon': Icons.car_crash, 'color': Colors.deepOrange},
-    {'name': 'المختبر السري', 'icon': Icons.science, 'color': Colors.greenAccent},
-    {'name': 'الورشة', 'icon': Icons.build_circle, 'color': Colors.blueAccent},
-  ];
 
   @override
   void initState() {
     super.initState();
     PaintingBinding.instance.imageCache.maximumSizeBytes = 1024 * 1024 * 300;
-
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _precacheImages();
-
       final player = Provider.of<PlayerProvider>(context, listen: false);
       final audio = Provider.of<AudioProvider>(context, listen: false);
       audio.playBGM();
@@ -243,12 +218,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     }
   }
 
-  // 🟢 نافذة تفاصيل اللقب (عند الضغط عليه في الإشعارات)
   void _showTitleDetails(String titleName) {
     final titles = Provider.of<PlayerProvider>(context, listen: false).getAllTitles();
     final titleData = titles.firstWhere((t) => t['name'] == titleName, orElse: () => {});
     if (titleData.isEmpty) return;
-
     showDialog(
         context: context,
         builder: (c) => Directionality(
@@ -259,12 +232,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               title: Text(titleData['name'], style: const TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
               content: Text(titleData['desc'], style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 18), textAlign: TextAlign.center),
               actions: [
-                Center(
-                  child: TextButton(
-                      onPressed: () => Navigator.pop(c),
-                      child: const Text('عظيم!', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 18))
-                  ),
-                )
+                Center(child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('عظيم!', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 18)))),
               ]
           ),
         )
@@ -274,18 +242,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   void _showStylishNotification(String message) {
     String textToShow = message;
     String? titleToView;
-
     if (message.contains('|')) {
       List<String> parts = message.split('|');
       textToShow = parts[1];
     }
-
     if (textToShow.contains('لقب:')) {
       try { titleToView = textToShow.split('(')[1].split(')')[0]; } catch(e) {}
     }
-
     bool isWarning = textToShow.contains('⚠️') || textToShow.contains('خطر') || textToShow.contains('سجن') || textToShow.contains('🎭') || textToShow.contains('🏥');
-
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -305,20 +269,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           textColor: Colors.amberAccent,
           onPressed: () {
             Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-            setState(() {
-              _selectedIndex = 5;
-              _profileTabIndex = 1;
-            });
-            Future.delayed(const Duration(milliseconds: 300), () {
-              _showTitleDetails(titleToView!);
-            });
+            setState(() { _selectedIndex = 5; _profileTabIndex = 1; });
+            Future.delayed(const Duration(milliseconds: 300), () { _showTitleDetails(titleToView!); });
           },
         ) : null,
       ),
     );
   }
 
-  // 🟢 حركة الطيران الخرافية للموارد (أنيميشن)
   void _playFlyingAnimation({required String iconPath, required String text, required Color color, required Offset startOffset, required Offset endOffset}) {
     OverlayState? overlayState = Overlay.of(context);
     OverlayEntry? overlayEntry;
@@ -329,14 +287,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           tween: Tween<double>(begin: 0.0, end: 1.0),
           duration: const Duration(milliseconds: 1300),
           curve: Curves.easeInOutCubic,
-          onEnd: () {
-            overlayEntry?.remove();
-          },
+          onEnd: () { overlayEntry?.remove(); },
           builder: (context, double value, child) {
             double currentX = startOffset.dx;
             double currentY = startOffset.dy;
-
-            // يرتفع للأعلى ببطء أولاً ثم يطير باتجاه البار العلوي
             if (value < 0.3) {
               currentY = startOffset.dy - (60 * (value / 0.3));
             } else {
@@ -344,7 +298,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               currentX = startOffset.dx + (endOffset.dx - startOffset.dx) * p;
               currentY = (startOffset.dy - 60) + (endOffset.dy - (startOffset.dy - 60)) * p;
             }
-
             double scale = 1.0 - (value * 0.4);
             double opacity = value < 0.8 ? 1.0 : 1.0 - ((value - 0.8) * 5);
 
@@ -367,6 +320,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                               fontSize: 24,
                               fontWeight: FontWeight.w900,
                               color: color,
+                              decoration: TextDecoration.none, // 🟢 تم إزالة الخط الأصفر المزعج نهائياً
                               shadows: const [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1,1))]
                           )
                       ),
@@ -379,12 +333,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         );
       },
     );
-
     overlayState.insert(overlayEntry);
   }
 
   void _playRewardAnimations(int cash, int xp) {
-    // طيران الكاش لليسار
     _playFlyingAnimation(
       iconPath: 'assets/images/icons/cash.png',
       text: '+\$${_formatNumber(cash)}',
@@ -392,7 +344,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       startOffset: Offset(MediaQuery.of(context).size.width * 0.3, MediaQuery.of(context).size.height * 0.5),
       endOffset: Offset(MediaQuery.of(context).size.width * 0.1, 40),
     );
-    // طيران الخبرة لليمين
     _playFlyingAnimation(
       iconPath: 'assets/images/icons/lv.png',
       text: '+$xp',
@@ -402,8 +353,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
-  // 🟢 نافذة الغنائم والنجاح
-  void _showCrimeSuccessPopup(PlayerProvider player, int reward, String crimeId, int xpGained, bool gotCar, int bonusGold, int bonusEnergy) {
+  void _showCrimeSuccessPopup(PlayerProvider player, int reward, String crimeId, int xpGained, bool gotCar, int bonusGold, int bonusEnergy, VoidCallback onRetry) {
     showGeneralDialog(
       context: context,
       barrierDismissible: false,
@@ -420,9 +370,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   color: const Color(0xFF1A1A1D),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFFC5A059), width: 2),
-                  boxShadow: [
-                    BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.3), blurRadius: 20, spreadRadius: 2)
-                  ]
+                  boxShadow: [BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -438,8 +386,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       _buildPopupRewardItem('خبرة', '+$xpGained XP', Colors.blue, 'assets/images/icons/lv.png', isImage: true),
                     ],
                   ),
-
-                  // الغنائم الإضافية المتغيرة
                   if (bonusGold > 0 || bonusEnergy > 0 || gotCar) ...[
                     const SizedBox(height: 20),
                     const Divider(color: Colors.white24),
@@ -454,13 +400,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       ],
                     )
                   ],
-
                   const SizedBox(height: 30),
                   Directionality(
                     textDirection: TextDirection.rtl,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
+                        // 🟢 زر محاولة أخرى المباشر
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFC5A059),
@@ -469,19 +415,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           ),
                           onPressed: () {
                             Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                            Navigator.pop(context);
-
-                            // منح المكافآت عند الضغط
-                            player.addCash(reward, reason: "نجاح مهمة إجرامية");
-                            player.addCrimeXP(xpGained);
-                            if (bonusGold > 0) player.addGold(bonusGold);
-                            if (bonusEnergy > 0) player.addEnergy(bonusEnergy);
-                            if (gotCar) player.addInventoryItem('stolen_car', 1);
-
-                            // تشغيل الأنيميشن
-                            _playRewardAnimations(reward, xpGained);
+                            Navigator.pop(context); // قفل النافذة
+                            _playRewardAnimations(reward, xpGained); // شغل الفلوس الطايرة
+                            onRetry(); // عيد الجريمة دايركت
                           },
-                          child: const Text('استمرار', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.black, fontWeight: FontWeight.bold)),
+                          child: const Text('محاولة أخرى', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.black, fontWeight: FontWeight.bold)),
                         ),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
@@ -492,21 +430,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           onPressed: () {
                             Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
                             Navigator.pop(context);
-
-                            player.addCash(reward, reason: "نجاح مهمة إجرامية");
-                            player.addCrimeXP(xpGained);
-                            if (bonusGold > 0) player.addGold(bonusGold);
-                            if (bonusEnergy > 0) player.addEnergy(bonusEnergy);
-                            if (gotCar) player.addInventoryItem('stolen_car', 1);
-
                             _playRewardAnimations(reward, xpGained);
-
-                            setState(() {
-                              _selectedIndex = 2;
-                              _activeArea = 'الخريطة';
-                            });
                           },
-                          child: const Text('الخريطة', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                          child: const Text('إغلاق', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -517,13 +443,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           ),
         );
       },
-      transitionBuilder: (context, anim1, anim2, child) {
-        return Transform.scale(scale: anim1.value, child: child);
-      },
+      transitionBuilder: (context, anim1, anim2, child) { return Transform.scale(scale: anim1.value, child: child); },
     );
   }
 
-  // 🟢 نافذة الفشل ودخول السجن
   void _showCrimeFailurePopup(int minutes, String crimeName, int bailCost) {
     showGeneralDialog(
       context: context,
@@ -541,9 +464,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   color: const Color(0xFF1A1A1D),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.redAccent, width: 2),
-                  boxShadow: [
-                    BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)
-                  ]
+                  boxShadow: [BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -571,10 +492,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     onPressed: () {
                       Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
                       Navigator.pop(context);
-                      setState(() {
-                        _selectedIndex = 2; // إجبار اللعبة للذهاب للماب (الذي سيعرض السجن لأننا في السجن)
-                        _activeArea = 'السجن';
-                      });
+                      setState(() { _selectedIndex = 2; _activeArea = 'السجن'; });
                     },
                     child: const Text('الذهاب للسجن', style: TextStyle(fontFamily: 'Changa', fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
                   )
@@ -584,9 +502,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           ),
         );
       },
-      transitionBuilder: (context, anim1, anim2, child) {
-        return Transform.scale(scale: anim1.value, child: child);
-      },
+      transitionBuilder: (context, anim1, anim2, child) { return Transform.scale(scale: anim1.value, child: child); },
     );
   }
 
@@ -623,8 +539,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               const Divider(color: Colors.white10),
               _buildMenuOption(Icons.group, 'الأصدقاء', () { Navigator.pop(c); Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsView())); }),
               const Divider(color: Colors.white10),
-              _buildMenuOption(Icons.settings, 'الإعدادات', () { Navigator.pop(c); Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsView()));
-              }),
+              _buildMenuOption(Icons.settings, 'الإعدادات', () { Navigator.pop(c); Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsView())); }),
             ],
           ),
         ),
@@ -636,35 +551,39 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     return ListTile(leading: Icon(icon, color: Colors.amber, size: 28), title: Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 18, fontWeight: FontWeight.bold)), trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16), onTap: onTap);
   }
 
-  // 🟢 تنفيذ محاولة الهروب
-  void _attemptPrisonEscape(PlayerProvider player) {
+  // 🟢 التعديل الأهم للهروب: مخاطبة السيرفر لفك الحظر رسمياً بدل الغش المحلي
+  void _attemptPrisonEscape(PlayerProvider player) async {
     Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
     if (player.courage < 10) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تحتاج إلى 10 شجاعة كحد أدنى للمحاولة!', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
       return;
     }
-    bool success = player.attemptEscape();
-    if (!success) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشلت محاولة الهروب! ابق في زنزانتك.', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
-    } else {
-      setState(() {
-        _selectedIndex = 2; // التوجه للخريطة بمجرد نجاح الهروب
-        _activeArea = 'الخريطة';
-      });
+
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.orange)));
+
+    try {
+      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('attemptEscape');
+      final result = await callable.call({'uid': player.uid});
+
+      Navigator.pop(context); // إغلاق التحميل
+
+      if (result.data['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('هروب ناجح 🏃‍♂️! أنت حر الآن.', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
+        setState(() { _selectedIndex = 2; _activeArea = 'الخريطة'; });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشلت محاولة الهروب! ابق في زنزانتك.', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
+      }
+    } catch (e) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     bool isDataLoading = context.select<PlayerProvider, bool>((player) => player.isLoading);
-
     if (isDataLoading || !_visualLoadingComplete) {
-      return GameLoadingView(
-        isDataLoaded: !isDataLoading,
-        onVisualLoadingComplete: () {
-          if (mounted) { setState(() => _visualLoadingComplete = true); }
-        },
-      );
+      return GameLoadingView(isDataLoaded: !isDataLoading, onVisualLoadingComplete: () { if (mounted) { setState(() => _visualLoadingComplete = true); } });
     }
 
     return Scaffold(
@@ -673,73 +592,31 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         top: false,
         child: Column(
           children: [
-            Consumer<PlayerProvider>(
-                builder: (context, player, child) {
-                  return TopBar(
-                      cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy,
-                      courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth,
-                      prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName,
-                      profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP,
-                      maxXp: player.xpToNextLevel, isVIP: player.isVIP
-                  );
-                }
-            ),
-
-            Expanded(
-                child: Consumer<PlayerProvider>(
-                    builder: (context, player, child) {
-                      return _buildConditionalContent(player);
-                    }
-                )
-            ),
+            Consumer<PlayerProvider>(builder: (context, player, child) {
+              return TopBar(cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy, courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth, prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName, profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP, maxXp: player.xpToNextLevel, isVIP: player.isVIP);
+            }),
+            Expanded(child: Consumer<PlayerProvider>(builder: (context, player, child) { return _buildConditionalContent(player); })),
           ],
         ),
       ),
-
       bottomNavigationBar: Consumer<PlayerProvider>(
           builder: (context, player, child) {
-            if ((_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5) {
-              return const SizedBox.shrink();
-            }
-
+            if ((_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5) return const SizedBox.shrink();
             if (player.isInPrison) {
               return BottomNavBar(
-                selectedIndex: _selectedIndex,
-                isInPrison: true,
-                onEscapeTapped: () => _attemptPrisonEscape(player),
-                onItemTapped: (index) {
-                  Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                  if (index == 1) {
-                    setState(() => _selectedIndex = _selectedIndex == 1 ? 2 : 1);
-                  }
-                },
+                selectedIndex: _selectedIndex, isInPrison: true, onEscapeTapped: () => _attemptPrisonEscape(player),
+                onItemTapped: (index) { Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); if (index == 1) { setState(() => _selectedIndex = _selectedIndex == 1 ? 2 : 1); } },
               );
             }
-
             if (player.isHospitalized) {
               return BottomNavBar(
-                selectedIndex: _selectedIndex,
-                isHospitalized: true,
-                onItemTapped: (index) {
-                  Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                  if (index == 1) {
-                    setState(() => _selectedIndex = _selectedIndex == 1 ? 2 : 1);
-                  }
-                },
+                selectedIndex: _selectedIndex, isHospitalized: true,
+                onItemTapped: (index) { Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); if (index == 1) { setState(() => _selectedIndex = _selectedIndex == 1 ? 2 : 1); } },
               );
             }
-
             return BottomNavBar(
-              selectedIndex: _selectedIndex,
-              isHospitalized: false,
-              isInPrison: false,
-              onItemTapped: (index) {
-                Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                setState(() {
-                  _selectedIndex = index;
-                  if (index == 2) _activeArea = 'الخريطة';
-                });
-              },
+              selectedIndex: _selectedIndex, isHospitalized: false, isInPrison: false,
+              onItemTapped: (index) { Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); setState(() { _selectedIndex = index; if (index == 2) _activeArea = 'الخريطة'; }); },
             );
           }
       ),
@@ -748,72 +625,34 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   Widget _buildConditionalContent(PlayerProvider player) {
     if (_selectedIndex == 1) return const ChatView();
-    // 🟢 التأكيد القاطع أنه لا يمكنك رؤية أي شيء آخر إذا كنت مسجوناً
     if (player.isInPrison) return const PrisonView();
     if (player.isHospitalized) return HospitalView(onBack: () => setState(() => _activeArea = 'الخريطة'));
-
     return _buildMainContent(player);
   }
 
   Widget _getMapLayer() {
     _cachedMapWidget ??= LayoutBuilder(
       builder: (context, constraints) {
-        final double imageWidth = 4096;
-        final double imageHeight = 4096;
-
-        double minScaleX = constraints.maxWidth / imageWidth;
-        double minScaleY = constraints.maxHeight / imageHeight;
+        final double imageWidth = 4096; final double imageHeight = 4096;
+        double minScaleX = constraints.maxWidth / imageWidth; double minScaleY = constraints.maxHeight / imageHeight;
         double calculatedMinScale = minScaleX > minScaleY ? minScaleX : minScaleY;
-
         if (!_isMapInitialized) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              double dx = (constraints.maxWidth - (imageWidth * calculatedMinScale)) / 2;
-              double dy = (constraints.maxHeight - (imageHeight * calculatedMinScale)) / 2;
-
-              _mapTransformationController.value = Matrix4.identity()
-                ..translate(dx, dy)
-                ..scale(calculatedMinScale);
+              double dx = (constraints.maxWidth - (imageWidth * calculatedMinScale)) / 2; double dy = (constraints.maxHeight - (imageHeight * calculatedMinScale)) / 2;
+              _mapTransformationController.value = Matrix4.identity()..translate(dx, dy)..scale(calculatedMinScale);
             }
           });
           _isMapInitialized = true;
         }
-
         return InteractiveViewer(
-          transformationController: _mapTransformationController,
-          minScale: calculatedMinScale,
-          maxScale: 3.0,
-          constrained: false,
-          boundaryMargin: EdgeInsets.zero,
+          transformationController: _mapTransformationController, minScale: calculatedMinScale, maxScale: 3.0, constrained: false, boundaryMargin: EdgeInsets.zero,
           child: SizedBox(
-            width: imageWidth,
-            height: imageHeight,
+            width: imageWidth, height: imageHeight,
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/city_map.jpg',
-                    fit: BoxFit.fill,
-                    filterQuality: FilterQuality.high,
-                    gaplessPlayback: true,
-                  ),
-                ),
-                _buildMapHotspot('المطار', 3500, 2600, 300, 300, Colors.blue),
-                _buildMapHotspot('عجلة الحظ', 1400, 300, 300, 300, Colors.orange),
-                _buildMapHotspot('البنك', 600, 600, 300, 300, Colors.green),
-                _buildMapHotspot('المستشفى', 3500, 1400, 300, 300, Colors.red),
-                _buildMapHotspot('السجن', 2600, 600, 300, 300, Colors.grey),
-                _buildMapHotspot('المصنع', 3200, 350, 300, 300, Colors.brown),
-                _buildMapHotspot('سباق الشوارع', 350, 1200, 300, 300, Colors.pink),
-                _buildMapHotspot('المتجر الأسود', 800, 1600, 300, 300, Colors.black),
-                _buildMapHotspot('صالة التدريب', 1800, 2400, 300, 300, Colors.blueGrey),
-                _buildMapHotspot('ساحة القتال', 1900, 1800, 300, 300, Colors.redAccent),
-                _buildMapHotspot('ساحة اللاعبين', 2200, 400, 300, 300, Colors.orangeAccent),
-                _buildMapHotspot('العقارات', 500, 2300, 300, 300, Colors.amber),
-                _buildMapHotspot('العصابات', 1800, 3300, 300, 300, Colors.deepOrange),
-                _buildMapHotspot('التشليح', 3400, 3200, 300, 300, Colors.lime),
-                _buildMapHotspot('المختبر السري', 2600, 3600, 300, 300, Colors.greenAccent),
-                _buildMapHotspot('الورشة', 2650, 2850, 300, 300, Colors.blueAccent),
+                Positioned.fill(child: Image.asset('assets/images/city_map.jpg', fit: BoxFit.fill, filterQuality: FilterQuality.high, gaplessPlayback: true)),
+                _buildMapHotspot('المطار', 3500, 2600, 300, 300, Colors.blue), _buildMapHotspot('عجلة الحظ', 1400, 300, 300, 300, Colors.orange), _buildMapHotspot('البنك', 600, 600, 300, 300, Colors.green), _buildMapHotspot('المستشفى', 3500, 1400, 300, 300, Colors.red), _buildMapHotspot('السجن', 2600, 600, 300, 300, Colors.grey), _buildMapHotspot('المصنع', 3200, 350, 300, 300, Colors.brown), _buildMapHotspot('سباق الشوارع', 350, 1200, 300, 300, Colors.pink), _buildMapHotspot('المتجر الأسود', 800, 1600, 300, 300, Colors.black), _buildMapHotspot('صالة التدريب', 1800, 2400, 300, 300, Colors.blueGrey), _buildMapHotspot('ساحة القتال', 1900, 1800, 300, 300, Colors.redAccent), _buildMapHotspot('ساحة اللاعبين', 2200, 400, 300, 300, Colors.orangeAccent), _buildMapHotspot('العقارات', 500, 2300, 300, 300, Colors.amber), _buildMapHotspot('العصابات', 1800, 3300, 300, 300, Colors.deepOrange), _buildMapHotspot('التشليح', 3400, 3200, 300, 300, Colors.lime), _buildMapHotspot('المختبر السري', 2600, 3600, 300, 300, Colors.greenAccent), _buildMapHotspot('الورشة', 2650, 2850, 300, 300, Colors.blueAccent),
               ],
             ),
           ),
@@ -825,52 +664,26 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   Widget _buildMainContent(PlayerProvider player) {
     if (_selectedIndex == 0) return const InventoryView();
-
     if (_selectedIndex == 3) {
       return CrimeView(
         courage: player.courage,
-        onSuccess: (reward, crimeId, energyUsed) {
-          final audio = Provider.of<AudioProvider>(context, listen: false);
-          audio.playEffect('click.mp3');
-
+        onSuccess: (reward, crimeId, energyUsed, onRetry) {
+          final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
           int xpGained = 15;
-
-          // توليد غنائم عشوائية
           int bonusGold = (Random().nextDouble() < 0.1) ? Random().nextInt(2) + 1 : 0;
           int bonusEnergy = (Random().nextDouble() < 0.15) ? Random().nextInt(10) + 5 : 0;
-
           bool gotCar = false;
-          if (crimeId.startsWith('cat_3_') || crimeId.startsWith('cat_6_')) {
-            if(Random().nextDouble() < 0.3) {
-              gotCar = true;
-            }
-          }
-
-          // 🟢 إظهار نافذة الغنائم (الدالة نفسها ستعطيك الكاش وتلعب الأنيميشن)
-          _showCrimeSuccessPopup(player, reward, crimeId, xpGained, gotCar, bonusGold, bonusEnergy);
+          if (crimeId.startsWith('cat_3_') || crimeId.startsWith('cat_6_')) { if(Random().nextDouble() < 0.3) gotCar = true; }
+          _showCrimeSuccessPopup(player, reward, crimeId, xpGained, gotCar, bonusGold, bonusEnergy, onRetry);
         },
         onFailure: (minutes, crimeName, bailCost) {
-          final audio = Provider.of<AudioProvider>(context, listen: false);
-          audio.playEffect('click.mp3');
-
-          // 🟢 الدخول الآمن للسجن وإظهار النافذة
+          final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
           player.putInPrison(minutes, crimeName, bailCost);
           _showCrimeFailurePopup(minutes, crimeName, bailCost);
         },
       );
     }
-
-    if (_selectedIndex == 5) {
-      return PlayerProfileView(
-          targetUid: player.uid!,
-          profileTabIndex: _profileTabIndex,
-          previewName: player.playerName,
-          previewPicUrl: player.profilePicUrl,
-          previewIsVIP: player.isVIP,
-          onBack: () => setState(() => _selectedIndex = 2)
-      );
-    }
-
+    if (_selectedIndex == 5) return PlayerProfileView(targetUid: player.uid!, profileTabIndex: _profileTabIndex, previewName: player.playerName, previewPicUrl: player.profilePicUrl, previewIsVIP: player.isVIP, onBack: () => setState(() => _selectedIndex = 2));
     if (_selectedIndex != 2) return const Center(child: Text('قيد التطوير', style: TextStyle(color: Colors.white)));
 
     if (_activeArea == 'المطار') return AirportView(gold: player.gold, onTravel: (cost) => player.removeGold(cost), onBack: () => setState(() => _activeArea = 'الخريطة'));
@@ -891,28 +704,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
     return Stack(
       children: [
-        Positioned.fill(
-          child: _getMapLayer(),
-        ),
+        Positioned.fill(child: _getMapLayer()),
         Positioned(
-          top: 15,
-          right: 15,
+          top: 15, right: 15,
           child: GestureDetector(
-            onTap: () {
-              Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-              _showQuickMenuDialog(context);
-            },
+            onTap: () { Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); _showQuickMenuDialog(context); },
             child: Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.85),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.amber, width: 2),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 8, offset: const Offset(0, 4)),
-                  BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 10, spreadRadius: 1),
-                ],
-              ),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.85), shape: BoxShape.circle, border: Border.all(color: Colors.amber, width: 2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 8, offset: const Offset(0, 4)), BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 10, spreadRadius: 1)]),
               child: const Icon(Icons.menu, color: Colors.amber, size: 28),
             ),
           ),
@@ -923,30 +722,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   Widget _buildMapHotspot(String areaName, double left, double top, double width, double height, Color debugColor) {
     return Positioned(
-      left: left,
-      top: top,
-      width: width,
-      height: height,
+      left: left, top: top, width: width, height: height,
       child: GestureDetector(
         onTap: () {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-
-          if (areaName == 'العصابات') {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const GangView()));
-          } else {
-            setState(() => _activeArea = areaName);
-          }
+          if (areaName == 'العصابات') { Navigator.push(context, MaterialPageRoute(builder: (_) => const GangView())); } else { setState(() => _activeArea = areaName); }
         },
-        child: Container(
-          color: debugColor.withOpacity(0.5),
-          child: Center(
-            child: Text(
-              areaName,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, backgroundColor: Colors.black54, fontSize: 24),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
+        child: Container(color: debugColor.withOpacity(0.5), child: Center(child: Text(areaName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, backgroundColor: Colors.black54, fontSize: 24), textAlign: TextAlign.center))),
       ),
     );
   }
@@ -955,35 +737,27 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 class GameLoadingView extends StatefulWidget {
   final bool isDataLoaded;
   final VoidCallback onVisualLoadingComplete;
-
   const GameLoadingView({super.key, required this.isDataLoaded, required this.onVisualLoadingComplete});
-
   @override
   State<GameLoadingView> createState() => _GameLoadingViewState();
 }
 
 class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(seconds: 3));
     _controller.forward();
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed && widget.isDataLoaded) widget.onVisualLoadingComplete();
-    });
+    _controller.addStatusListener((status) { if (status == AnimationStatus.completed && widget.isDataLoaded) widget.onVisualLoadingComplete(); });
   }
-
   @override
   void didUpdateWidget(GameLoadingView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.isDataLoaded && widget.isDataLoaded && _controller.isCompleted) widget.onVisualLoadingComplete();
   }
-
   @override
   void dispose() { _controller.dispose(); super.dispose(); }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

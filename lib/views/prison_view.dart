@@ -61,11 +61,9 @@ class _PrisonViewState extends State<PrisonView> {
             child: StreamBuilder<QuerySnapshot>(
               stream: _prisonStream,
               builder: (context, snapshot) {
-                // 🟢 تجميع البيانات فورياً لعرض اللاعب الحالي بدون انتظار السيرفر
                 List<Map<String, dynamic>> prisonersList = [];
                 Set<String> addedIds = {};
 
-                // 1. إضافة اللاعب الحالي مباشرة إذا كان مسجوناً لتجنب وقت التحميل
                 if (playerProvider.isInPrison && playerProvider.uid != null) {
                   prisonersList.add({
                     'uid': playerProvider.uid,
@@ -79,7 +77,6 @@ class _PrisonViewState extends State<PrisonView> {
                   addedIds.add(playerProvider.uid!);
                 }
 
-                // 2. إضافة باقي المساجين من السيرفر إن وجدوا
                 if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
                   for (var doc in snapshot.data!.docs) {
                     if (!addedIds.contains(doc.id)) {
@@ -91,12 +88,10 @@ class _PrisonViewState extends State<PrisonView> {
                   }
                 }
 
-                // 3. عرض دائرة التحميل فقط إذا لم يكن اللاعب مسجوناً والسيرفر ما زال يجمع البيانات
                 if (snapshot.connectionState == ConnectionState.waiting && prisonersList.isEmpty) {
                   return const Center(child: CircularProgressIndicator(color: Colors.orange));
                 }
 
-                // 4. حالة السجن خالي
                 if (prisonersList.isEmpty) {
                   return const Center(
                     child: Text(
@@ -107,19 +102,13 @@ class _PrisonViewState extends State<PrisonView> {
                   );
                 }
 
-                // 5. عرض القائمة فوراً
                 return ListView.builder(
                   itemCount: prisonersList.length,
                   padding: const EdgeInsets.only(top: 10, bottom: 20),
                   itemBuilder: (context, index) {
                     var data = prisonersList[index];
                     String docId = data['uid'] ?? '';
-
-                    return PrisonPlayerCard(
-                      data: data,
-                      docId: docId,
-                      playerProvider: playerProvider,
-                    );
+                    return PrisonPlayerCard(data: data, docId: docId, playerProvider: playerProvider);
                   },
                 );
               },
@@ -131,7 +120,6 @@ class _PrisonViewState extends State<PrisonView> {
   }
 }
 
-// 🟢 ويدجت ذكية ورايقة: تفك تشفير الصورة مرة وحدة وتشغل مؤقت لحالها عشان تمنع الوميض! 🟢
 class PrisonPlayerCard extends StatefulWidget {
   final Map<String, dynamic> data;
   final String docId;
@@ -146,54 +134,41 @@ class PrisonPlayerCard extends StatefulWidget {
 class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
   Timer? _timer;
   String _formattedTime = "00:00:00";
-  Uint8List? _avatarBytes; // نحفظ الصورة هنا عشان ما ترمش
+  Uint8List? _avatarBytes;
 
   @override
   void initState() {
     super.initState();
-
-    // فك تشفير الصورة مرة وحدة بس!
     if (widget.data['profilePicUrl'] != null) {
       _avatarBytes = base64Decode(widget.data['profilePicUrl']);
     }
-
-    _updateTime(); // التحديث الأول
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _updateTime();
-    });
+    _updateTime();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) { _updateTime(); });
   }
 
   void _updateTime() {
     if (!mounted) return;
-
     String? releaseTimeStr = widget.data['prisonReleaseTime'];
     if (releaseTimeStr != null) {
       DateTime releaseTime = DateTime.parse(releaseTimeStr);
-      Duration diff = releaseTime.difference(DateTime.now());
+
+      // 🟢 التعديل الأهم: مقارنة الوقت بوقت السيرفر لحل مشكلة "يتم الإفراج"
+      Duration diff = releaseTime.difference(widget.playerProvider.secureNow);
 
       if (diff.isNegative) {
-        setState(() {
-          _formattedTime = "يتم الإفراج...";
-        });
+        setState(() { _formattedTime = "يتم الإفراج..."; });
         _timer?.cancel();
       } else {
-        // 🟢 تحويل الوقت إلى صيغة HH:MM:SS
         String hours = diff.inHours.toString().padLeft(2, '0');
         String minutes = diff.inMinutes.remainder(60).toString().padLeft(2, '0');
         String seconds = diff.inSeconds.remainder(60).toString().padLeft(2, '0');
-
-        setState(() {
-          _formattedTime = "$hours:$minutes:$seconds";
-        });
+        setState(() { _formattedTime = "$hours:$minutes:$seconds"; });
       }
     }
   }
 
   @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  void dispose() { _timer?.cancel(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -201,7 +176,6 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
     int level = widget.data['crimeLevel'] ?? 1;
     String crimeName = widget.data['lastCrimeName'] ?? 'تهمة مجهولة';
     int bailCost = widget.data['bailCost'] ?? 1500;
-
     bool isMe = widget.docId == widget.playerProvider.uid;
 
     return Card(
@@ -212,16 +186,11 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
         padding: const EdgeInsets.all(8.0),
         child: Row(
           children: [
-            // الصورة ثابتة وما راح ترمش لأننا حفظناها في الـ State
             CircleAvatar(
-              radius: 26,
-              backgroundColor: Colors.black54,
-              backgroundImage: _avatarBytes != null
-                  ? MemoryImage(_avatarBytes!)
-                  : const AssetImage('assets/images/icons/profile.png') as ImageProvider,
+              radius: 26, backgroundColor: Colors.black54,
+              backgroundImage: _avatarBytes != null ? MemoryImage(_avatarBytes!) : const AssetImage('assets/images/icons/profile.png') as ImageProvider,
             ),
             const SizedBox(width: 12),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,24 +199,18 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
                   Row(
                     children: [
                       Text('المستوى: $level | ', style: const TextStyle(color: Colors.orangeAccent, fontFamily: 'Changa', fontSize: 12)),
-                      Text('باقي: $_formattedTime', style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)), // الوقت الحي
+                      Text('باقي: $_formattedTime', style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Text('التهمة: $crimeName', style: const TextStyle(color: Colors.grey, fontFamily: 'Changa', fontSize: 12)),
                 ],
               ),
             ),
-
             isMe
-                ? const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text('تنتظر الكفالة...', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 13)),
-            )
+                ? const Padding(padding: EdgeInsets.all(8.0), child: Text('تنتظر الكفالة...', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 13)))
                 : ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, padding: const EdgeInsets.symmetric(horizontal: 10)),
-              onPressed: () {
-                widget.playerProvider.bailOutPlayer(widget.docId, bailCost, name);
-              },
+              onPressed: () { widget.playerProvider.bailOutPlayer(widget.docId, bailCost, name); },
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

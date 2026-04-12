@@ -3,14 +3,15 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:provider/provider.dart';
-import 'package:cloud_functions/cloud_functions.dart'; // 🟢 مكتبة الكلاود فنكشن
+import 'package:cloud_functions/cloud_functions.dart';
 import '../providers/player_provider.dart';
 import '../widgets/quick_recovery_dialog.dart';
 import '../utils/crime_data.dart';
 
 class CrimeView extends StatefulWidget {
   final int courage;
-  final Function(int reward, String crimeId, int energyUsed) onSuccess;
+  // 🟢 التعديل: تمرير زر الإعادة كدالة متغيرة
+  final Function(int reward, String crimeId, int energyUsed, VoidCallback onRetry) onSuccess;
   final Function(int minutes, String crimeName, int bailCost) onFailure;
 
   const CrimeView({
@@ -27,7 +28,7 @@ class CrimeView extends StatefulWidget {
 class _CrimeViewState extends State<CrimeView> {
   static final Random _random = Random();
   int? _selectedCategoryIndex;
-  bool _isLoadingCrime = false; // لمنع النقر المزدوج
+  bool _isLoadingCrime = false;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +69,6 @@ class _CrimeViewState extends State<CrimeView> {
           ],
         ),
 
-        // شاشة التحميل أثناء انتظار رد السيرفر
         if (_isLoadingCrime)
           Container(
             color: Colors.black54,
@@ -91,14 +91,12 @@ class _CrimeViewState extends State<CrimeView> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             itemBuilder: (context, catIndex) {
               final category = CrimeData.categories[catIndex];
-
               bool isCategoryUnlocked = true;
               if (catIndex > 0) {
                 String prevCatLastCrimeId = 'cat_${catIndex - 1}_crime_19';
                 int prevCatLastCrimeCount = player.crimeSuccessCountsMap[prevCatLastCrimeId] ?? 0;
                 isCategoryUnlocked = prevCatLastCrimeCount >= 10;
               }
-
               return Card(
                 color: Colors.black87,
                 margin: const EdgeInsets.only(bottom: 12),
@@ -113,9 +111,7 @@ class _CrimeViewState extends State<CrimeView> {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🔒 يجب إنهاء الفئة السابقة بالكامل لفتح هذه الفئة!', style: TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
                       return;
                     }
-                    setState(() {
-                      _selectedCategoryIndex = catIndex;
-                    });
+                    setState(() { _selectedCategoryIndex = catIndex; });
                   },
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -157,9 +153,7 @@ class _CrimeViewState extends State<CrimeView> {
     return Column(
       key: const ValueKey('CrimesList'),
       children: [
-        _buildHeader(category['name'], 'أكمل الجريمة 10 مرات لتفتح التي تليها', () {
-          setState(() { _selectedCategoryIndex = null; });
-        }),
+        _buildHeader(category['name'], 'أكمل الجريمة 10 مرات لتفتح التي تليها', () { setState(() { _selectedCategoryIndex = null; }); }),
         Expanded(
           child: ListView.builder(
             itemCount: crimes.length,
@@ -167,10 +161,8 @@ class _CrimeViewState extends State<CrimeView> {
             itemBuilder: (context, crimeIndex) {
               Map<String, dynamic> crime = crimes[crimeIndex];
               String crimeId = crime['id'];
-
               int successCount = player.crimeSuccessCountsMap[crimeId] ?? 0;
               int stars = successCount >= 50 ? 3 : successCount >= 25 ? 2 : successCount >= 10 ? 1 : 0;
-
               bool isCrimeUnlocked = true;
               if (crimeIndex > 0) {
                 String prevCrimeId = crimes[crimeIndex - 1]['id'];
@@ -180,7 +172,6 @@ class _CrimeViewState extends State<CrimeView> {
               double heatPenalty = (player.heat / 100) * 0.3;
               double finalFailChance = (crime['failChance'] as double) + heatPenalty - (stars * 0.05);
               if (player.equippedMaskId != null) finalFailChance -= 0.1;
-
               if (player.equippedCrimeToolId != null) {
                 double toolDurability = player.getItemDurability(player.equippedCrimeToolId!);
                 double toolBonus = 0.0;
@@ -189,17 +180,11 @@ class _CrimeViewState extends State<CrimeView> {
                 else if (player.equippedCrimeToolId == 'slim_jim' && (catIndex == 3 || catIndex == 6)) toolBonus = 0.15;
                 else if (player.equippedCrimeToolId == 'lockpick' && catIndex == 4) toolBonus = 0.15;
                 else toolBonus = 0.10;
-
-                if (toolDurability >= 10) finalFailChance -= toolBonus;
-                else finalFailChance -= (toolBonus / 2);
+                if (toolDurability >= 10) finalFailChance -= toolBonus; else finalFailChance -= (toolBonus / 2);
               }
-
               finalFailChance = finalFailChance.clamp(0.00, 0.98);
               int successPercentage = ((1.0 - finalFailChance) * 100).toInt();
-
-              Color successColor = successPercentage >= 80 ? Colors.greenAccent
-                  : successPercentage >= 50 ? Colors.orangeAccent
-                  : Colors.redAccent;
+              Color successColor = successPercentage >= 80 ? Colors.greenAccent : successPercentage >= 50 ? Colors.orangeAccent : Colors.redAccent;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -215,10 +200,7 @@ class _CrimeViewState extends State<CrimeView> {
                   leading: Stack(
                     alignment: Alignment.center,
                     children: [
-                      CircularProgressIndicator(
-                        value: stars == 3 ? 1.0 : (stars == 2 ? (successCount - 25) / 25 : stars == 1 ? (successCount - 10) / 15 : successCount / 10),
-                        color: mainColor, backgroundColor: Colors.white10,
-                      ),
+                      CircularProgressIndicator(value: stars == 3 ? 1.0 : (stars == 2 ? (successCount - 25) / 25 : stars == 1 ? (successCount - 10) / 15 : successCount / 10), color: mainColor, backgroundColor: Colors.white10),
                       Icon(category['icon'], color: isCrimeUnlocked ? Colors.white : Colors.white24, size: 20),
                     ],
                   ),
@@ -231,16 +213,10 @@ class _CrimeViewState extends State<CrimeView> {
                       children: [
                         Row(mainAxisSize: MainAxisSize.min, children: List.generate(3, (i) => Icon(Icons.star, size: 14, color: i < stars ? const Color(0xFFE2C275) : Colors.white10))),
                         Text('نجاح: $successCount', style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'Changa')),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(color: successColor.withOpacity(0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: successColor.withOpacity(0.5))),
-                          child: Text('النسبة: $successPercentage%', style: TextStyle(color: successColor, fontSize: 10, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-                        ),
+                        Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), decoration: BoxDecoration(color: successColor.withOpacity(0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: successColor.withOpacity(0.5))), child: Text('النسبة: $successPercentage%', style: TextStyle(color: successColor, fontSize: 10, fontFamily: 'Changa', fontWeight: FontWeight.bold))),
                       ],
                     ),
-                  )
-                      : const Text('أنجز الجريمة السابقة 10 مرات 🔒', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontFamily: 'Changa')),
-
+                  ) : const Text('أنجز الجريمة السابقة 10 مرات 🔒', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontFamily: 'Changa')),
                   trailing: isCrimeUnlocked ? Column(
                     mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min,
                     children: [
@@ -286,41 +262,23 @@ class _CrimeViewState extends State<CrimeView> {
     );
   }
 
-  // 🟢 التعديل الأمني الجذري: إرسال الطلب للـ Cloud Function مع التأكد من الـ UID
   void _handleCrimeClick(BuildContext context, PlayerProvider player, Map<String, dynamic> crime, bool isUnlocked, double finalFailChance) async {
     if (!isUnlocked || _isLoadingCrime) return;
 
     int reqCourage = crime['courage'];
-
-    if (player.courage < reqCourage) {
-      QuickRecoveryDialog.show(context, 'courage', reqCourage - player.courage);
-      return;
-    }
-
-    if (player.equippedCrimeToolId != null && player.getItemDurability(player.equippedCrimeToolId!) < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ أداة الجريمة معطلة! كفاءتها انخفضت للنصف.', style: TextStyle(fontFamily: 'Changa'))));
-    }
+    if (player.courage < reqCourage) { QuickRecoveryDialog.show(context, 'courage', reqCourage - player.courage); return; }
+    if (player.equippedCrimeToolId != null && player.getItemDurability(player.equippedCrimeToolId!) < 10) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ أداة الجريمة معطلة! كفاءتها انخفضت للنصف.', style: TextStyle(fontFamily: 'Changa')))); }
 
     setState(() { _isLoadingCrime = true; });
 
     try {
-      // 🟢 1. حماية إضافية: نتأكد إن اللاعب عنده UID قبل ما نكلم السيرفر أصلاً
       if (player.uid == null || player.uid!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('خطأ: لم يتم التعرف على حسابك محلياً!', style: TextStyle(fontFamily: 'Changa')),
-          backgroundColor: Colors.red,
-        ));
-        setState(() { _isLoadingCrime = false; });
-        return;
+        setState(() { _isLoadingCrime = false; }); return;
       }
 
-      print("🚀 جاري إرسال الطلب للسيرفر بالرقم: ${player.uid}"); // عشان تراقبه بالكونسول
-
-      // 🟢 2. استدعاء السيرفر (لن تثق اللعبة بجهاز اللاعب بعد الآن)
       final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('commitCrime');
-
       final result = await callable.call({
-        'uid': player.uid, // 🟢 إرفاق الـ uid بشكل صريح
+        'uid': player.uid,
         'crimeId': crime['id'],
         'crimeName': crime['name'],
         'reqCourage': reqCourage,
@@ -331,99 +289,46 @@ class _CrimeViewState extends State<CrimeView> {
       });
 
       final data = result.data;
-
-      // تحديث الخصائص المحلية التي لا تتأثر بالسيرفر مباشرة
       if (data['success'] == true) {
         player.increaseHeat(crime['heat']);
-
-        // استهلاك الأداة
-        if (player.equippedCrimeToolId != null) {
-          double durabilityLoss = 5.0; // يمكنك إضافة باقي الأدوات هنا
-          player.reduceDurability(player.equippedCrimeToolId, durabilityLoss);
-        }
-
+        if (player.equippedCrimeToolId != null) { double durabilityLoss = 5.0; player.reduceDurability(player.equippedCrimeToolId, durabilityLoss); }
         _checkRandomEvent(context, player);
 
-        // ⚠️ مهم: السيرفر هو من يضيف الفلوس والخبرة الآن في قاعدة البيانات
-        // الدالة onSuccess هنا فقط لإظهار النافذة المنبثقة
-        widget.onSuccess(data['reward'], crime['id'], 0);
+        // 🟢 هنا زر الإعادة يخليها تنعاد مباشرة
+        widget.onSuccess(data['reward'], crime['id'], 0, () {
+          _handleCrimeClick(context, player, crime, isUnlocked, finalFailChance);
+        });
       } else {
         player.increaseHeat(crime['heat'] * 1.5);
         widget.onFailure(data['prisonMinutes'], crime['name'], data['bailCost']);
       }
     } catch (e) {
-      // 🟢 تعديل لكشف الخطأ القادم من السيرفر بالتفصيل
-      String errorDetails = e.toString();
-      if (e is FirebaseFunctionsException) {
-        errorDetails = "${e.code} : ${e.message}";
-      }
-
-      print("🔥 خطأ السيرفر: $errorDetails"); // يطبع في الكونسول
-
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('السيرفر يقول: $errorDetails', style: const TextStyle(fontFamily: 'Changa', fontSize: 12)),
-        backgroundColor: Colors.redAccent,
-        duration: const Duration(seconds: 10), // خليناها 10 ثواني عشان يمديك تقراها
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('السيرفر يقول: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa', fontSize: 12)), backgroundColor: Colors.redAccent, duration: const Duration(seconds: 10)));
     } finally {
       if (mounted) setState(() { _isLoadingCrime = false; });
     }
   }
 
-  // 🟢 الدوال الثلاثة اللي كانت ناقصة تم استرجاعها هنا
   void _checkRandomEvent(BuildContext context, PlayerProvider player) {
     if (_random.nextDouble() < 0.15) {
       int eventType = _random.nextInt(4);
-      if (eventType == 0) {
-        // إذا كنت تبي الحماية 100% مستقبلاً لازم تنقل الذهب للسيرفر كمان
-        player.addGold(1);
-        _showEventSnackBar(context, "💎 وجدت قطعة ذهب أثناء الهروب!", Colors.blueAccent);
-      } else if (eventType == 1) {
-        int bonus = 500 + _random.nextInt(1001);
-        player.addCash(bonus, reason: "كاش إضافي من حدث عشوائي");
-        _showEventSnackBar(context, "💰 وجدت محفظة إضافية ملقاة! +$bonus كاش", Colors.green);
-      } else if (eventType == 2) {
-        player.setEnergy(min(player.maxEnergy, player.energy + 10));
-        _showEventSnackBar(context, "⚡ جرعة أدريناين! استعدت 10 طاقة فوراً", Colors.orange);
-      } else {
-        player.reduceHeat(10.0);
-        _showEventSnackBar(context, "👮 ضيعت عيون الشرطة! انخفض مستوى الملاحقة.", Colors.teal);
-      }
+      if (eventType == 0) { player.addGold(1); _showEventSnackBar(context, "💎 وجدت قطعة ذهب أثناء الهروب!", Colors.blueAccent); }
+      else if (eventType == 1) { int bonus = 500 + _random.nextInt(1001); player.addCash(bonus, reason: "كاش إضافي من حدث عشوائي"); _showEventSnackBar(context, "💰 وجدت محفظة إضافية ملقاة! +$bonus كاش", Colors.green); }
+      else if (eventType == 2) { player.setEnergy(min(player.maxEnergy, player.energy + 10)); _showEventSnackBar(context, "⚡ جرعة أدريناين! استعدت 10 طاقة فوراً", Colors.orange); }
+      else { player.reduceHeat(10.0); _showEventSnackBar(context, "👮 ضيعت عيون الشرطة! انخفض مستوى الملاحقة.", Colors.teal); }
     }
   }
 
-  void _showEventSnackBar(BuildContext context, String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: color, behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 2)));
-  }
+  void _showEventSnackBar(BuildContext context, String msg, Color color) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: color, behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 2))); }
 
   Widget _buildHeatMeter(double heatValue) {
     Color heatColor = heatValue > 70 ? Colors.redAccent : heatValue > 40 ? Colors.orangeAccent : const Color(0xFFE2C275);
     return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: heatColor.withOpacity(0.5), width: 1.5),
-      ),
+      padding: const EdgeInsets.all(16), margin: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), borderRadius: BorderRadius.circular(15), border: Border.all(color: heatColor.withOpacity(0.5), width: 1.5)),
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: [
-                Icon(Icons.local_police, color: heatColor, size: 20),
-                const SizedBox(width: 8),
-                const Text('مستوى ملاحقة الشرطة', style: TextStyle(fontFamily: 'Changa', color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))
-              ]),
-              Text('${heatValue.toInt()}%', style: TextStyle(fontFamily: 'Changa', color: heatColor, fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(value: heatValue / 100, backgroundColor: Colors.grey[900], valueColor: AlwaysStoppedAnimation<Color>(heatColor), minHeight: 8),
-          ),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Row(children: [Icon(Icons.local_police, color: heatColor, size: 20), const SizedBox(width: 8), const Text('مستوى ملاحقة الشرطة', style: TextStyle(fontFamily: 'Changa', color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))]), Text('${heatValue.toInt()}%', style: TextStyle(fontFamily: 'Changa', color: heatColor, fontSize: 16, fontWeight: FontWeight.bold))]),
+          const SizedBox(height: 12), ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: heatValue / 100, backgroundColor: Colors.grey[900], valueColor: AlwaysStoppedAnimation<Color>(heatColor), minHeight: 8)),
         ],
       ),
     );
