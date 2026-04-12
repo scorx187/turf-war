@@ -783,6 +783,29 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
+  // دالة الخروج من المستشفى
+  void releaseFromHospital() {
+    _isHospitalized = false;
+    _hospitalReleaseTime = null;
+    notifyListeners();
+    _syncWithFirestore();
+  }
+
+  // 🟢 دالة الإفراج الفوري من السجن لإنهاء الانتظار
+  void releaseFromPrison() {
+    _isInPrison = false;
+    _prisonReleaseTime = null;
+    notifyListeners();
+  }
+
+  // دالة تحديد مستوى الملاحقة الأمنية
+  void setHeat(double value) {
+    _heat = value;
+    if (_heat < 0) _heat = 0;
+    notifyListeners();
+    _syncWithFirestore();
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);

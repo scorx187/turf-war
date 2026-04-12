@@ -31,6 +31,7 @@ import '../views/notifications_view.dart';
 import '../views/private_chat_list_view.dart';
 import '../views/friends_view.dart';
 import '../views/settings_view.dart';
+import '../views/quick_recovery_dialog.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -406,7 +407,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        // 🟢 زر محاولة أخرى المباشر
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFC5A059),
@@ -415,9 +415,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           ),
                           onPressed: () {
                             Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                            Navigator.pop(context); // قفل النافذة
-                            _playRewardAnimations(reward, xpGained); // شغل الفلوس الطايرة
-                            onRetry(); // عيد الجريمة دايركت
+                            Navigator.pop(context);
+                            _playRewardAnimations(reward, xpGained);
+                            onRetry();
                           },
                           child: const Text('محاولة أخرى', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.black, fontWeight: FontWeight.bold)),
                         ),
@@ -551,13 +551,18 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     return ListTile(leading: Icon(icon, color: Colors.amber, size: 28), title: Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 18, fontWeight: FontWeight.bold)), trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16), onTap: onTap);
   }
 
-  // 🟢 التعديل الأهم للهروب: مخاطبة السيرفر لفك الحظر رسمياً بدل الغش المحلي
+  // 🟢 دالة الهروب المحدثة مع النوافذ (Pop-ups) والخصم الفوري
   void _attemptPrisonEscape(PlayerProvider player) async {
     Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+
+    // إذا الشجاعة أقل من 10، تظهر نافذة القهوة المخصصة
     if (player.courage < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تحتاج إلى 10 شجاعة كحد أدنى للمحاولة!', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
+      QuickRecoveryDialog.show(context, 'courage', 10 - player.courage);
       return;
     }
+
+    // 🟢 خصم الشجاعة محلياً لكي ينقص التوب بار فوراً أمام اللاعب
+    player.setCourage(player.courage - 10);
 
     showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.orange)));
 
@@ -568,15 +573,150 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       Navigator.pop(context); // إغلاق التحميل
 
       if (result.data['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('هروب ناجح 🏃‍♂️! أنت حر الآن.', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
-        setState(() { _selectedIndex = 2; _activeArea = 'الخريطة'; });
+        player.releaseFromPrison(); // 🟢 الإفراج المحلي الفوري (بدون انتظار 10 ثواني)
+        _showEscapeSuccessPopup(); // نافذة النجاح
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشلت محاولة الهروب! ابق في زنزانتك.', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
+        _showEscapeFailurePopup(player); // نافذة الفشل
       }
     } catch (e) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
+      // في حال فشل الاتصال نرجع له شجاعته
+      player.setCourage(player.courage + 10);
+
+      String errorMsg = e.toString();
+      if (errorMsg.contains('شجاعة')) {
+        QuickRecoveryDialog.show(context, 'courage', 10);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $errorMsg', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
+      }
     }
+  }
+
+  // 🟢 نافذة النجاح في الهروب
+  void _showEscapeSuccessPopup() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1D),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.greenAccent, width: 2),
+                  boxShadow: [BoxShadow(color: Colors.greenAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.directions_run, color: Colors.greenAccent, size: 60),
+                  const SizedBox(height: 10),
+                  const Text('تم الهروب بنجاح!', style: TextStyle(fontFamily: 'Changa', fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const SizedBox(height: 10),
+                  const Text('لقد غافلت الحراس وأنت الآن حر طليق.', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.white70), textAlign: TextAlign.center),
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.greenAccent,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10)
+                    ),
+                    onPressed: () {
+                      Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                      Navigator.pop(context);
+                      setState(() {
+                        _selectedIndex = 2;
+                        _activeArea = 'الخريطة';
+                      });
+                    },
+                    child: const Text('الذهاب للخريطة', style: TextStyle(fontFamily: 'Changa', fontSize: 18, color: Colors.black, fontWeight: FontWeight.bold)),
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) { return Transform.scale(scale: anim1.value, child: child); },
+    );
+  }
+
+  // 🟢 نافذة الفشل في الهروب
+  void _showEscapeFailurePopup(PlayerProvider player) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1D),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.redAccent, width: 2),
+                  boxShadow: [BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 60),
+                  const SizedBox(height: 10),
+                  const Text('فشلت محاولة الهروب!', style: TextStyle(fontFamily: 'Changa', fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const SizedBox(height: 10),
+                  const Text('لقد كشفك الحراس وتم إعادتك للزنزانة.', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.white70), textAlign: TextAlign.center),
+                  const SizedBox(height: 30),
+                  Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orangeAccent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
+                          ),
+                          onPressed: () {
+                            Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                            Navigator.pop(context);
+                            _attemptPrisonEscape(player); // محاولة أخرى فورية
+                          },
+                          child: const Text('محاولة أخرى (-10)', style: TextStyle(fontFamily: 'Changa', fontSize: 14, color: Colors.black, fontWeight: FontWeight.bold)),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[800],
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)
+                          ),
+                          onPressed: () {
+                            Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                            Navigator.pop(context);
+                          },
+                          child: const Text('بقاء', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) { return Transform.scale(scale: anim1.value, child: child); },
+    );
   }
 
   @override

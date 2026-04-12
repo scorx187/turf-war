@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_functions/cloud_functions.dart'; // 🟢 استدعاء مكتبة السيرفر
 import 'package:intl/intl.dart' hide TextDirection;
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
@@ -143,6 +144,48 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
         ),
       ),
     );
+  }
+
+  // 🟢 الدالة الخارقة والآمنة للشراء من السيرفر
+  Future<void> _securePurchase(BuildContext context, PlayerProvider player, String itemId, int cost, String currencyType, int amount, String itemName) async {
+    // حماية مبدئية محلية عشان ما نكلم السيرفر على الفاضي
+    if (currencyType == 'cash' && player.cash < cost) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('كاش غير كافي لشراء $itemName!', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
+      return;
+    } else if (currencyType == 'gold' && player.gold < cost) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ذهب غير كافي لشراء $itemName!', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
+      return;
+    }
+
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.amber)));
+
+    try {
+      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('buyItem');
+      final result = await callable.call({
+        'uid': player.uid,
+        'itemId': itemId,
+        'cost': cost,
+        'currencyType': currencyType,
+        'amount': amount,
+      });
+
+      Navigator.pop(context); // إغلاق التحميل
+
+      if (result.data['success'] == true) {
+        // تحديث الأرقام بالشاشة لأن السيرفر حفظها خلاص
+        if (currencyType == 'cash') {
+          player.removeCash(cost, reason: "شراء من المتجر الأسود");
+        } else {
+          player.removeGold(cost);
+        }
+        player.addInventoryItem(itemId, amount);
+
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم شراء $itemName بنجاح 🤝', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('مرفوض من السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
+    }
   }
 
   Widget _buildGroupList(List<Map<String, dynamic>> groups) {
@@ -325,12 +368,16 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
     ];
 
     return Scaffold(
-      // 🟢 تم إزالة الصورة ووضع لون ثابت فخم ومريح للعين 🟢
-      backgroundColor: const Color(0xFF1E1E24),
-      body: SafeArea(
-        bottom: false,
-        child: Directionality(
-          textDirection: TextDirection.rtl,
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/ui/crime_bg.jpg'),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               const SizedBox(height: 5),
@@ -487,7 +534,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
         final bool isSpecial = item['type'] == 'special';
 
         return Card(
-          color: const Color(0xFF262630), // لون الكرت متناسق مع الخلفية
+          color: const Color(0xFF262630),
           margin: const EdgeInsets.only(bottom: 12),
           elevation: isSpecial ? 8 : 2,
           shadowColor: isSpecial ? (item['color'] as Color).withOpacity(0.5) : Colors.black,
@@ -524,26 +571,10 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
                     ),
                     onPressed: () {
                       if (!isConsumable && hasItem) return;
-                      bool canBuy = currency == 'cash' ? player.cash >= item['price'] : player.gold >= item['price'];
-                      if (canBuy) {
-                        Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                        player.buyItem(item['id'], item['price'], isConsumable: isConsumable, currency: currency);
-                        if (isSpecial) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('مبروك! حصلت على ${item['name']} 🌟 اذهب للتسليح لتجهيزه', style: const TextStyle(fontFamily: 'Changa')),
-                                backgroundColor: item['color'],
-                              )
-                          );
-                        }
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('رصيدك من الـ ${currency == 'cash' ? 'كاش' : 'ذهب'} غير كافٍ!', style: const TextStyle(fontFamily: 'Changa')),
-                              backgroundColor: Colors.red,
-                            )
-                        );
-                      }
+                      Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+
+                      // 🟢 هنا التغيير الوحيد: استخدمنا دالة السيرفر بدال الخصم المحلي
+                      _securePurchase(context, player, item['id'], item['price'], currency, 1, item['name']);
                     },
                     child: Text((!isConsumable && hasItem) ? 'مملوك' : 'شراء', style: const TextStyle(fontSize: 12, fontFamily: 'Changa', fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
@@ -618,6 +649,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
                           ),
                           onPressed: player.isVIP ? null : () {
                             Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                            // هنا نترك شراء الـ VIP يعتمد على طريقتك الأصلية
                             player.buyVIP(vip['days'], vip['price']);
                           },
                           child: const Text('تفعيل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'Changa')),

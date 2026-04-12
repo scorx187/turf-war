@@ -78,7 +78,6 @@ class TopBar extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Container(
-        // 🟢 تقليل مسافات الحواف لتصغير المساحة الكلية
         padding: EdgeInsets.only(top: safeTop, bottom: 4, left: 8, right: 8),
         decoration: BoxDecoration(
           color: Colors.black87,
@@ -88,7 +87,7 @@ class TopBar extends StatelessWidget {
             colorFilter: ColorFilter.mode(Colors.black45, BlendMode.darken),
           ),
           border: const Border(
-            bottom: BorderSide(color: Color(0xFF856024), width: 2.0), // تصغير سُمك الحدود
+            bottom: BorderSide(color: Color(0xFF856024), width: 2.0),
           ),
           boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(0.9), blurRadius: 10, offset: const Offset(0, 3)),
@@ -97,11 +96,9 @@ class TopBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // --- الصف الأول: صورة البروفايل، الاسم، الكاش، والذهب ---
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 🟢 تصغير صورة الزعيم من 50 إلى 40
                 Container(
                   width: 40,
                   height: 40,
@@ -130,7 +127,7 @@ class TopBar extends StatelessWidget {
                         : const Icon(Icons.person, color: Colors.white70, size: 24),
                   ),
                 ),
-                const SizedBox(width: 8), // تصغير المسافة
+                const SizedBox(width: 8),
 
                 Expanded(
                   child: Row(
@@ -147,7 +144,7 @@ class TopBar extends StatelessWidget {
                                   displayName,
                                   style: const TextStyle(
                                     fontFamily: 'Changa',
-                                    fontSize: 14, // 🟢 تصغير خط الاسم
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
                                     shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
@@ -159,7 +156,7 @@ class TopBar extends StatelessWidget {
                               const SizedBox(width: 3),
                               Image.asset(
                                 'assets/images/icons/vip.png',
-                                height: 14, // 🟢 تصغير أيقونة VIP
+                                height: 14,
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) => const Icon(Icons.stars, color: Colors.amber, size: 14),
                               ),
@@ -167,10 +164,8 @@ class TopBar extends StatelessWidget {
                           ],
                         ),
                       ),
+                      const SizedBox(width: 6),
 
-                      const SizedBox(width: 6), // تقليل مسافة المنتصف
-
-                      // 🟢 تصغير أزرار الكاش والذهب
                       _buildTopUpResource(
                           context: context,
                           iconPath: 'assets/images/icons/cash.png',
@@ -200,29 +195,27 @@ class TopBar extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 6), // تصغير المسافة بين الصفوف
+            const SizedBox(height: 6),
 
-            // --- الصف الثاني: الموارد (تم تصغير المربعات والنصوص) ---
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildResourceChip('الصحة', 'assets/images/icons/health.png', '${_formatCompact(health)}/${_formatCompact(maxHealth)}', progress: hpProgress, barColor: Colors.redAccent, totalSeconds: hpSeconds)),
+                Expanded(child: _buildResourceChip('الصحة', 'assets/images/icons/health.png', health, maxHealth, progress: hpProgress, barColor: Colors.redAccent, totalSeconds: hpSeconds)),
                 const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('الطاقة', 'assets/images/icons/energy.png', '${_formatCompact(energy)}/${_formatCompact(maxEnergy)}', progress: enProgress, barColor: Colors.lightBlueAccent, totalSeconds: enSeconds)),
+                Expanded(child: _buildResourceChip('الطاقة', 'assets/images/icons/energy.png', energy, maxEnergy, progress: enProgress, barColor: Colors.lightBlueAccent, totalSeconds: enSeconds)),
                 const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('الشجاعة', 'assets/images/icons/courage.png', '${_formatCompact(courage)}/${_formatCompact(maxCourage)}', progress: crProgress, barColor: Colors.greenAccent, totalSeconds: crSeconds)),
+                Expanded(child: _buildResourceChip('الشجاعة', 'assets/images/icons/courage.png', courage, maxCourage, progress: crProgress, barColor: Colors.greenAccent, totalSeconds: crSeconds)),
                 const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('الشهامة', 'assets/images/icons/prestige.png', '${_formatCompact(prestige)}/${_formatCompact(maxPrestige)}', progress: prProgress, barColor: Colors.deepOrangeAccent, totalSeconds: prSeconds)),
+                Expanded(child: _buildResourceChip('الشهامة', 'assets/images/icons/prestige.png', prestige, maxPrestige, progress: prProgress, barColor: Colors.deepOrangeAccent, totalSeconds: prSeconds)),
               ],
             ),
-            const SizedBox(height: 2), // تصغير المسافة
+            const SizedBox(height: 2),
 
-            // --- الصف الثالث: خط اللفل ---
             Row(
               children: [
                 Image.asset(
                   'assets/images/icons/lv.png',
-                  width: 18, // 🟢 تصغير نجمة اللفل
+                  width: 18,
                   height: 18,
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) => const Icon(Icons.star, color: Colors.amber, size: 18),
@@ -234,7 +227,7 @@ class TopBar extends StatelessWidget {
                     '$level',
                     style: const TextStyle(
                       fontFamily: 'Changa',
-                      fontSize: 15, // 🟢 تصغير رقم اللفل
+                      fontSize: 15,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFFE2C275),
                       shadows: [Shadow(color: Colors.black, blurRadius: 4)],
@@ -245,7 +238,7 @@ class TopBar extends StatelessWidget {
 
                 Expanded(
                   child: Container(
-                    height: 14, // 🟢 تصغير ارتفاع شريط اللفل
+                    height: 14,
                     decoration: BoxDecoration(
                       color: Colors.black,
                       borderRadius: BorderRadius.circular(8),
@@ -275,17 +268,16 @@ class TopBar extends StatelessWidget {
                         Center(
                           child: Padding(
                             padding: const EdgeInsets.only(top: 1.0),
-                            child: Text(
-                              '${_formatCompact(currentXp)} / ${_formatCompact(maxXp)}',
-                              style: const TextStyle(
-                                fontFamily: 'Changa',
-                                fontSize: 9, // 🟢 تصغير خط الـ XP
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                height: 1.0,
-                                shadows: [
-                                  Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
-                                  Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1)),
+                            child: Directionality(
+                              // 🟢 ترتيب خط الخبرة ليكون (حالي / ماكس)
+                              textDirection: TextDirection.rtl,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(_formatCompact(currentXp), style: const TextStyle(fontFamily: 'Changa', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1))])),
+                                  const Text(' / ', style: TextStyle(fontFamily: 'Changa', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1))])),
+                                  Text(_formatCompact(maxXp), style: const TextStyle(fontFamily: 'Changa', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1))])),
                                 ],
                               ),
                             ),
@@ -303,7 +295,6 @@ class TopBar extends StatelessWidget {
     );
   }
 
-  // 🟢 تم تصغير كل القيم هنا بشكل متناسق 🟢
   Widget _buildTopUpResource({required BuildContext context, required String iconPath, required String value, required String bgImagePath, required String plusImagePath, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -311,8 +302,8 @@ class TopBar extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: 80, // تم التصغير من 95
-            height: 24, // تم التصغير من 28
+            width: 80,
+            height: 24,
             padding: const EdgeInsets.only(right: 4, left: 8, top: 2, bottom: 2),
             decoration: BoxDecoration(
               image: DecorationImage(image: AssetImage(bgImagePath), fit: BoxFit.fill),
@@ -349,8 +340,8 @@ class TopBar extends StatelessWidget {
     );
   }
 
-  // 🟢 تم تصغير الأيقونات والنصوص وأشرطة الموارد 🟢
-  Widget _buildResourceChip(String title, String imagePath, String value, {double? progress, Color? barColor, int totalSeconds = 0}) {
+// 🟢 التوب بار: توحيد لون الأرقام (اليمين واليسار) لتكون باللون الأبيض
+  Widget _buildResourceChip(String title, String imagePath, int currentVal, int maxVal, {double? progress, Color? barColor, int totalSeconds = 0}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -383,14 +374,27 @@ class TopBar extends StatelessWidget {
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(value, style: const TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
+                  child: Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // 🟢 الرقم الحالي أبيض
+                        Text(_formatCompact(currentVal), style: const TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
+                        const Text('/', style: TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
+                        // 🟢 الماكس صار أبيض أيضاً
+                        Text(_formatCompact(maxVal), style: const TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               if (progress != null && barColor != null) ...[
                 const SizedBox(height: 3),
                 Container(
                   width: double.infinity,
-                  height: 2.5, // تصغير شريط التعبئة
+                  height: 2.5,
                   alignment: Alignment.centerRight,
                   decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(2)),
                   child: FractionallySizedBox(
@@ -410,7 +414,7 @@ class TopBar extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 16, // مساحة العداد الزمني صغرت
+          height: 16,
           child: StatTimerText(initialSeconds: totalSeconds),
         ),
       ],
@@ -493,7 +497,7 @@ class _StatTimerTextState extends State<StatTimerText> {
           timeText,
           style: const TextStyle(
               color: Colors.white,
-              fontSize: 10, // 🟢 تصغير خط العداد الزمني
+              fontSize: 10,
               fontWeight: FontWeight.bold,
               fontFamily: 'Changa',
               letterSpacing: 0.5,

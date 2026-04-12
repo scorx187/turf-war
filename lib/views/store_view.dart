@@ -6,7 +6,7 @@ import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 
 class StoreView extends StatelessWidget {
-  final int initialTab; // 0 للكاش، 1 للذهب
+  final int initialTab;
 
   const StoreView({super.key, this.initialTab = 0});
 
@@ -47,11 +47,9 @@ class StoreView extends StatelessWidget {
   }
 }
 
-// ----------------- قسم الكاش -----------------
 class _CashStoreTab extends StatelessWidget {
   const _CashStoreTab();
 
-  // 🟢 ترتيب من الأرخص للأغلى مع استخدام صورة الكاش الأصلية
   final List<Map<String, dynamic>> cashPackages = const [
     {'amount': 25000, 'price': 5, 'bonus': null, 'image': 'assets/images/icons/cash.png'},
     {'amount': 120000, 'price': 19, 'bonus': '+10% كاش إضافي', 'image': 'assets/images/icons/cash.png'},
@@ -63,7 +61,7 @@ class _CashStoreTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder( // 🟢 تم التغيير إلى ListView للقائمة الطولية
+    return ListView.builder(
       padding: const EdgeInsets.all(15),
       itemCount: cashPackages.length,
       itemBuilder: (context, index) {
@@ -80,11 +78,9 @@ class _CashStoreTab extends StatelessWidget {
   }
 }
 
-// ----------------- قسم الذهب -----------------
 class _GoldStoreTab extends StatelessWidget {
   const _GoldStoreTab();
 
-  // 🟢 ترتيب من الأرخص للأغلى مع استخدام صورة الذهب الأصلية
   final List<Map<String, dynamic>> goldPackages = const [
     {'amount': 50, 'price': 5, 'bonus': null, 'image': 'assets/images/icons/gold.png'},
     {'amount': 250, 'price': 19, 'bonus': '+15% ذهب إضافي', 'image': 'assets/images/icons/gold.png'},
@@ -96,7 +92,7 @@ class _GoldStoreTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder( // 🟢 تم التغيير إلى ListView للقائمة الطولية
+    return ListView.builder(
       padding: const EdgeInsets.all(15),
       itemCount: goldPackages.length,
       itemBuilder: (context, index) {
@@ -113,7 +109,6 @@ class _GoldStoreTab extends StatelessWidget {
   }
 }
 
-// ----------------- تصميم بطاقة الشراء (أفقية وعريضة) -----------------
 class _StoreCard extends StatelessWidget {
   final bool isGold;
   final int amount;
@@ -148,21 +143,21 @@ class _StoreCard extends StatelessWidget {
       ),
     );
 
-    // محاكاة الاتصال بالمتجر (تأخير ثانيتين)
+    // محاكاة الشراء الحقيقي IAP (سيتم استبداله مستقبلاً بـ In-App Purchases)
     Future.delayed(const Duration(seconds: 2), () {
       if (context.mounted) {
-        Navigator.pop(context); // إغلاق دائرة التحميل
+        Navigator.pop(context);
 
         final player = Provider.of<PlayerProvider>(context, listen: false);
         if (isGold) {
-          player.addGold(amount);
+          player.addGold(amount); // هنا الإضافة مباشرة لأنها فلوس حقيقية
         } else {
-          player.addCash(amount, reason: 'شراء من المتجر 🛒');
+          player.addCash(amount, reason: 'شحن رصيد 🛒');
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تمت عملية الشراء بنجاح! حصلت على ${_formatWithCommas(amount)} ${isGold ? 'ذهب 🪙' : 'كاش 💵'}', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+            content: Text('شحن ناجح! تم إضافة ${_formatWithCommas(amount)} ${isGold ? 'ذهب 🪙' : 'كاش 💵'} لمحفظتك', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
             backgroundColor: Colors.green,
           ),
         );
@@ -176,7 +171,7 @@ class _StoreCard extends StatelessWidget {
     Color bgColor = isGold ? Colors.orange.withOpacity(0.05) : Colors.green.withOpacity(0.05);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 15), // مسافة بين الباكجات
+      margin: const EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(15),
@@ -190,7 +185,6 @@ class _StoreCard extends StatelessWidget {
             padding: const EdgeInsets.all(15),
             child: Row(
               children: [
-                // 1. الأيقونة (الصورة الأصلية من ملفات اللعبة)
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -208,7 +202,6 @@ class _StoreCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 15),
 
-                // 2. التفاصيل (الكمية والبونص)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,7 +226,6 @@ class _StoreCard extends StatelessWidget {
                   ),
                 ),
 
-                // 3. زر الشراء
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: mainColor,
@@ -252,7 +244,6 @@ class _StoreCard extends StatelessWidget {
             ),
           ),
 
-          // شريط "الأفضل" للباكج الأخير
           if (bonus != null && bonus!.contains('الأفضل'))
             Positioned(
               top: -10,

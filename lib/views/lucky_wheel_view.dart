@@ -7,6 +7,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../providers/audio_provider.dart';
 import '../providers/player_provider.dart';
 import 'player_profile_view.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'dart:math';
 import 'dart:async';
 
@@ -66,83 +67,106 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
 
     setState(() {
       _isSpinning = true;
-      _statusText = "🎰 جاري تدوير العجلة...";
+      _statusText = "🎰 جاري استدعاء السيرفر...";
     });
 
-    player.removeGold(cost);
-    for(int i = 0; i < times; i++) {
-      player.incrementLuckyWheelSpins();
-    }
+    try {
+      // 🟢 1. استدعاء السيرفر لضمان الأمان
+      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('spinLuckyWheel');
+      final result = await callable.call({
+        'uid': player.uid,
+        'times': times,
+      });
 
-    List<Map<String, dynamic>> wonPrizes = [];
-    for(int i = 0; i < times; i++) {
-      double r = Random().nextDouble();
-      double cumulative = 0;
-      Map<String, dynamic>? selected;
-      for (var p in prizes) {
-        cumulative += p['chance'];
-        if (r <= cumulative) {
-          selected = p;
-          break;
+      if (result.data['success'] == true) {
+        setState(() {
+          _statusText = "🎰 جاري تدوير العجلة...";
+        });
+
+        // 🟢 2. تحويل البيانات القادمة من السيرفر إلى الجوائز
+        List<dynamic> serverPrizes = result.data['wonPrizes'];
+        List<Map<String, dynamic>> wonPrizes = [];
+
+        for (var sp in serverPrizes) {
+          wonPrizes.add({
+            'id': sp['id'],
+            'name': sp['name'],
+            'color': Color(sp['colorValue']),
+            'icon': prizes.firstWhere((p) => p['id'] == sp['id'])['icon'], // جلب الأيقونة محلياً
+          });
+        }
+
+        // 🟢 3. تحديث الأرقام بالشاشة محلياً كمنظر فقط (السيرفر خصم وحفظ كل شيء)
+        player.removeGold(cost);
+        for(int i = 0; i < times; i++) {
+          player.incrementLuckyWheelSpins();
+        }
+        for (var p in wonPrizes) {
+          if (p['id'] == 'cash_10m') player.addCash(10000000, reason: "عجلة الحظ");
+          else if (p['id'] == 'cash_50m') player.addCash(50000000, reason: "عجلة الحظ");
+          else if (p['id'] == 'gold_600') player.addGold(600);
+          else if (p['id'] == 'perk_point') player.addBonusPerkPoint(1);
+          else player.addInventoryItem(p['id'], 1);
+        }
+
+        // 🟢 4. تشغيل الأنيميشن المرئي للعجلة
+        int targetIndex = prizes.indexWhere((p) => p['id'] == wonPrizes.last['id']);
+        int totalSteps = (12 * 3) + targetIndex - _currentIndex;
+        if (totalSteps < 12) totalSteps += 12;
+
+        int delay = 40;
+        for(int i = 0; i < totalSteps; i++) {
+          await Future.delayed(Duration(milliseconds: delay));
+          if (!mounted) return;
+          setState(() {
+            _currentIndex = (_currentIndex + 1) % 12;
+          });
+
+          if (totalSteps - i < 15) delay += 15;
+          if (totalSteps - i < 5) delay += 40;
+        }
+
+        // 🟢 5. حفظ الفائزين في الـ Feed (يتم محلياً للعرض السريع)
+        WriteBatch batch = FirebaseFirestore.instance.batch();
+        for (var p in wonPrizes) {
+          var docRef = FirebaseFirestore.instance.collection('wheel_winners').doc();
+          batch.set(docRef, {
+            'uid': player.uid,
+            'playerName': player.playerName,
+            'profilePicUrl': player.profilePicUrl,
+            'isVIP': player.isVIP,
+            'prizeName': p['name'],
+            'prizeColor': p['color'].value,
+            'timestamp': FieldValue.serverTimestamp(),
+          });
+        }
+        await batch.commit();
+
+        audio.playEffect('click.mp3');
+
+        if (mounted) {
+          setState(() {
+            _isSpinning = false;
+            _statusText = "";
+          });
+
+          if (times == 1) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text("مبروك! حصلت على ${wonPrizes.first['name']}!", style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.green,
+            ));
+          } else {
+            _show10xRewardsDialog(wonPrizes);
+          }
         }
       }
-      wonPrizes.add(selected ?? prizes.last);
-    }
-
-    int targetIndex = prizes.indexOf(wonPrizes.last);
-    int totalSteps = (12 * 3) + targetIndex - _currentIndex;
-    if (totalSteps < 12) totalSteps += 12;
-
-    int delay = 40;
-    for(int i = 0; i < totalSteps; i++) {
-      await Future.delayed(Duration(milliseconds: delay));
-      if (!mounted) return;
-      setState(() {
-        _currentIndex = (_currentIndex + 1) % 12;
-      });
-
-      if (totalSteps - i < 15) delay += 15;
-      if (totalSteps - i < 5) delay += 40;
-    }
-
-    WriteBatch batch = FirebaseFirestore.instance.batch();
-    for (var p in wonPrizes) {
-      var docRef = FirebaseFirestore.instance.collection('wheel_winners').doc();
-      batch.set(docRef, {
-        'uid': player.uid,
-        'playerName': player.playerName,
-        'profilePicUrl': player.profilePicUrl,
-        'isVIP': player.isVIP,
-        'prizeName': p['name'],
-        'prizeColor': p['color'].value,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
-
-    for (var p in wonPrizes) {
-      if (p['id'] == 'cash_10m') player.addCash(10000000, reason: "عجلة الحظ");
-      else if (p['id'] == 'cash_50m') player.addCash(50000000, reason: "عجلة الحظ");
-      else if (p['id'] == 'gold_600') player.addGold(600);
-      else if (p['id'] == 'perk_point') player.addBonusPerkPoint(1);
-      else player.addInventoryItem(p['id'], 1); // الـ VIP بيروح المخزن من هنا تلقائياً
-    }
-
-    audio.playEffect('click.mp3');
-
-    if (mounted) {
-      setState(() {
-        _isSpinning = false;
-        _statusText = "";
-      });
-
-      if (times == 1) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("مبروك! حصلت على ${wonPrizes.first['name']}!", style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.green,
-        ));
-      } else {
-        _show10xRewardsDialog(wonPrizes);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSpinning = false;
+          _statusText = "";
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('مرفوض من السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
       }
     }
   }

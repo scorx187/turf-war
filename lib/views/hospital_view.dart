@@ -3,8 +3,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_functions/cloud_functions.dart'; // 🟢 مكتبة الكلاود فنكشن
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class HospitalView extends StatefulWidget {
   final VoidCallback? onBack;
@@ -31,13 +33,16 @@ class _HospitalViewState extends State<HospitalView> {
         final player = Provider.of<PlayerProvider>(context, listen: false);
 
         if (player.isHospitalized && player.hospitalReleaseTime != null) {
-          final diff = player.hospitalReleaseTime!.difference(DateTime.now()).inSeconds;
+          // 🟢 تعديل أمني: استخدام secureNow لمزامنة الوقت مع السيرفر
+          final diff = player.hospitalReleaseTime!.difference(player.secureNow).inSeconds;
           setState(() {
             _secondsLeft = diff > 0 ? diff : 0;
           });
 
           if (_secondsLeft <= 0) {
             timer.cancel();
+            // خروج تلقائي إذا انتهى الوقت فعلاً
+            player.releaseFromHospital();
           }
         } else {
           setState(() {
@@ -55,12 +60,60 @@ class _HospitalViewState extends State<HospitalView> {
     super.dispose();
   }
 
+  // 🟢 الدالة الآمنة للعلاج عبر السيرفر
+  Future<void> _secureHeal(PlayerProvider player, AudioProvider audio, String healType) async {
+    int missingHealth = player.maxHealth - player.health;
+    int healCost = player.isVIP ? (missingHealth * 0.8).toInt() : missingHealth;
+
+    // حماية شكلية سريعة عشان ما نرسل طلب خاسر للسيرفر
+    if (healType == 'cash' && player.cash < healCost) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا تملك كاش كافي!', style: TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
+      return;
+    } else if (healType == 'medkit' && !player.inventory.containsKey('medkit') && player.cash < 2000) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا تملك كاش كافي لشراء حقيبة!', style: TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
+      return;
+    }
+
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.redAccent)));
+
+    try {
+      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('healPlayer');
+      final result = await callable.call({
+        'uid': player.uid,
+        'healType': healType, // 'cash', 'vip', 'medkit'
+      });
+
+      Navigator.pop(context);
+
+      if (result.data['success'] == true) {
+        audio.playEffect('click.mp3');
+        // السيرفر عالجه وخصم الفلوس، هنا نُحدث الشاشة فقط لتنعكس الأرقام فوراً
+        player.setHealth(player.maxHealth);
+        if (player.isHospitalized) player.releaseFromHospital();
+
+        if (healType == 'cash') {
+          player.removeCash(healCost, reason: 'علاج بالمستشفى');
+        } else if (healType == 'medkit') {
+          if (player.inventory.containsKey('medkit') && player.inventory['medkit']! > 0) {
+            player.inventory['medkit'] = player.inventory['medkit']! - 1;
+            if (player.inventory['medkit'] == 0) player.inventory.remove('medkit');
+          } else {
+            player.removeCash(2000, reason: 'شراء حقيبة طبية');
+          }
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم العلاج بنجاح! 🩹', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('مرفوض من السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
     final audio = Provider.of<AudioProvider>(context, listen: false);
-
-    // 🟢 تم إزالة كود "الطرد التلقائي" من هنا لكي يتمكن اللاعب من البقاء في المستشفى 🟢
 
     int missingHealth = player.maxHealth - player.health;
     int healCost = player.isVIP ? (missingHealth * 0.8).toInt() : missingHealth;
@@ -106,7 +159,8 @@ class _HospitalViewState extends State<HospitalView> {
               ),
               const SizedBox(height: 40),
 
-              if (player.isHospitalized) ...[
+              // 🟢 زر الدفع بالكاش
+              if (player.health < player.maxHealth) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: ElevatedButton.icon(
@@ -116,24 +170,19 @@ class _HospitalViewState extends State<HospitalView> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: player.cash >= healCost
-                        ? () {
-                      audio.playEffect('click.mp3');
-                      player.quickHealHospital();
-                    }
+                        ? () => _secureHeal(player, audio, 'cash')
                         : null,
                     icon: const Icon(Icons.attach_money, color: Colors.white),
                     label: Text(
-                      'خروج فوري (علاج كامل)\nالتكلفة: \$$healCost',
+                      'علاج كامل\nالتكلفة: \$$healCost',
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
                 const SizedBox(height: 15),
-              ],
 
-              // 🟢 زر العلاج للمصابين إصابات طفيفة (غير منومين لكن صحتهم ناقصة)
-              if (player.health < player.maxHealth)
+                // 🟢 زر العلاج المجاني للـ VIP
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: ElevatedButton.icon(
@@ -143,22 +192,19 @@ class _HospitalViewState extends State<HospitalView> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: player.isVIP
-                        ? () {
-                      audio.playEffect('click.mp3');
-                      player.quickHealHospital();
-                    }
+                        ? () => _secureHeal(player, audio, 'vip')
                         : null,
                     icon: Icon(Icons.workspace_premium, color: player.isVIP ? Colors.black : Colors.white),
                     label: Text(
-                      player.isVIP ? 'علاج VIP مجاني (قريباً)' : 'علاج مجاني (فقط للـ VIP)',
+                      player.isVIP ? 'علاج VIP مجاني' : 'علاج مجاني (فقط للـ VIP)',
                       style: TextStyle(color: player.isVIP ? Colors.black : Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
 
-              const SizedBox(height: 15),
+                const SizedBox(height: 15),
 
-              if (player.isHospitalized || player.health < player.maxHealth)
+                // 🟢 زر استخدام/شراء الحقيبة الطبية
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: ElevatedButton.icon(
@@ -167,18 +213,7 @@ class _HospitalViewState extends State<HospitalView> {
                       minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: () {
-                      if (player.inventory.containsKey('medkit')) {
-                        audio.playEffect('click.mp3');
-                        player.useItem('medkit');
-                      } else if (player.cash >= 2000) {
-                        audio.playEffect('click.mp3');
-                        player.buyItem('medkit', 2000);
-                        player.useItem('medkit');
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا تملك كاش كافي لشراء حقيبة!', style: TextStyle(fontFamily: 'Changa'))));
-                      }
-                    },
+                    onPressed: () => _secureHeal(player, audio, 'medkit'),
                     icon: const Icon(Icons.medical_services, color: Colors.white),
                     label: Text(
                       player.inventory.containsKey('medkit')
@@ -188,8 +223,9 @@ class _HospitalViewState extends State<HospitalView> {
                     ),
                   ),
                 ),
+              ],
 
-              if (!player.isHospitalized && widget.onBack != null) ...[
+              if (!player.isHospitalized && widget.onBack != null && player.health == player.maxHealth) ...[
                 const SizedBox(height: 30),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(

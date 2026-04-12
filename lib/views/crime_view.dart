@@ -285,16 +285,22 @@ class _CrimeViewState extends State<CrimeView> {
         'finalFailChance': finalFailChance,
         'minCash': crime['minCash'],
         'maxCash': crime['maxCash'],
-        'xp': crime['xp']
+        'xp': crime['xp'],
+        'maxCourage': player.maxCourage, // 🟢 إرسال الحد الأقصى للشجاعة للسيرفر
+        'maxEnergy': player.maxEnergy,   // 🟢 إرسال الحد الأقصى للطاقة للسيرفر
       });
 
       final data = result.data;
       if (data['success'] == true) {
+        // 🟢 خصم الشجاعة محلياً للعرض الفوري في التوب بار (السيرفر خصمها فعلياً وحفظها)
+        if (player.courage >= reqCourage) {
+          player.setCourage(player.courage - reqCourage);
+        }
+
         player.increaseHeat(crime['heat']);
         if (player.equippedCrimeToolId != null) { double durabilityLoss = 5.0; player.reduceDurability(player.equippedCrimeToolId, durabilityLoss); }
         _checkRandomEvent(context, player);
 
-        // 🟢 هنا زر الإعادة يخليها تنعاد مباشرة
         widget.onSuccess(data['reward'], crime['id'], 0, () {
           _handleCrimeClick(context, player, crime, isUnlocked, finalFailChance);
         });
@@ -303,7 +309,15 @@ class _CrimeViewState extends State<CrimeView> {
         widget.onFailure(data['prisonMinutes'], crime['name'], data['bailCost']);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('السيرفر يقول: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa', fontSize: 12)), backgroundColor: Colors.redAccent, duration: const Duration(seconds: 10)));
+      // 🟢 ذكاء التعامل مع رسائل السيرفر
+      String errorMsg = e.toString();
+      if (errorMsg.contains('شجاعة')) {
+        QuickRecoveryDialog.show(context, 'courage', reqCourage);
+      } else if (errorMsg.contains('السجن')) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أنت مسجون حالياً!', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.redAccent));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $errorMsg', style: const TextStyle(fontFamily: 'Changa', fontSize: 12)), backgroundColor: Colors.redAccent, duration: const Duration(seconds: 4)));
+      }
     } finally {
       if (mounted) setState(() { _isLoadingCrime = false; });
     }

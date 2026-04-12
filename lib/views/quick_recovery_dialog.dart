@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_functions/cloud_functions.dart'; // 🟢 مكتبة الكلاود
+import 'package:cloud_functions/cloud_functions.dart';
 import '../providers/player_provider.dart';
 
 class QuickRecoveryDialog extends StatefulWidget {
@@ -21,7 +21,7 @@ class QuickRecoveryDialog extends StatefulWidget {
   static void show(BuildContext context, String type, int missingAmount) {
     showDialog(
       context: context,
-      barrierDismissible: false, // نمنع الإغلاق أثناء التحميل
+      barrierDismissible: false,
       builder: (context) => QuickRecoveryDialog(type: type, missingAmount: missingAmount),
     );
   }
@@ -30,7 +30,7 @@ class QuickRecoveryDialog extends StatefulWidget {
 class _QuickRecoveryDialogState extends State<QuickRecoveryDialog> {
   bool _isLoading = false;
 
-  // 🟢 الدالة الجديدة للتواصل مع السيرفر
+  // 🟢 الاتصال الفعلي بالسيرفر لمنع القلتشات
   Future<void> _recover(PlayerProvider player, bool hasItem, int cost) async {
     setState(() { _isLoading = true; });
 
@@ -39,33 +39,33 @@ class _QuickRecoveryDialogState extends State<QuickRecoveryDialog> {
       final result = await callable.call({
         'uid': player.uid,
         'type': widget.type,
+        'maxCourage': player.maxCourage, // نرسل الحد الأقصى للسيرفر
+        'maxEnergy': player.maxEnergy,
       });
 
       if (result.data['success'] == true) {
-        // تحديث الأرقام بالشاشة محلياً كمنظر فقط (السيرفر خلاص حفظها)
+        // تحديث الأرقام بالشاشة محلياً كمنظر (السيرفر خلاص حفظها)
         if (widget.type == 'energy') {
-          player.setEnergy(100);
+          player.setEnergy(player.maxEnergy);
         } else {
-          player.setCourage(100);
+          player.setCourage(player.maxCourage);
         }
 
         if (hasItem) {
           String itemId = widget.type == 'energy' ? 'steroids' : 'coffee';
-          player.useItem(itemId);
+          if (player.inventory.containsKey(itemId) && player.inventory[itemId]! > 0) {
+            player.inventory[itemId] = player.inventory[itemId]! - 1;
+          }
         } else {
           player.removeGold(cost);
         }
 
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم الاستعادة بنجاح! 🚀', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green)
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الاستعادة بنجاح! 🚀', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
       }
     } catch (e) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red)
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
     }
   }
 
@@ -76,7 +76,7 @@ class _QuickRecoveryDialogState extends State<QuickRecoveryDialog> {
     final String title = isEnergy ? "طاقة غير كافية! ⚡" : "شجاعة غير كافية! 🛡️";
     final String itemId = isEnergy ? 'steroids' : 'coffee';
     final String itemName = isEnergy ? 'حقنة منشط' : 'قهوة مركزة';
-    final int cost = 50;
+    final int cost = 50; // 🟢 السعر 50 ذهب
     final int ownedCount = player.inventory[itemId] ?? 0;
 
     return AlertDialog(
@@ -121,8 +121,23 @@ class _QuickRecoveryDialogState extends State<QuickRecoveryDialog> {
         else
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            onPressed: () => _recover(player, false, cost),
-            child: Text("شراء واستخدام ($cost ذهب)", style: const TextStyle(color: Colors.black, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 13)),
+            onPressed: () {
+              if (player.gold >= cost) {
+                _recover(player, false, cost);
+              } else {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا تملك ذهب كافي! ❌', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
+              }
+            },
+            // 🟢 الزر الفخم مع أيقونة الذهب
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("شراء واستخدام (50 ", style: TextStyle(color: Colors.black, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 13)),
+                Image.asset('assets/images/icons/gold.png', width: 16, height: 16),
+                const Text(")", style: TextStyle(color: Colors.black, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
+            ),
           ),
         TextButton(
           onPressed: () => Navigator.pop(context),
