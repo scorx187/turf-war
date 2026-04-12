@@ -155,7 +155,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   final TransformationController _mapTransformationController = TransformationController();
 
-  // 🟢 المتغير لتخزين الخريطة ومنع إعادة رسمها
   Widget? _cachedMapWidget;
 
   final List<Map<String, dynamic>> locations = [
@@ -238,6 +237,89 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
+  // 🟢 نافذة الغنائم والنجاح المنبثقة
+  void _showCrimeSuccessPopup(int reward, String crimeId, int xpGained, bool gotCar) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1D),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFC5A059), width: 2),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.3), blurRadius: 20, spreadRadius: 2)
+                  ]
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.greenAccent, size: 60),
+                  const SizedBox(height: 10),
+                  const Text('تمت العملية بنجاح!', style: TextStyle(fontFamily: 'Changa', fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildPopupRewardItem('كاش', '+\$${_formatNumber(reward)}', Colors.green, 'assets/images/icons/cash.png'),
+                      _buildPopupRewardItem('خبرة', '+$xpGained XP', Colors.blue, 'assets/images/icons/lv.png'),
+                    ],
+                  ),
+                  if (gotCar) ...[
+                    const SizedBox(height: 20),
+                    _buildPopupRewardItem('غنيمة إضافية', 'سيارة مسروقة!', Colors.orange, 'assets/images/icons/inventory.png'),
+                  ],
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFC5A059),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10)
+                    ),
+                    onPressed: () {
+                      Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                      Navigator.pop(context);
+                    },
+                    child: const Text('استمرار', style: TextStyle(fontFamily: 'Changa', fontSize: 18, color: Colors.black, fontWeight: FontWeight.bold)),
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return Transform.scale(
+          scale: anim1.value,
+          child: child,
+        );
+      },
+    );
+  }
+
+  String _formatNumber(int number) {
+    return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+  }
+
+  Widget _buildPopupRewardItem(String title, String value, Color color, String iconPath) {
+    return Column(
+      children: [
+        Image.asset(iconPath, width: 40, height: 40),
+        const SizedBox(height: 5),
+        Text(title, style: const TextStyle(fontFamily: 'Changa', color: Colors.white70, fontSize: 14)),
+        Text(value, style: TextStyle(fontFamily: 'Changa', color: color, fontSize: 18, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
   void _showQuickMenuDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -271,8 +353,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 الحل الجديد هنا: نطلب من الشاشة الاستماع *فقط* لمتغير isLoading
-    // وبذلك الشاشة تعيد بناء نفسها عند انتهاء التحميل، ثم تتجاهل باقي التحديثات!
     bool isDataLoading = context.select<PlayerProvider, bool>((player) => player.isLoading);
 
     if (isDataLoading || !_visualLoadingComplete) {
@@ -290,7 +370,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         top: false,
         child: Column(
           children: [
-            // 🟢 استخدام Consumer حول الأجزاء التي تتغير فقط (البيانات العلوية)
             Consumer<PlayerProvider>(
                 builder: (context, player, child) {
                   return TopBar(
@@ -314,7 +393,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         ),
       ),
 
-      // 🟢 تغليف النافبار السفلي بـ Consumer للتحكم في ظهوره
       bottomNavigationBar: Consumer<PlayerProvider>(
           builder: (context, player, child) {
             if ((_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5) {
@@ -358,7 +436,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     return _buildMainContent(player);
   }
 
-  // 🟢 دالة لفصل وتخزين الخريطة ومنع بناءها أكثر من مرة
   Widget _getMapLayer() {
     _cachedMapWidget ??= LayoutBuilder(
       builder: (context, constraints) {
@@ -436,13 +513,23 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         onSuccess: (reward, crimeId, energyUsed) {
           final audio = Provider.of<AudioProvider>(context, listen: false);
           audio.playEffect('click.mp3');
+
+          // 🟢 الاستدعاء الصامت لزيادة الموارد بدون SnackBar القديم
           player.addCash(reward, reason: "نجاح مهمة إجرامية");
+
+          int xpGained = 15; // يمكنك جعلها متغيرة بناءً على الجريمة لاحقاً
+          player.addCrimeXP(xpGained);
+
+          bool gotCar = false;
           if (crimeId.startsWith('cat_3_') || crimeId.startsWith('cat_6_')) {
             if(Random().nextDouble() < 0.3) {
               player.addInventoryItem('stolen_car', 1);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حصلت على سيارة مسروقة! أرسلها للتشليح 🚗🔧', style: TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.green));
+              gotCar = true;
             }
           }
+
+          // 🟢 استدعاء النافذة المنبثقة للغنائم
+          _showCrimeSuccessPopup(reward, crimeId, xpGained, gotCar);
         },
         onFailure: (minutes, crimeName, bailCost) {
           final audio = Provider.of<AudioProvider>(context, listen: false);
@@ -484,7 +571,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     return Stack(
       children: [
         Positioned.fill(
-          child: _getMapLayer(), // 🟢 الخريطة المخزنة هنا، ولن تُبنى مرة أخرى!
+          child: _getMapLayer(),
         ),
         Positioned(
           top: 15,

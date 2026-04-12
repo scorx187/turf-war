@@ -15,7 +15,6 @@ part 'player_combat_logic.dart';
 part 'player_inventory_logic.dart';
 part 'player_social_logic.dart';
 
-// 🟢 دمجنا الملفات الجديدة هنا
 part 'player_titles_logic.dart';
 part 'player_stats_logic.dart';
 
@@ -39,6 +38,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
+  bool _isInitialDataLoaded = false; // 🟢 لحل مشكلة قفز الأرقام
 
   int _bailPrice = 1500;
   int get bailPrice => _bailPrice;
@@ -179,6 +179,10 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return _lastServerTime!.add(_sessionTimer.elapsed);
   }
 
+  // 🟢 عدادات تنازلية للشجاعة والطاقة لتعمل بثبات
+  int get secondsToNextCourage => _courage >= maxCourage ? 0 : 4 - (_sessionTimer.elapsed.inSeconds % 4);
+  int get secondsToNextEnergy => _energy >= maxEnergy ? 0 : 8 - (_sessionTimer.elapsed.inSeconds % 8);
+
   double get baseStrength => _baseStrength;
   double get baseDefense => _baseDefense;
   double get baseSkill => _baseSkill;
@@ -275,12 +279,11 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _listenToGameConfig();
   }
 
+  // 🟢 تخفيف استهلاك السيرفر وحفظ البيانات فقط عند الخروج من اللعبة أو وضعها بالخلفية
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _uid != null && !_isLoading) {
-      _firestore.collection('players').doc(_uid).update({
-        'lastUpdate': FieldValue.serverTimestamp()
-      }).catchError((e) => debugPrint("Error updating time: $e"));
+    if ((state == AppLifecycleState.paused || state == AppLifecycleState.inactive) && _uid != null && !_isLoading) {
+      _syncWithFirestore();
     }
   }
 
@@ -352,10 +355,22 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _playerName = data['playerName'] ?? _playerName; _gameId = data['gameId'] ?? _gameId; _bio = data['bio'] ?? _bio;
     _profilePicUrl = data['profilePicUrl']; _backgroundPicUrl = data['backgroundPicUrl']; _currentCity = data['currentCity'] ?? 'ملاذ';
     _cash = data['cash'] ?? _cash; _gold = data['gold'] ?? _gold; _bankBalance = data['bankBalance'] ?? _bankBalance;
-    _energy = data['energy'] ?? _energy; _courage = data['courage'] ?? _courage; _prestige = data['prestige'] ?? 100;
-    _health = data['health'] ?? _health; _baseMaxHealth = data['maxHealth'] ?? _baseMaxHealth; _happiness = data['happiness'] ?? _happiness;
+
+    _baseMaxHealth = data['maxHealth'] ?? _baseMaxHealth;
+    _happiness = data['happiness'] ?? _happiness;
     _baseStrength = (data['strength'] ?? 5.0).toDouble(); _baseDefense = (data['defense'] ?? 5.0).toDouble(); _baseSkill = (data['skill'] ?? 5.0).toDouble(); _baseSpeed = (data['speed'] ?? 5.0).toDouble();
     _bonusPerkPoints = data['bonusPerkPoints'] ?? 0;
+
+    // 🟢 منع قفز المؤقتات بالاعتماد على البيانات الأولية فقط
+    if (!_isInitialDataLoaded) {
+      _energy = data['energy'] ?? _energy;
+      _courage = data['courage'] ?? _courage;
+      _prestige = data['prestige'] ?? 100;
+      _health = data['health'] ?? _health;
+    } else if (data['health'] != null && data['health'] < _health) {
+      // السماح بنقصان الصحة فقط في حال تم الهجوم عليك وأنت تلعب
+      _health = data['health'];
+    }
 
     if (data['activeSteroidEndTime'] != null) _activeSteroidEndTime = DateTime.parse(data['activeSteroidEndTime']);
     _activeCoach = data['activeCoach'];
@@ -446,6 +461,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     } else {
       _unlockedTitlesList = getAllTitles().where((t) => t['unlocked'] == true).map((t) => t['name'] as String).toList();
     }
+
+    _isInitialDataLoaded = true; // 🟢 تفعيل متغير منع القفز
   }
 
   Future<void> _syncWithFirestore() async {
@@ -493,11 +510,9 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
   void _startGameLoop() {
     _gameLoopTimer?.cancel();
-    int syncCounter = 0;
     _gameLoopTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isLoading) return;
       bool localChanged = false;
-      syncCounter++;
 
       if (timer.tick % 5 == 0) {
         checkNewTitles();
@@ -514,7 +529,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
         localChanged = true;
       }
 
-      // 🟢 حل مشكلة إشعارات الصالة المتكررة (تمت إضافة الحذف من قاعدة البيانات)
       int steroidCooldown = _inventory['steroid_cooldown'] ?? 0;
       if (steroidCooldown > 0 && secureNow.millisecondsSinceEpoch > steroidCooldown) {
         _inventory.remove('steroid_cooldown');
@@ -607,7 +621,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       }
 
       if (localChanged) notifyListeners();
-      if (syncCounter >= 60) { _syncWithFirestore(); syncCounter = 0; }
     });
   }
 
@@ -623,12 +636,23 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   void removeGold(int amount) { _gold = max(0, _gold - amount); _syncWithFirestore(); notifyListeners(); }
   void updateName(String newName) { if (_inventory.containsKey('name_change_card') && _inventory['name_change_card']! > 0) { _playerName = newName; _inventory['name_change_card'] = _inventory['name_change_card']! - 1; if (_inventory['name_change_card'] == 0) _inventory.remove('name_change_card'); _syncWithFirestore(); notifyListeners(); } }
 
-  // 🟢 تم إزالة إشعار الترقية نهائياً من هنا
   void addWorkXP(int amount) {
     _workXP += amount;
     if (_workXP >= workXPToNextLevel) {
       _workXP -= workXPToNextLevel;
       _workLevel++;
+    }
+    _syncWithFirestore();
+    notifyListeners();
+  }
+
+  // 🟢 إضافة خبرة الجريمة مع رسالة المستوى الجديد
+  void addCrimeXP(int amount) {
+    _crimeXP += amount;
+    if (_crimeXP >= xpToNextLevel) {
+      _crimeXP -= xpToNextLevel;
+      _crimeLevel++;
+      _showNotification("تهانينا! وصلت للمستوى $_crimeLevel في الجريمة 🔫");
     }
     _syncWithFirestore();
     notifyListeners();
