@@ -67,9 +67,7 @@ extension PlayerCombatLogic on PlayerProvider {
     else if (_equippedMaskId == 'silicon_mask') escapeChance = 0.55;
 
     if (Random().nextDouble() < escapeChance) {
-      _showNotification("🎭 هربت بفضل القناع!");
     } else {
-      _showNotification("⚠️ تم القبض عليك بتهمة: $crimeName!");
       _lastCrimeName = crimeName;
       _playerBailCost = bailCost;
       startPrisonTimer(minutes);

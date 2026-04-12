@@ -38,7 +38,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
-  bool _isInitialDataLoaded = false; // 🟢 لحل مشكلة قفز الأرقام
+  bool _isInitialDataLoaded = false;
 
   int _bailPrice = 1500;
   int get bailPrice => _bailPrice;
@@ -179,7 +179,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return _lastServerTime!.add(_sessionTimer.elapsed);
   }
 
-  // 🟢 عدادات تنازلية للشجاعة والطاقة لتعمل بثبات
   int get secondsToNextCourage => _courage >= maxCourage ? 0 : 4 - (_sessionTimer.elapsed.inSeconds % 4);
   int get secondsToNextEnergy => _energy >= maxEnergy ? 0 : 8 - (_sessionTimer.elapsed.inSeconds % 8);
 
@@ -279,7 +278,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _listenToGameConfig();
   }
 
-  // 🟢 تخفيف استهلاك السيرفر وحفظ البيانات فقط عند الخروج من اللعبة أو وضعها بالخلفية
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if ((state == AppLifecycleState.paused || state == AppLifecycleState.inactive) && _uid != null && !_isLoading) {
@@ -301,8 +299,9 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     LocalNotificationService.showNotification(title, message);
   }
 
+  // 🟢 الدالة التي تسببت في الخطأ تم إرجاعها هنا
   void _showNotification(String message) {
-    _sendSystemNotification("تحديث جديد 🚨", message, "info");
+    _notificationStream.add(message);
   }
 
   String _formatWithCommas(int number) {
@@ -361,14 +360,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _baseStrength = (data['strength'] ?? 5.0).toDouble(); _baseDefense = (data['defense'] ?? 5.0).toDouble(); _baseSkill = (data['skill'] ?? 5.0).toDouble(); _baseSpeed = (data['speed'] ?? 5.0).toDouble();
     _bonusPerkPoints = data['bonusPerkPoints'] ?? 0;
 
-    // 🟢 منع قفز المؤقتات بالاعتماد على البيانات الأولية فقط
     if (!_isInitialDataLoaded) {
       _energy = data['energy'] ?? _energy;
       _courage = data['courage'] ?? _courage;
       _prestige = data['prestige'] ?? 100;
       _health = data['health'] ?? _health;
     } else if (data['health'] != null && data['health'] < _health) {
-      // السماح بنقصان الصحة فقط في حال تم الهجوم عليك وأنت تلعب
       _health = data['health'];
     }
 
@@ -389,7 +386,21 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _ownedBusinesses = Map<String, int>.from(data['ownedBusinesses'] ?? {}); _inventory = Map<String, int>.from(data['inventory'] ?? {});
     _crimeLevel = data['crimeLevel'] ?? 1; _crimeXP = data['crimeXP'] ?? 0; _lastCrimeName = data['lastCrimeName'] ?? "تسكع في الشوارع"; _playerBailCost = data['bailCost'] ?? 1500;
     _workLevel = data['workLevel'] ?? 1; _workXP = data['workXP'] ?? 0; _arenaLevel = data['arenaLevel'] ?? 1;
-    _isInPrison = data['isInPrison'] ?? false; if (data['prisonReleaseTime'] != null) _prisonReleaseTime = DateTime.parse(data['prisonReleaseTime']);
+
+    bool wasInPrison = _isInPrison;
+    DateTime? oldRelease = _prisonReleaseTime;
+    _isInPrison = data['isInPrison'] ?? false;
+
+    if (data['prisonReleaseTime'] != null) {
+      _prisonReleaseTime = DateTime.parse(data['prisonReleaseTime']);
+    } else {
+      _prisonReleaseTime = null;
+    }
+
+    if (wasInPrison && !_isInPrison && oldRelease != null && secureNow.isBefore(oldRelease)) {
+      _notificationStream.add("💸 كفالة!|لقد تم دفع كفالتك وإخراجك من السجن!");
+    }
+
     _isHospitalized = data['isHospitalized'] ?? false; if (data['hospitalReleaseTime'] != null) _hospitalReleaseTime = DateTime.parse(data['hospitalReleaseTime']);
     _lockedBalance = data['lockedBalance'] ?? 0; _lockedProfits = data['lockedProfits'] ?? 0; if (data['lockedUntil'] != null) _lockedUntil = DateTime.parse(data['lockedUntil']);
     if (data['vipUntil'] != null) _vipUntil = DateTime.parse(data['vipUntil']);
@@ -462,7 +473,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       _unlockedTitlesList = getAllTitles().where((t) => t['unlocked'] == true).map((t) => t['name'] as String).toList();
     }
 
-    _isInitialDataLoaded = true; // 🟢 تفعيل متغير منع القفز
+    _isInitialDataLoaded = true;
   }
 
   Future<void> _syncWithFirestore() async {
@@ -484,6 +495,35 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
         'unlockedTitlesList': _unlockedTitlesList,
       }, SetOptions(merge: true));
     } catch (e) {}
+  }
+
+  void putInPrison(int minutes, String crimeName, int bailCost) {
+    _isInPrison = true;
+    _prisonReleaseTime = secureNow.add(Duration(minutes: minutes));
+    _playerBailCost = bailCost;
+    _lastCrimeName = crimeName;
+    _syncWithFirestore();
+    notifyListeners();
+  }
+
+  bool attemptEscape() {
+    if (_courage < 10 || !_isInPrison) return false;
+    _courage -= 10;
+    bool success = Random().nextDouble() < 0.3;
+    if (success) {
+      _isInPrison = false;
+      _prisonReleaseTime = null;
+      _notificationStream.add("هروب ناجح 🏃‍♂️|لقد تمكنت من الهروب من السجن بنجاح!");
+    }
+    _syncWithFirestore();
+    notifyListeners();
+    return success;
+  }
+
+  void addEnergy(int amount) {
+    _energy = min(maxEnergy, _energy + amount);
+    _syncWithFirestore();
+    notifyListeners();
   }
 
   void addInventoryItem(String itemId, int quantity) {
@@ -601,7 +641,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       if (_isInPrison && _prisonReleaseTime != null && secureNow.isAfter(_prisonReleaseTime!)) {
         _isInPrison = false; _prisonReleaseTime = null;
-        _sendSystemNotification("السجن 🔒", "تم الإفراج عنك من السجن!", "prison");
+        _notificationStream.add("إفراج 🔓|تم الإفراج عنك من السجن بعد انتهاء مدة عقوبتك.");
         localChanged = true;
       }
       if (_isHospitalized && _hospitalReleaseTime != null && secureNow.isAfter(_hospitalReleaseTime!)) {
@@ -624,7 +664,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     });
   }
 
-  void travelToCity(String city, int price) { if (_cash >= price) { _cash -= price; _currentCity = city; _syncWithFirestore(); notifyListeners(); _showNotification("✈️ هبطت طائرتك بسلام في $city!"); } else { _showNotification("⚠️ لا تملك كاش كافي للسفر!"); } }
+  void travelToCity(String city, int price) { if (_cash >= price) { _cash -= price; _currentCity = city; _syncWithFirestore(); notifyListeners(); _sendSystemNotification("السفر ✈️", "هبطت طائرتك بسلام في $city!", "info"); } }
   void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
   void updateProfilePic(String base64Image) { _profilePicUrl = base64Image; notifyListeners(); _syncWithFirestore(); _firestore.collection('chat').where('uid', isEqualTo: _uid).get().then((snapshot) { WriteBatch batch = _firestore.batch(); for (var doc in snapshot.docs) { batch.update(doc.reference, {'profilePicUrl': base64Image}); } batch.commit(); }); }
   void updateBackgroundPic(String base64Image) { _backgroundPicUrl = base64Image; _syncWithFirestore(); notifyListeners(); }
@@ -646,13 +686,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // 🟢 إضافة خبرة الجريمة مع رسالة المستوى الجديد
   void addCrimeXP(int amount) {
     _crimeXP += amount;
     if (_crimeXP >= xpToNextLevel) {
       _crimeXP -= xpToNextLevel;
       _crimeLevel++;
-      _showNotification("تهانينا! وصلت للمستوى $_crimeLevel في الجريمة 🔫");
+      _notificationStream.add("ترقية 🔫|تهانينا! وصلت للمستوى $_crimeLevel في الجريمة");
     }
     _syncWithFirestore();
     notifyListeners();
