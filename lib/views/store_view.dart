@@ -52,12 +52,12 @@ class _CashStoreTab extends StatelessWidget {
   const _CashStoreTab();
 
   final List<Map<String, dynamic>> cashPackages = const [
-    {'amount': 25000, 'price': 5, 'bonus': null, 'image': 'assets/images/icons/cash.png'},
-    {'amount': 120000, 'price': 19, 'bonus': '+10% كاش إضافي', 'image': 'assets/images/icons/cash.png'},
-    {'amount': 350000, 'price': 49, 'bonus': '+15% كاش إضافي', 'image': 'assets/images/icons/cash.png'},
-    {'amount': 800000, 'price': 99, 'bonus': '+20% كاش إضافي', 'image': 'assets/images/icons/cash.png'},
-    {'amount': 2000000, 'price': 199, 'bonus': '+35% كاش إضافي', 'image': 'assets/images/icons/cash.png'},
-    {'amount': 6000000, 'price': 499, 'bonus': '+50% إضافي (عرض الزعيم)', 'image': 'assets/images/icons/cash.png'},
+    {'amount': 1500000, 'price': 5, 'bonus': null, 'image': 'assets/images/icons/cash.png'},
+    {'amount': 8000000, 'price': 19, 'bonus': '+10% كاش إضافي', 'image': 'assets/images/icons/cash.png'},
+    {'amount': 25000000, 'price': 49, 'bonus': '+15% كاش إضافي', 'image': 'assets/images/icons/cash.png'},
+    {'amount': 70000000, 'price': 99, 'bonus': '+20% كاش إضافي', 'image': 'assets/images/icons/cash.png'},
+    {'amount': 200000000, 'price': 199, 'bonus': '+35% كاش إضافي', 'image': 'assets/images/icons/cash.png'},
+    {'amount': 450000000, 'price': 499, 'bonus': '+50% إضافي (عرض الزعيم)', 'image': 'assets/images/icons/cash.png'},
   ];
 
   @override

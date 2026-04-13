@@ -222,7 +222,7 @@ exports.buyItem = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 5. 🟢 دالة عجلة الحظ (تحديد الجائزة من السيرفر وتسجيل الفائز)
+// 5. 🟢 دالة عجلة الحظ (تحديد الجائزة وخصم التكلفة فقط للحفاظ على المتعة)
 // =======================================================
 exports.spinLuckyWheel = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -233,7 +233,6 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
     const cost = times === 1 ? 500 : 4500;
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
-    const winnerRef = db.collection('wheel_winners').doc();
 
     return db.runTransaction(async (transaction) => {
         const pDoc = await transaction.get(playerRef);
@@ -260,13 +259,6 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
         ];
 
         let wonPrizes = [];
-
-        // 🟢 تجميع الغنائم أولاً (لمنع تضارب التحديثات عند الفوز بنفس الجائزة مرتين في خيار الـ 10 لفات)
-        let totalCashWon = 0;
-        let totalGoldWon = 0;
-        let totalPerksWon = 0;
-        let inventoryUpdates = {};
-
         for (let i = 0; i < times; i++) {
             let r = Math.random();
             let cumulative = 0;
@@ -279,44 +271,13 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
                 }
             }
             wonPrizes.push(selected);
-
-            if (selected.id === 'cash_10m') totalCashWon += 10000000;
-            else if (selected.id === 'cash_50m') totalCashWon += 50000000;
-            else if (selected.id === 'gold_600') totalGoldWon += 600;
-            else if (selected.id === 'perk_point') totalPerksWon += 1;
-            else {
-                inventoryUpdates[selected.id] = (inventoryUpdates[selected.id] || 0) + 1;
-            }
         }
 
-        // 🟢 تجهيز التحديثات وإرسالها دفعة واحدة لحساب اللاعب
-        let updates = {};
-        updates.luckyWheelSpins = (pData.luckyWheelSpins || 0) + times;
-
-        // حساب الذهب والكاش الدقيق (الرصيد الحالي - تكلفة اللفة + إجمالي الجوائز)
-        updates.gold = (pData.gold || 0) - cost + totalGoldWon;
-        if (totalCashWon > 0) updates.cash = (pData.cash || 0) + totalCashWon;
-        if (totalPerksWon > 0) updates.bonusPerkPoints = (pData.bonusPerkPoints || 0) + totalPerksWon;
-
-        // إضافة الأدوات للمخزن
-        for (const [itemId, qty] of Object.entries(inventoryUpdates)) {
-            let currentItemCount = (pData.inventory && pData.inventory[itemId]) ? pData.inventory[itemId] : 0;
-            updates[`inventory.${itemId}`] = currentItemCount + qty;
-        }
-
-        transaction.update(playerRef, updates);
-
-        // 🟢 تسجيل الفائز في السجل العام (بدون مشاكل الحماية)
-        const firstPrize = wonPrizes[0];
-        const safePlayerName = pData.playerName || "الزعيم";
-        transaction.set(winnerRef, {
-            uid: uid,
-            playerName: safePlayerName,
-            profilePicUrl: pData.profilePicUrl || '',
-            isVIP: pData.isVIP || false,
-            prizeName: firstPrize.name,
-            prizeColor: firstPrize.colorValue,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        // 🟢 خصم التكلفة فوراً ليرى اللاعب أن رصيده نقص، لكن نخزن الجوائز كـ "معلقة"
+        let currentPending = pData.pendingWheelPrizes || [];
+        transaction.update(playerRef, {
+            gold: pData.gold - cost,
+            pendingWheelPrizes: currentPending.concat(wonPrizes)
         });
 
         return { success: true, wonPrizes: wonPrizes };
@@ -324,7 +285,68 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 6. 🟢 دالة العلاج في المستشفى
+// 6. 🟢 دالة استلام جوائز العجلة (تُستدعى بعد وقوف العجلة)
+// =======================================================
+exports.claimLuckyWheel = functions.https.onCall(async (request) => {
+    const payload = request.data || request;
+    const { uid } = payload;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const pDoc = await transaction.get(playerRef);
+        if (!pDoc.exists) return { success: false };
+        const pData = pDoc.data();
+
+        if (!pData.pendingWheelPrizes || pData.pendingWheelPrizes.length === 0) {
+            return { success: true };
+        }
+
+        const wonPrizes = pData.pendingWheelPrizes;
+        let updates = {};
+        let spinsCount = (pData.luckyWheelSpins || 0) + wonPrizes.length;
+        updates.luckyWheelSpins = spinsCount;
+
+        // 🟢 تطبيق وإضافة الجوائز الآن
+        for (let selected of wonPrizes) {
+            if (selected.id === 'cash_10m') updates.cash = admin.firestore.FieldValue.increment(10000000);
+            else if (selected.id === 'cash_50m') updates.cash = admin.firestore.FieldValue.increment(50000000);
+            else if (selected.id === 'gold_600') updates.gold = (updates.gold !== undefined ? updates.gold : pData.gold) + 600;
+            else if (selected.id === 'perk_point') updates.bonusPerkPoints = admin.firestore.FieldValue.increment(1);
+            else {
+                let currentItemCount = (pData.inventory && pData.inventory[selected.id]) ? pData.inventory[selected.id] : 0;
+                updates[`inventory.${selected.id}`] = currentItemCount + 1;
+            }
+        }
+
+        // إزالة الجوائز من قائمة "المعلقة" بعد استلامها
+        updates.pendingWheelPrizes = admin.firestore.FieldValue.delete();
+        transaction.update(playerRef, updates);
+
+        // 🟢 نشر الأسماء في شريط الفائزين الآن فقط لتظهر في اللحظة المناسبة
+        const safePlayerName = pData.playerName || "الزعيم";
+        const isVip = pData.isVIP || false;
+        const profilePicUrl = pData.profilePicUrl || '';
+
+        for (let prize of wonPrizes) {
+            const currentWinnerRef = db.collection('wheel_winners').doc();
+            transaction.set(currentWinnerRef, {
+                uid: uid,
+                playerName: safePlayerName,
+                profilePicUrl: profilePicUrl,
+                isVIP: isVip,
+                prizeName: prize.name,
+                prizeColor: prize.colorValue,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+        return { success: true };
+    });
+});
+
+// =======================================================
+// 7. 🟢 دالة العلاج في المستشفى
 // =======================================================
 exports.healPlayer = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -376,7 +398,7 @@ exports.healPlayer = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 7. 🟢 دالة الشحن الآمنة (شحن الكاش والذهب)
+// 8. 🟢 دالة الشحن الآمنة (شحن الكاش والذهب)
 // =======================================================
 exports.topUpBalance = functions.https.onCall(async (request) => {
     // الطريقة الآمنة لاستخراج البيانات مهما كان إصدار Firebase
@@ -408,7 +430,7 @@ exports.topUpBalance = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 8. 🟢 دالة الحذف الشامل للحساب (بصلاحيات السيرفر لتخطي الحماية)
+// 9. 🟢 دالة الحذف الشامل للحساب (بصلاحيات السيرفر لتخطي الحماية)
 // =======================================================
 exports.deletePlayerAccount = functions.https.onCall(async (request) => {
     const payload = request.data || request;

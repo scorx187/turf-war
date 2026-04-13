@@ -42,7 +42,6 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
   int _currentIndex = 0;
   String _statusText = "";
 
-  // 🟢 1. تثبيت الستريم هنا لمنع رمش واختفاء الأسماء أثناء دوران العجلة
   late Stream<QuerySnapshot> _winnersStream;
 
   final List<Map<String, dynamic>> prizes = [
@@ -63,12 +62,24 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
   @override
   void initState() {
     super.initState();
-    // 🟢 2. تهيئة الستريم مرة واحدة فقط عند فتح الشاشة
     _winnersStream = FirebaseFirestore.instance
         .collection('wheel_winners')
         .orderBy('timestamp', descending: true)
         .limit(20)
         .snapshots();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _claimPendingPrizes();
+    });
+  }
+
+  void _claimPendingPrizes() async {
+    try {
+      final player = Provider.of<PlayerProvider>(context, listen: false);
+      await FirebaseFunctions.instance.httpsCallable('claimLuckyWheel').call({'uid': player.uid});
+    } catch (e) {
+      // تجاهل بصمت
+    }
   }
 
   Future<void> _spin(int times, AudioProvider audio, PlayerProvider player) async {
@@ -104,7 +115,6 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
           });
         }
 
-        // 🟢 حركة العجلة بمرونة
         int targetIndex = prizes.indexWhere((p) => p['id'] == wonPrizes.last['id']);
         if (targetIndex == -1) targetIndex = 0;
 
@@ -125,13 +135,13 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
 
         audio.playEffect('click.mp3');
 
-        // 🟢 بعد ما تخلص العجلة دوران
-        if (mounted) {
-          // 🔴 قمنا بإزالة أي كود يضيف الكاش أو الذهب محلياً. السيرفر تكفل بكل شيء!
-          // نخبر الواجهة فقط بتحديث الأرقام من Provider ليظهر الرصيد الجديد الموثوق.
-          widget.onCashChanged(player.cash);
-          widget.onGoldChanged(player.gold);
+        try {
+          await FirebaseFunctions.instance.httpsCallable('claimLuckyWheel').call({'uid': player.uid});
+        } catch(e) {
+          debugPrint("خطأ في استلام الجوائز: $e");
+        }
 
+        if (mounted) {
           setState(() {
             _isSpinning = false;
             _statusText = "";
@@ -319,9 +329,10 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
             ),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                // 🟢 استخدام الستريم المحفوظ لضمان الثبات
                 stream: _winnersStream,
                 builder: (context, snapshot) {
+                  // تم تنظيف كود تشخيص الأخطاء من هنا 🧹
+
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2));
                   }
