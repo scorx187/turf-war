@@ -52,11 +52,14 @@ class MyGame extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      // 🟢 الكود السحري لإخفاء الكيبورد في كامل اللعبة عند الضغط في أي مكان فارغ
+      // 🟢 إجبار جميع الشاشات في التطبيق بلا استثناء على الاتجاه من اليمين لليسار
       builder: (context, child) {
-        return GestureDetector(
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: child!,
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: GestureDetector(
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: child!,
+          ),
         );
       },
       theme: ThemeData(
@@ -65,10 +68,8 @@ class MyGame extends StatelessWidget {
         scaffoldBackgroundColor: GameColors.background,
         fontFamily: 'Changa',
       ),
-      home: const Directionality(
-        textDirection: TextDirection.rtl,
-        child: FirebaseInitWrapper(),
-      ),
+      // 🟢 شلنا Directionality من هنا لأن الـ builder فوق تكفل بها لكل التطبيق
+      home: const FirebaseInitWrapper(),
     );
   }
 }

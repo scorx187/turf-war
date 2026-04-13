@@ -54,7 +54,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _gold = 0;
   int _bankBalance = 0;
   int _energy = 100;
-  int _courage = 100;
+  int _courage = 30;
   int _health = 100;
   int _baseMaxHealth = 100;
   int _prestige = 100;
@@ -737,7 +737,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> resetPlayerData() async {
-    _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 100; _prestige = 100; _baseStrength = 5; _baseDefense = 5; _baseSkill = 5; _baseSpeed = 5;
+    _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 30; _prestige = 100; _baseStrength = 5; _baseDefense = 5; _baseSkill = 5; _baseSpeed = 5;
     _ownedProperties = []; _activePropertyId = null; _ownedBusinesses = {}; _happiness = 0; _inventory = {'name_change_card': 1};
     _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _equippedSpecialId = null; _vipUntil = null; _totalVipDays = 0; _totalLabCrafts = 0; _luckyWheelSpins = 0; _unlockedTitlesList = [];
     _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
@@ -754,7 +754,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _playerDataSubscription?.cancel();
 
     _cash = 100; _gold = 0; _bankBalance = 0;
-    _energy = 100; _courage = 100; _health = 100; _prestige = 100; _baseMaxHealth = 100; _bonusPerkPoints = 0;
+    _energy = 100; _courage = 30; _health = 100; _prestige = 100; _baseMaxHealth = 100; _bonusPerkPoints = 0;
     _baseStrength = 5.0; _baseDefense = 5.0; _baseSkill = 5.0; _baseSpeed = 5.0;
 
     _crimeLevel = 1; _crimeXP = 0; _workLevel = 1; _workXP = 0; _arenaLevel = 1;
@@ -769,6 +769,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _profilePicUrl = null; _backgroundPicUrl = null; _gangName = null; _gangRank = "عضو";
 
     _pvpWins = 0; _totalStolenCash = 0; _totalVipDays = 0; _totalLabCrafts = 0; _luckyWheelSpins = 0;
+    _vipUntil = null;
     _isHospitalized = false; _isInPrison = false; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
     _loanAmount = 0; _creditScore = 0; _loanTime = null;
     _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;

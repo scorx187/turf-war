@@ -23,13 +23,13 @@ exports.commitCrime = functions.https.onCall(async (request) => {
         if (pData.isInPrison) throw new functions.https.HttpsError('failed-precondition', 'لا يمكنك تنفيذ جريمة وأنت في السجن!');
 
         // حساب الشجاعة اللي رجعت مع مرور الوقت
-        let currentCourage = pData.courage !== undefined ? pData.courage : 100;
+        let currentCourage = pData.courage !== undefined ? pData.courage : 30; // تم تعديل الأساس لـ 30 كاحتياط
         if (pData.lastCourageUpdate) {
             let lastUpdate = pData.lastCourageUpdate.toDate();
             let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
             currentCourage += Math.floor(secondsPassed / 4); // 1 شجاعة كل 4 ثواني
-            let mCourage = maxCourage || 100;
+            let mCourage = maxCourage || 30; // الحد الأقصى الافتراضي الجديد
             if (currentCourage > mCourage) currentCourage = mCourage;
         }
 
@@ -66,7 +66,7 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             if (leveledUp) {
                 updates.crimeLevel = currentLevel;
                 // عند الترقية نملأ الشجاعة والطاقة للحد الأقصى
-                updates.courage = maxCourage || 100;
+                updates.courage = maxCourage || 30;
                 updates.energy = maxEnergy || 100;
                 updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
             }
@@ -105,13 +105,18 @@ exports.attemptEscape = functions.https.onCall(async (request) => {
 
         if (!pData.isInPrison) throw new functions.https.HttpsError('failed-precondition', 'أنت لست في السجن!');
 
-        let currentCourage = pData.courage !== undefined ? pData.courage : 100;
+        // 🟢 تم التعديل إلى 30 هنا
+        let currentCourage = pData.courage !== undefined ? pData.courage : 30;
         let lastUpdate = pData.lastCourageUpdate ? pData.lastCourageUpdate.toDate() : new Date();
         let now = new Date();
         let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
         let gainedCourage = Math.floor(secondsPassed / 4);
         currentCourage += gainedCourage;
-        if (currentCourage > 100) currentCourage = 100;
+
+        // 🟢 تم إضافة الحد الأقصى الديناميكي للشجاعة
+        let pLevel = pData.crimeLevel || 1;
+        let mCourage = (pData.isVIP ? 60 : 29) + pLevel;
+        if (currentCourage > mCourage) currentCourage = mCourage;
 
         if (currentCourage < 10) throw new functions.https.HttpsError('failed-precondition', 'تحتاج 10 شجاعة للهروب');
 
@@ -171,7 +176,7 @@ exports.recoverResource = functions.https.onCall(async (request) => {
             updates.energy = maxEnergy || 100;
         } else {
             // 🟢 تعبئة للشجاعة القصوى
-            updates.courage = maxCourage || 100;
+            updates.courage = maxCourage || 30; // الاحتياط في حالة لم يرسل التطبيق الماكس
             updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
         }
 

@@ -78,7 +78,10 @@ extension PlayerStatsLogic on PlayerProvider {
   }
 
   int get maxCourage {
-    int crg = (isVIP ? 200 : 100) + _crimeLevel;
+    // 🟢 الأساس 29 للاعب العادي (29 + مستوى 1 = 30)
+    // 🟢 إذا كان اللاعب VIP جعلنا الأساس 60 كـ ميزة إضافية
+    int crg = (isVIP ? 60 : 29) + _crimeLevel;
+
     if (_perks.containsKey('max_courage_boost')) crg += (_perks['max_courage_boost']! * 1);
     if (_equippedSpecialId == 't_dragon_heart') crg += 10;
     if (_equippedSpecialId == 't_lion_mane') crg += 15;
