@@ -233,7 +233,6 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
     const cost = times === 1 ? 500 : 4500;
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
-    // 🟢 إنشاء مرجع جديد لتوثيق الفائز في السجل بأمان من جهة السيرفر
     const winnerRef = db.collection('wheel_winners').doc();
 
     return db.runTransaction(async (transaction) => {
@@ -261,9 +260,12 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
         ];
 
         let wonPrizes = [];
-        let updates = { gold: pData.gold - cost };
-        let spinsCount = (pData.luckyWheelSpins || 0) + times;
-        updates.luckyWheelSpins = spinsCount;
+
+        // 🟢 تجميع الغنائم أولاً (لمنع تضارب التحديثات عند الفوز بنفس الجائزة مرتين في خيار الـ 10 لفات)
+        let totalCashWon = 0;
+        let totalGoldWon = 0;
+        let totalPerksWon = 0;
+        let inventoryUpdates = {};
 
         for (let i = 0; i < times; i++) {
             let r = Math.random();
@@ -278,20 +280,33 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
             }
             wonPrizes.push(selected);
 
-            if (selected.id === 'cash_10m') updates.cash = admin.firestore.FieldValue.increment(10000000);
-            else if (selected.id === 'cash_50m') updates.cash = admin.firestore.FieldValue.increment(50000000);
-            else if (selected.id === 'gold_600') updates.gold = (updates.gold !== undefined ? updates.gold : pData.gold) + 600;
-            else if (selected.id === 'perk_point') updates.bonusPerkPoints = admin.firestore.FieldValue.increment(1);
+            if (selected.id === 'cash_10m') totalCashWon += 10000000;
+            else if (selected.id === 'cash_50m') totalCashWon += 50000000;
+            else if (selected.id === 'gold_600') totalGoldWon += 600;
+            else if (selected.id === 'perk_point') totalPerksWon += 1;
             else {
-                let currentItemCount = (pData.inventory && pData.inventory[selected.id]) ? pData.inventory[selected.id] : 0;
-                updates[`inventory.${selected.id}`] = currentItemCount + 1;
+                inventoryUpdates[selected.id] = (inventoryUpdates[selected.id] || 0) + 1;
             }
         }
 
-        // تحديث بيانات اللاعب
+        // 🟢 تجهيز التحديثات وإرسالها دفعة واحدة لحساب اللاعب
+        let updates = {};
+        updates.luckyWheelSpins = (pData.luckyWheelSpins || 0) + times;
+
+        // حساب الذهب والكاش الدقيق (الرصيد الحالي - تكلفة اللفة + إجمالي الجوائز)
+        updates.gold = (pData.gold || 0) - cost + totalGoldWon;
+        if (totalCashWon > 0) updates.cash = (pData.cash || 0) + totalCashWon;
+        if (totalPerksWon > 0) updates.bonusPerkPoints = (pData.bonusPerkPoints || 0) + totalPerksWon;
+
+        // إضافة الأدوات للمخزن
+        for (const [itemId, qty] of Object.entries(inventoryUpdates)) {
+            let currentItemCount = (pData.inventory && pData.inventory[itemId]) ? pData.inventory[itemId] : 0;
+            updates[`inventory.${itemId}`] = currentItemCount + qty;
+        }
+
         transaction.update(playerRef, updates);
 
-        // 🟢 تسجيل الفائز في القائمة العامة مباشرة من السيرفر
+        // 🟢 تسجيل الفائز في السجل العام (بدون مشاكل الحماية)
         const firstPrize = wonPrizes[0];
         const safePlayerName = pData.playerName || "الزعيم";
         transaction.set(winnerRef, {
@@ -390,4 +405,72 @@ exports.topUpBalance = functions.https.onCall(async (request) => {
         transaction.update(playerRef, updates);
         return { success: true };
     });
+});
+
+// =======================================================
+// 8. 🟢 دالة الحذف الشامل للحساب (بصلاحيات السيرفر لتخطي الحماية)
+// =======================================================
+exports.deletePlayerAccount = functions.https.onCall(async (request) => {
+    const payload = request.data || request;
+    const uid = payload.uid;
+
+    if (!uid) throw new functions.https.HttpsError('invalid-argument', 'رقم اللاعب مفقود');
+
+    const db = admin.firestore();
+    const batch = db.batch();
+
+    try {
+        // 1. مسح الإشعارات
+        const notifications = await db.collection('notifications').where('uid', '==', uid).get();
+        notifications.forEach(doc => batch.delete(doc.ref));
+
+        // 2. مسح الشات العام
+        const publicChats = await db.collection('chat').where('uid', '==', uid).get();
+        publicChats.forEach(doc => batch.delete(doc.ref));
+
+        // 3. مسح الشات الخاص
+        const privateChats = await db.collection('private_chats').where('participants', 'array-contains', uid).get();
+        privateChats.forEach(doc => batch.delete(doc.ref));
+
+        // 4. مسح العقارات المعروضة للإيجار ولم تؤجر
+        const rentedProps = await db.collection('property_rentals').where('ownerId', '==', uid).get();
+        rentedProps.forEach(doc => batch.delete(doc.ref));
+
+        // 5. مسح اللاعب من قوائم أصدقاء اللاعبين الآخرين
+        const friendsArrays = await db.collection('players').where('friends', 'array-contains', uid).get();
+        friendsArrays.forEach(doc => batch.update(doc.ref, { friends: admin.firestore.FieldValue.arrayRemove(uid) }));
+
+        const reqArrays = await db.collection('players').where('friendRequests', 'array-contains', uid).get();
+        reqArrays.forEach(doc => batch.update(doc.ref, { friendRequests: admin.firestore.FieldValue.arrayRemove(uid) }));
+
+        const sentArrays = await db.collection('players').where('sentRequests', 'array-contains', uid).get();
+        sentArrays.forEach(doc => batch.update(doc.ref, { sentRequests: admin.firestore.FieldValue.arrayRemove(uid) }));
+
+        // 6. مصادرة العقارات المؤجرة للبنك المركزي حمايةً للمستأجرين
+        const renters = await db.collection('players').where('activeRentedProperty.ownerId', '==', uid).get();
+        renters.forEach(doc => {
+            batch.update(doc.ref, {
+                'activeRentedProperty.ownerName': 'البنك المركزي 🏛️',
+                'activeRentedProperty.ownerId': 'bank_system'
+            });
+        });
+
+        // 7. حذف بيانات اللاعب الأساسية
+        batch.delete(db.collection('players').doc(uid));
+
+        // تنفيذ الحذف الشامل في قاعدة البيانات
+        await batch.commit();
+
+        // 8. حذف حساب المصادقة (Auth) نهائياً
+        try {
+            await admin.auth().deleteUser(uid);
+        } catch (authError) {
+            console.log("حساب المصادقة غير موجود أو محذوف مسبقاً");
+        }
+
+        return { success: true, message: 'تم مسح الحساب بالكامل' };
+    } catch (error) {
+        console.error("خطأ أثناء حذف الحساب:", error);
+        throw new functions.https.HttpsError('internal', 'فشل السيرفر في حذف الحساب');
+    }
 });

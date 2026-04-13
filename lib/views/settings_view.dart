@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:async';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../providers/player_provider.dart';
 import '../main.dart';
 
@@ -48,101 +48,11 @@ class _SettingsViewState extends State<SettingsView> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.clear();
 
-        // 3. 🧹 الحذف الشامل العميق باستخدام Batch
-        WriteBatch batch = FirebaseFirestore.instance.batch();
+        // 3. 🟢 رمي المهمة الثقيلة على السيرفر ليتخطى كل قواعد الحماية وينسف الداتا
+        final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('deletePlayerAccount');
+        await callable.call({'uid': uid});
 
-        var notifications = await FirebaseFirestore.instance.collection('notifications').where('uid', isEqualTo: uid).get();
-        for (var doc in notifications.docs) batch.delete(doc.reference);
-
-        var publicChats = await FirebaseFirestore.instance.collection('chat').where('uid', isEqualTo: uid).get();
-        for (var doc in publicChats.docs) batch.delete(doc.reference);
-
-        var privateChats = await FirebaseFirestore.instance.collection('private_chats').where('participants', arrayContains: uid).get();
-        for (var doc in privateChats.docs) batch.delete(doc.reference);
-
-        // هذا السطر يمسح العقارات المعروضة للسوق ولم تُستأجر بعد
-        var rentedProperties = await FirebaseFirestore.instance.collection('property_rentals').where('ownerId', isEqualTo: uid).get();
-        for (var doc in rentedProperties.docs) batch.delete(doc.reference);
-
-        // مسح الأصدقاء
-        // ==========================================
-        // 🧹 الحذف الشامل للأصدقاء والطلبات (النسف الشامل)
-        // ==========================================
-
-        // 1. إذا كنت تحفظ الأصدقاء في مصفوفات (Arrays) داخل كولكشن players
-        try {
-          // مسحك من قائمة أصدقاء اللاعبين الآخرين
-          var friendsArrays = await FirebaseFirestore.instance.collection('players').where('friends', arrayContains: uid).get();
-          for (var doc in friendsArrays.docs) {
-            batch.update(doc.reference, {'friends': FieldValue.arrayRemove([uid])});
-          }
-
-          // مسح طلبات الصداقة التي أرسلتها وموجودة عند الآخرين
-          var requestsArrays = await FirebaseFirestore.instance.collection('players').where('friendRequests', arrayContains: uid).get();
-          for (var doc in requestsArrays.docs) {
-            batch.update(doc.reference, {'friendRequests': FieldValue.arrayRemove([uid])});
-          }
-
-          // مسح الطلبات التي أرسلوها لك وهم ينتظرون ردك
-          var sentRequestsArrays = await FirebaseFirestore.instance.collection('players').where('sentRequests', arrayContains: uid).get();
-          for (var doc in sentRequestsArrays.docs) {
-            batch.update(doc.reference, {'sentRequests': FieldValue.arrayRemove([uid])});
-          }
-        } catch (_) {
-          debugPrint('تجاهل أخطاء مصفوفات الأصدقاء');
-        }
-
-        // 2. إذا كنت تحفظ الأصدقاء في كولكشن منفصل باستخدام participants
-        try {
-          var friendsAsParts = await FirebaseFirestore.instance.collection('friends').where('participants', arrayContains: uid).get();
-          for (var doc in friendsAsParts.docs) batch.delete(doc.reference);
-
-          var reqAsParts = await FirebaseFirestore.instance.collection('friend_requests').where('participants', arrayContains: uid).get();
-          for (var doc in reqAsParts.docs) batch.delete(doc.reference);
-        } catch (_) {}
-
-        // 3. إذا كنت تحفظها باستخدام senderId و receiverId (الكود القديم للاحتياط)
-        try {
-          var fSender = await FirebaseFirestore.instance.collection('friends').where('senderId', isEqualTo: uid).get();
-          for (var doc in fSender.docs) batch.delete(doc.reference);
-
-          var fReceiver = await FirebaseFirestore.instance.collection('friends').where('receiverId', isEqualTo: uid).get();
-          for (var doc in fReceiver.docs) batch.delete(doc.reference);
-
-          var rSender = await FirebaseFirestore.instance.collection('friend_requests').where('senderId', isEqualTo: uid).get();
-          for (var doc in rSender.docs) batch.delete(doc.reference);
-
-          var rReceiver = await FirebaseFirestore.instance.collection('friend_requests').where('receiverId', isEqualTo: uid).get();
-          for (var doc in rReceiver.docs) batch.delete(doc.reference);
-        } catch (_) {}
-        // ==========================================
-
-        // 🟢 الجديد: مصادرة العقارات المؤجرة للبنك المركزي (حماية المستأجرين)
-        try {
-          var renters = await FirebaseFirestore.instance.collection('players')
-              .where('activeRentedProperty.ownerId', isEqualTo: uid).get();
-
-          for (var doc in renters.docs) {
-            batch.update(doc.reference, {
-              'activeRentedProperty.ownerName': 'البنك المركزي 🏛️', // يظهر للمستأجر أن البنك هو المالك
-              'activeRentedProperty.ownerId': 'bank_system', // آيدي وهمي لفك الارتباط
-            });
-          }
-        } catch (_) {}
-
-        await batch.commit();
-
-        // 4. حذف بيانات اللاعب الأساسية
-        await FirebaseFirestore.instance.collection('players').doc(uid).delete();
-
-        // 5. محاولة حذف المستخدم من المصادقة
-        try {
-          await user.delete();
-        } catch (e) {
-          debugPrint('تم تجاهل خطأ حذف المصادقة');
-        }
-
-        // 6. فصل ارتباط جوجل
+        // 4. فصل ارتباط جوجل وتسجيل الخروج محلياً
         try {
           final googleSignIn = GoogleSignIn();
           await googleSignIn.disconnect();
@@ -152,10 +62,9 @@ class _SettingsViewState extends State<SettingsView> {
           } catch (_) {}
         }
 
-        // 7. تسجيل الخروج من فايربيز
         await FirebaseAuth.instance.signOut();
 
-        // 8. التوجيه الفوري لشاشة البداية
+        // 5. التوجيه الفوري لشاشة البداية
         if (context.mounted) {
           Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const AuthWrapper()),
@@ -167,7 +76,7 @@ class _SettingsViewState extends State<SettingsView> {
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('حدث خطأ غير متوقع: $e', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red),
+          SnackBar(content: Text('خطأ في السيرفر أثناء الحذف: $e', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red),
         );
       }
     }

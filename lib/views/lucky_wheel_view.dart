@@ -104,9 +104,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
           });
         }
 
-        // 🔴 تم إزالة كود رفع اسم الفائز من التطبيق، السيرفر سيقوم بها الآن بأمان تام.
-
-        // 🟢 4. تشغيل حركة العجلة بمرونة
+        // 🟢 حركة العجلة بمرونة
         int targetIndex = prizes.indexWhere((p) => p['id'] == wonPrizes.last['id']);
         if (targetIndex == -1) targetIndex = 0;
 
@@ -127,15 +125,15 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
 
         audio.playEffect('click.mp3');
 
-        // 🟢 5. بعد انتهاء العجلة دوران
+        // 🟢 بعد ما تخلص العجلة دوران
         if (mounted) {
-          // 🔴 حذفنا الإضافة اليدوية للذهب والكاش لأن السيرفر أضافها بالفعل
-          // نقوم فقط بإبلاغ الشاشة العلوية بتحديث الأرقام المعروضة لتظهر فوراً
+          // 🔴 قمنا بإزالة أي كود يضيف الكاش أو الذهب محلياً. السيرفر تكفل بكل شيء!
+          // نخبر الواجهة فقط بتحديث الأرقام من Provider ليظهر الرصيد الجديد الموثوق.
           widget.onCashChanged(player.cash);
           widget.onGoldChanged(player.gold);
 
           setState(() {
-            _isSpinning = false; // فك التعليق
+            _isSpinning = false;
             _statusText = "";
           });
 
