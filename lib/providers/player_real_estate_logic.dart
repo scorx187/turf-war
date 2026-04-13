@@ -1,11 +1,11 @@
 // المسار: lib/providers/player_real_estate_logic.dart
 
-part of 'player_provider.dart'; // 🟢 هذا السطر السحري يربطه بالملف الأساسي
+part of 'player_provider.dart';
 
 extension PlayerRealEstateLogic on PlayerProvider {
 
   // ==========================================
-  // 1. دوال الدخل والأرباح اليومية
+  // 1. الدخل السلبي (يظل كما هو لأنه للعرض والحسابات فقط)
   // ==========================================
   int getTotalPassiveIncomePerDay() {
     int total = 0;
@@ -26,20 +26,40 @@ extension PlayerRealEstateLogic on PlayerProvider {
   }
 
   // ==========================================
-  // 2. دوال الملكية والسكن الأساسية
+  // 2. دوال الملكية والسكن الأساسية (شراء من السيرفر)
   // ==========================================
-  void buyProperty(String id, int price, int happinessGain) {
-    if (_cash >= price && !_ownedProperties.contains(id)) {
-      _cash -= price;
-      _ownedProperties.add(id);
-      if (_activePropertyId == null && _activeRentedProperty == null) {
-        setActiveProperty(id, happinessGain);
+  Future<void> buyProperty(String id, int price, int happinessGain) async {
+    // تحقق أولي بسيط وسريع لكي لا نُتعب السيرفر إذا كان اللاعب مفلساً أصلاً
+    if (_cash < price) {
+      _showNotification("⚠️ كاش غير كافي!");
+      return;
+    }
+    if (_ownedProperties.contains(id)) {
+      _showNotification("⚠️ أنت تملك هذا العقار مسبقاً!");
+      return;
+    }
+
+    try {
+      _showNotification("⏳ جاري توثيق الشراء عبر السيرفر...");
+      final callable = FirebaseFunctions.instance.httpsCallable('buyRealEstate');
+      final response = await callable.call({
+        'uid': _uid,
+        'propertyId': id,
+        'price': price,
+        'happinessGain': happinessGain,
+      });
+
+      if (response.data['success'] == true) {
+        _showNotification("🏠 مبروك! تم شراء العقار بنجاح.");
       }
-      _syncWithFirestore();
-      notifyListeners();
+    } on FirebaseFunctionsException catch (e) {
+      _showNotification("⚠️ فشل الشراء: ${e.message}");
+    } catch (e) {
+      _showNotification("⚠️ حدث خطأ في الاتصال بالسيرفر!");
     }
   }
 
+  // تغيير السكن لا يكلف شيئاً لذلك نتركه محلياً كـ تفضيل للاعب
   void setActiveProperty(String id, int happinessGain) {
     bool isMine = _ownedProperties.contains(id) && !_rentedOutProperties.containsKey(id) && !_listedProperties.contains(id);
     bool isRentedByMe = _activeRentedProperty != null && _activeRentedProperty!['id'] == id;
@@ -55,45 +75,38 @@ extension PlayerRealEstateLogic on PlayerProvider {
   }
 
   // ==========================================
-  // 3. دوال سوق الإيجارات بين اللاعبين (P2P)
+  // 3. دوال سوق الإيجارات بين اللاعبين (P2P) (السلطة للسيرفر)
   // ==========================================
   Future<void> listPropertyForRent(String propertyId, int dailyPrice, int days) async {
     if (_listedProperties.contains(propertyId) || _rentedOutProperties.containsKey(propertyId)) return;
-
-    if (_activePropertyId == propertyId) {
-      _activePropertyId = null;
-      _happiness = 0;
+    try {
+      _showNotification("⏳ جاري عرض العقار في السوق...");
+      final callable = FirebaseFunctions.instance.httpsCallable('listPropertyForRent');
+      await callable.call({
+        'uid': _uid, 'propertyId': propertyId, 'dailyPrice': dailyPrice, 'days': days, 'playerName': _playerName,
+      });
+      _showNotification("📜 تم عرض العقار بنجاح!");
+    } catch (e) {
+      _showNotification("⚠️ حدث خطأ!");
     }
-
-    _listedProperties.add(propertyId);
-    _syncWithFirestore();
-    notifyListeners();
-
-    await _firestore.collection('property_rentals').doc('${_uid}_$propertyId').set({
-      'ownerId': _uid,
-      'ownerName': _playerName,
-      'propertyId': propertyId,
-      'dailyPrice': dailyPrice,
-      'days': days,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-    _showNotification("تم عرض العقار في سوق الإيجارات بنجاح!");
   }
 
   Future<void> cancelRentalListing(String propertyId) async {
-    if (_listedProperties.contains(propertyId)) {
-      _listedProperties.remove(propertyId);
-      _syncWithFirestore();
-      notifyListeners();
-      await _firestore.collection('property_rentals').doc('${_uid}_$propertyId').delete();
-      _showNotification("تم سحب العقار من السوق.");
+    if (!_listedProperties.contains(propertyId)) return;
+    try {
+      _showNotification("⏳ جاري سحب العقار...");
+      final callable = FirebaseFunctions.instance.httpsCallable('cancelRentalListing');
+      await callable.call({'uid': _uid, 'propertyId': propertyId});
+      _showNotification("🚫 تم سحب العقار من السوق.");
+    } catch (e) {
+      _showNotification("⚠️ حدث خطأ!");
     }
   }
 
   Future<void> rentPropertyFromMarket(Map<String, dynamic> listing, int happinessGain) async {
     int totalPrice = listing['dailyPrice'] * listing['days'];
     if (_cash < totalPrice) {
-      _showNotification("⚠️ كاش غير كافي لاستئجار العقار!");
+      _showNotification("⚠️ كاش غير كافي للاستئجار!");
       return;
     }
     if (_activeRentedProperty != null) {
@@ -102,124 +115,69 @@ extension PlayerRealEstateLogic on PlayerProvider {
     }
 
     try {
-      final listingRef = _firestore.collection('property_rentals').doc('${listing['ownerId']}_${listing['propertyId']}');
-      final ownerRef = _firestore.collection('players').doc(listing['ownerId']);
-      final meRef = _firestore.collection('players').doc(_uid);
-
-      DateTime expireDate = DateTime.now().add(Duration(days: listing['days']));
-
-      await _firestore.runTransaction((transaction) async {
-        final listingSnap = await transaction.get(listingRef);
-        if (!listingSnap.exists) throw Exception("العقار لم يعد متاحاً!");
-        final ownerSnap = await transaction.get(ownerRef);
-
-        transaction.update(meRef, {
-          'cash': FieldValue.increment(-totalPrice),
-          'activeRentedProperty': {
-            'id': listing['propertyId'],
-            'expire': expireDate.toIso8601String(),
-            'ownerId': listing['ownerId'],
-            'ownerName': listing['ownerName'],
-          }
-        });
-
-        if (ownerSnap.exists) {
-          transaction.update(ownerRef, {
-            'cash': FieldValue.increment(totalPrice),
-            'rentedOutProperties.${listing['propertyId']}': {
-              'expire': expireDate.toIso8601String(),
-              'renterId': _uid,
-              'renterName': _playerName
-            },
-            'listedProperties': FieldValue.arrayRemove([listing['propertyId']])
-          });
-        }
-        transaction.delete(listingRef);
+      _showNotification("⏳ جاري توقيع عقد الإيجار...");
+      final callable = FirebaseFunctions.instance.httpsCallable('rentPropertyFromMarket');
+      final response = await callable.call({
+        'uid': _uid,
+        'listingId': '${listing['ownerId']}_${listing['propertyId']}',
+        'ownerId': listing['ownerId'],
+        'propertyId': listing['propertyId'],
+        'dailyPrice': listing['dailyPrice'],
+        'days': listing['days'],
+        'happinessGain': happinessGain,
+        'renterName': _playerName,
       });
 
-      _cash -= totalPrice;
-      _activeRentedProperty = {
-        'id': listing['propertyId'],
-        'expire': expireDate.toIso8601String(),
-        'ownerId': listing['ownerId'],
-        'ownerName': listing['ownerName'],
-      };
-
-      setActiveProperty(listing['propertyId'], happinessGain);
-      _addTransaction("استئجار عقار", totalPrice, false);
-      _showNotification("🏠 مبروك! استأجرت العقار لمدة ${listing['days']} يوم.");
-      notifyListeners();
+      if (response.data['success'] == true) {
+        _showNotification("🏠 مبروك! استأجرت العقار لمدة ${response.data['days']} يوم.");
+      }
+    } on FirebaseFunctionsException catch (e) {
+      _showNotification("⚠️ فشل الاستئجار: ${e.message}");
     } catch (e) {
-      _showNotification("⚠️ حدث خطأ: العقار تم استئجاره من لاعب آخر للتو!");
+      _showNotification("⚠️ حدث خطأ: قد يكون العقار أُجر للاعب آخر للتو!");
     }
   }
 
   Future<void> cancelRentedProperty() async {
     if (_activeRentedProperty == null) return;
-
-    String propId = _activeRentedProperty!['id'];
-    String ownerId = _activeRentedProperty!['ownerId'] ?? '';
-
-    if (ownerId.isNotEmpty) {
-      try {
-        final ownerRef = _firestore.collection('players').doc(ownerId);
-        final meRef = _firestore.collection('players').doc(_uid);
-
-        await _firestore.runTransaction((transaction) async {
-          final ownerSnap = await transaction.get(ownerRef);
-          if (ownerSnap.exists) {
-            transaction.update(ownerRef, {
-              'rentedOutProperties.$propId': FieldValue.delete(),
-            });
-          }
-          transaction.update(meRef, {
-            'activeRentedProperty': FieldValue.delete(),
-          });
-        });
-      } catch (e) {
-        debugPrint("Error canceling rent: $e");
-      }
-    } else {
-      await _firestore.collection('players').doc(_uid).update({
-        'activeRentedProperty': FieldValue.delete(),
-      });
-    }
-
-    _activeRentedProperty = null;
-    if (_activePropertyId == propId) {
-      _activePropertyId = null;
-      _happiness = 0;
-    }
-
-    _showNotification("تم فسخ العقد! خسرت المبلغ المدفوع وعاد العقار لمالكه الأصلي.");
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
-  // ==========================================
-  // 4. المشاريع التجارية
-  // ==========================================
-  void buyBusiness(String id, int price) {
-    if (_cash >= price && !_ownedBusinesses.containsKey(id)) {
-      _cash -= price;
-      _ownedBusinesses[id] = 1;
-      _addTransaction("شراء مشروع تجاري", price, false);
-      _syncWithFirestore();
-      notifyListeners();
-    } else {
-      _showNotification("⚠️ كاش غير كافي لشراء المشروع!");
+    try {
+      _showNotification("⏳ جاري فسخ العقد...");
+      final callable = FirebaseFunctions.instance.httpsCallable('cancelRentedProperty');
+      await callable.call({'uid': _uid});
+      _showNotification("تم فسخ العقد وعاد العقار لمالكه الأصلي.");
+    } catch (e) {
+      _showNotification("⚠️ حدث خطأ أثناء محاولة فسخ العقد!");
     }
   }
 
-  void upgradeBusiness(String id, int upgradeCost) {
-    if (_cash >= upgradeCost && _ownedBusinesses.containsKey(id)) {
-      _cash -= upgradeCost;
-      _ownedBusinesses[id] = _ownedBusinesses[id]! + 1;
-      _addTransaction("ترقية مشروع تجاري", upgradeCost, false);
-      _syncWithFirestore();
-      notifyListeners();
-    } else {
-      _showNotification("⚠️ كاش غير كافي للترقية!");
+  // ==========================================
+  // 4. المشاريع التجارية (شراء وترقية من السيرفر)
+  // ==========================================
+  Future<void> buyBusiness(String id, int price) async {
+    if (_cash < price) { _showNotification("⚠️ كاش غير كافي!"); return; }
+    try {
+      _showNotification("⏳ جاري استخراج التصاريح للمشروع...");
+      final callable = FirebaseFunctions.instance.httpsCallable('manageBusiness');
+      await callable.call({'uid': _uid, 'businessId': id, 'cost': price, 'actionType': 'buy'});
+      _showNotification("🏢 مبروك! تم شراء المشروع التجاري بنجاح.");
+    } on FirebaseFunctionsException catch (e) {
+      _showNotification("⚠️ ${e.message}");
+    } catch (e) {
+      _showNotification("⚠️ فشل الشراء بسبب خطأ في الاتصال.");
+    }
+  }
+
+  Future<void> upgradeBusiness(String id, int upgradeCost) async {
+    if (_cash < upgradeCost) { _showNotification("⚠️ كاش غير كافي للترقية!"); return; }
+    try {
+      _showNotification("⏳ جاري الترقية والتطوير...");
+      final callable = FirebaseFunctions.instance.httpsCallable('manageBusiness');
+      await callable.call({'uid': _uid, 'businessId': id, 'cost': upgradeCost, 'actionType': 'upgrade'});
+      _showNotification("📈 تم ترقية المشروع التجاري بنجاح!");
+    } on FirebaseFunctionsException catch (e) {
+      _showNotification("⚠️ ${e.message}");
+    } catch (e) {
+      _showNotification("⚠️ فشل الترقية بسبب خطأ في الاتصال.");
     }
   }
 }

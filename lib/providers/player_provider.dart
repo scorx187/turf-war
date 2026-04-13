@@ -6,6 +6,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../utils/game_data.dart';
 import '../utils/local_notification_service.dart';
 
@@ -450,19 +451,25 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
     if (data['lastUpdate'] != null) {
       DateTime serverTime = (data['lastUpdate'] is Timestamp) ? (data['lastUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastUpdate'].toString());
-      _lastServerTime = serverTime;
-      _sessionTimer.reset();
-      _sessionTimer.start();
 
-      int secondsPassed = secureNow.difference(serverTime).inSeconds;
-      if (secondsPassed > 0) {
+      // 🟢 الحساب المعالج: نحسب الفرق الزمني قبل أن نقوم بتصفير العداد
+      int secondsPassed = DateTime.now().difference(serverTime).inSeconds;
+
+      if (!_isInitialDataLoaded && secondsPassed > 0) {
         int gainedCourage = secondsPassed ~/ 4; _courage = min(maxCourage, _courage + gainedCourage);
         int gainedPrestige = secondsPassed ~/ 6; _prestige = min(maxPrestige, _prestige + gainedPrestige);
         int gainedEnergy = secondsPassed ~/ 8; _energy = min(maxEnergy, _energy + gainedEnergy);
         double regenPerSecond = maxHealth / 1800.0; int gainedHealth = (secondsPassed * regenPerSecond).toInt();
         _health = min(maxHealth, _health + gainedHealth);
         double lostHeat = secondsPassed * 0.0278; _heat = max(0, _heat - lostHeat);
+
+        // 🟢 حفظ تلقائي للموارد التي كسبتها وأنت بالخارج
+        Future.microtask(() => _syncWithFirestore());
       }
+
+      _lastServerTime = serverTime;
+      _sessionTimer.reset();
+      _sessionTimer.start();
     }
 
     if (data['lastPassiveIncomeTime'] != null) {
@@ -754,7 +761,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _playerDataSubscription?.cancel();
 
     _cash = 100; _gold = 0; _bankBalance = 0;
-    _energy = 100; _courage = 30; _health = 100; _prestige = 100; _baseMaxHealth = 100; _bonusPerkPoints = 0;
+    _energy = 100; _courage = 100; _health = 100; _prestige = 100; _baseMaxHealth = 100; _bonusPerkPoints = 0;
     _baseStrength = 5.0; _baseDefense = 5.0; _baseSkill = 5.0; _baseSpeed = 5.0;
 
     _crimeLevel = 1; _crimeXP = 0; _workLevel = 1; _workXP = 0; _arenaLevel = 1;

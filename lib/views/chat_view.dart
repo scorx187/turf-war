@@ -278,8 +278,13 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                 _instantCaches[widget.collectionPath] = snapshot.data!.docs;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
-                    _isFetchingMore = false;
-                    _hasMore = _instantCaches[widget.collectionPath]!.length >= _messageLimit;
+                    // 🟢 إضافة setState لإجبار الشاشة على إعادة الرسم ورؤية الرسائل الأقدم
+                    if (_isFetchingMore || _hasMore != (_instantCaches[widget.collectionPath]!.length >= _messageLimit)) {
+                      setState(() {
+                        _isFetchingMore = false;
+                        _hasMore = _instantCaches[widget.collectionPath]!.length >= _messageLimit;
+                      });
+                    }
                   }
                 });
               }
