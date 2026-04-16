@@ -599,11 +599,14 @@ class _RealEstateViewState extends State<RealEstateView> {
 
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('property_rentals').snapshots(),
+            // 🟢 التعديل هنا: الفلترة صارت تتم على مستوى قاعدة البيانات مباشرة بدل ما نسحب كل شيء
+            stream: _marketTab == 1
+                ? FirebaseFirestore.instance.collection('property_rentals').where('ownerId', isEqualTo: player.uid).snapshots()
+                : FirebaseFirestore.instance.collection('property_rentals').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Colors.amber));
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text("لا توجد عقارات معروضة للإيجار حالياً.", style: TextStyle(color: Colors.white54, fontSize: 16)));
+                return Center(child: Text(_marketTab == 0 ? "لا توجد عقارات معروضة للإيجار حالياً." : "ليس لديك أي إعلانات في السوق.", style: const TextStyle(color: Colors.white54, fontSize: 16)));
               }
 
               var docs = snapshot.data!.docs.map((d) {
@@ -612,10 +615,9 @@ class _RealEstateViewState extends State<RealEstateView> {
                 return map;
               }).toList();
 
+              // 🟢 فلترة إضافية للسوق العام عشان ما يظهر إعلانك فيه
               if (_marketTab == 0) {
                 docs = docs.where((d) => d['ownerId'] != player.uid).toList();
-              } else {
-                docs = docs.where((d) => d['ownerId'] == player.uid).toList();
               }
 
               if (docs.isEmpty) {
@@ -695,7 +697,17 @@ class _RealEstateViewState extends State<RealEstateView> {
                               _moneyText(totalPrice, fontSize: 12),
                               const SizedBox(height: 4),
                               if (isMyListing)
-                                const Text('عقارك', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12))
+                                ElevatedButton(
+                                  // 🟢 زر سحب العقار من السوق لإعلاناتك
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(horizontal: 10), minimumSize: const Size(60, 30)),
+                                  onPressed: () {
+                                    audio.playEffect('click.mp3');
+                                    _confirmAction(context, 'سحب الإعلان', const Text('هل متأكد أنك تريد سحب العقار من السوق؟', style: TextStyle(color: Colors.white)), () {
+                                      cubit.executeAction(() => player.cancelRentalListing(prop['id']), 'تم سحب العقار من السوق بنجاح!');
+                                    });
+                                  },
+                                  child: const Text('سحب الإعلان', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                                )
                               else
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: player.cash >= totalPrice ? Colors.amber : Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 10), minimumSize: const Size(60, 30)),
