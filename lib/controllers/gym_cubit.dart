@@ -1,3 +1,5 @@
+// المسار: lib/controllers/gym_cubit.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../providers/player_provider.dart';
 import '../services/gym_service.dart';
@@ -10,14 +12,12 @@ class GymCubit extends Cubit<GymState> {
   GymCubit() : super(GymState());
 
   Future<void> trainStats(PlayerProvider player, int strE, int defE, int skillE, int spdE) async {
-    int totalEnergy = strE + defE + skillE + spdE;
     emit(state.copyWith(isLoading: true, errorMessage: '', successMessage: ''));
     try {
       double gained = await _gymService.trainStats(uid: player.uid!, strE: strE, defE: defE, skillE: skillE, spdE: spdE);
 
       if (gained > 0) {
-        // 🟢 هنا التعديل: استخدمنا دالة setEnergy الموجودة مسبقاً
-        player.setEnergy(player.energy - totalEnergy);
+        // 🟢 السيرفر يخصم الطاقة تلقائياً، فلا داعي لاستدعاء setEnergy أو رفع أي شيء محلياً
         emit(state.copyWith(isLoading: false, gainedStats: gained));
         emit(state.copyWith(clearGainedStats: true));
       } else {
@@ -33,8 +33,7 @@ class GymCubit extends Cubit<GymState> {
     emit(state.copyWith(isLoading: true, errorMessage: '', successMessage: ''));
     try {
       await _gymService.hireCoach(uid: player.uid!, coachId: id, price: price);
-      player.removeCash(price, reason: 'استئجار مدرب $coachName');
-
+      // 🟢 السيرفر يقوم بخصم الفلوس وضبط وقت المدرب بدقة، فلا تتدخل من التطبيق
       emit(state.copyWith(isLoading: false, successMessage: 'تم التعاقد مع $coachName بنجاح! 💪'));
       emit(state.copyWith(successMessage: ''));
     } catch (e) {
@@ -47,8 +46,7 @@ class GymCubit extends Cubit<GymState> {
     emit(state.copyWith(isLoading: true, errorMessage: '', successMessage: ''));
     try {
       await _gymService.buyAndUseSteroids(uid: player.uid!, price: price);
-      player.removeCash(price, reason: 'شراء منشطات');
-
+      // 🟢 السيرفر يقوم باللازم بشكل آمن!
       emit(state.copyWith(isLoading: false, successMessage: 'تم حقن المنشطات بنجاح! ⚡'));
       emit(state.copyWith(successMessage: ''));
     } catch (e) {

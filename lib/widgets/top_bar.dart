@@ -5,14 +5,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
 import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 إضافة مكتبة البلوك
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../providers/audio_provider.dart';
 import '../views/store_view.dart';
-import '../controllers/player_stats_cubit.dart'; // 🟢 استدعاء الكيوبت
-import '../controllers/player_stats_state.dart'; // 🟢 استدعاء الحالة
+import '../controllers/player_stats_cubit.dart';
+import '../controllers/player_stats_state.dart';
 
 class TopBar extends StatelessWidget {
-  // 🟢 لاحظ كيف صار الكلاس نظيف وما يطلب أي متغيرات (Parameters)
   const TopBar({super.key});
 
   Uint8List? _getDecodedImage(String? profilePicUrl) {
@@ -26,7 +25,6 @@ class TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 الواجهة كاملة مغلفة بـ BlocBuilder عشان تتحدث تلقائياً من الكيوبت
     return BlocBuilder<PlayerStatsCubit, PlayerStatsState>(
       builder: (context, state) {
         double safeXpPercent = (state.maxXp > 0) ? (state.currentXp / state.maxXp).clamp(0.0, 1.0) : 0.0;
@@ -408,6 +406,7 @@ class TopBar extends StatelessWidget {
   }
 }
 
+// 🟢 الذكاء الجديد كلياً للمؤقت!
 class StatTimerText extends StatefulWidget {
   final int initialSeconds;
   const StatTimerText({super.key, required this.initialSeconds});
@@ -424,18 +423,52 @@ class _StatTimerTextState extends State<StatTimerText> {
   void initState() {
     super.initState();
     seconds = widget.initialSeconds;
-    _startTimer();
+    if (seconds > 0) {
+      _startTimer();
+    }
   }
 
   @override
   void didUpdateWidget(StatTimerText oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((widget.initialSeconds - seconds).abs() > 8) {
+
+    bool shouldUpdate = false;
+    int diff = oldWidget.initialSeconds - widget.initialSeconds;
+
+    // 1. إذا زاد الوقت فجأة (بمعنى أن اللاعب استهلك طاقة/شجاعة) -> نحدث فوراً
+    if (diff < 0) {
+      shouldUpdate = true;
+    }
+    // 2. إذا نقص الوقت بشكل هائل جداً (بمعنى اللاعب اشترى تعبئة) -> نحدث فوراً
+    else if (diff > 20) {
+      shouldUpdate = true;
+    }
+    // 3. التحديث الطبيعي القادم من الكيوبت (كل 8 ثواني مثلاً)
+    else if (diff > 0) {
+      // نترك العداد ينزل بثبات، ولا نتدخل فيه إلا إذا انحرف العداد المحلي عن السيرفر بأكثر من 4 ثواني
+      if ((seconds - widget.initialSeconds).abs() > 4) {
+        shouldUpdate = true;
+      }
+    }
+    // 4. لا يوجد تغيير في الرقم القادم، لكن العداد المحلي ابتعد كثيراً لسبب ما (التطبيق كان مغلق)
+    else {
+      if ((widget.initialSeconds - seconds).abs() > 20) {
+        shouldUpdate = true;
+      }
+    }
+
+    if (shouldUpdate) {
       seconds = widget.initialSeconds;
+
+      // 🟢 إذا كان المؤقت متوقفاً والوقت أصبح أكبر من صفر، نشغله من جديد تلقائياً!
+      if (seconds > 0 && (_timer == null || !_timer!.isActive)) {
+        _startTimer();
+      }
     }
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted && seconds > 0) {
         setState(() {

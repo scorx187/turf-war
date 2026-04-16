@@ -5,8 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart'; // 🟢 مكتبة الكلاود
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../controllers/player_stats_cubit.dart';
-import '../controllers/player_stats_state.dart';
+// لم نعد بحاجة لاستدعاء Cubit هنا لأن TopBar يهتم بنفسه
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/top_bar.dart';
@@ -183,29 +182,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   final TransformationController _mapTransformationController = TransformationController();
   Widget? _cachedMapWidget;
 
-  // 🟢 هذا هو "الجسر الخفي" اللي يربط الـ Provider القديم بالـ Cubit الجديد
-  void _syncListener() {
-    final player = Provider.of<PlayerProvider>(context, listen: false);
-    context.read<PlayerStatsCubit>().syncWithServerData(PlayerStatsState(
-      cash: player.cash,
-      gold: player.gold,
-      energy: player.energy,
-      maxEnergy: player.maxEnergy,
-      courage: player.courage,
-      maxCourage: player.maxCourage,
-      health: player.health,
-      maxHealth: player.maxHealth,
-      prestige: player.prestige,
-      maxPrestige: player.maxPrestige,
-      playerName: player.playerName,
-      profilePicUrl: player.profilePicUrl,
-      level: player.crimeLevel,
-      currentXp: player.crimeXP,
-      maxXp: player.xpToNextLevel,
-      isVIP: player.isVIP,
-    ));
-  }
-
   @override
   void initState() {
     super.initState();
@@ -216,10 +192,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       final player = Provider.of<PlayerProvider>(context, listen: false);
       final audio = Provider.of<AudioProvider>(context, listen: false);
       audio.playBGM();
-
-      // 🟢 ربط التحديثات بالكيوبت
-      player.addListener(_syncListener);
-      _syncListener(); // تحديث أولي
 
       _notificationSubscription = player.notificationStream.listen((message) {
         if (mounted) _showStylishNotification(message);
@@ -237,11 +209,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     _mapTransformationController.dispose();
-
-    // 🟢 إيقاف المستمع عند الخروج لحماية الذاكرة
-    final player = Provider.of<PlayerProvider>(context, listen: false);
-    player.removeListener(_syncListener);
-
     super.dispose();
   }
 
@@ -357,7 +324,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                               fontSize: 24,
                               fontWeight: FontWeight.w900,
                               color: color,
-                              decoration: TextDecoration.none, // 🟢 تم إزالة الخط الأصفر المزعج نهائياً
+                              decoration: TextDecoration.none,
                               shadows: const [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1,1))]
                           )
                       ),
@@ -762,7 +729,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         top: false,
         child: Column(
           children: [
-            // 🟢 هنا التعديل السحري: واجهة التوب بار صارت معزولة تماماً بدون بارامترات
+            // 🟢 التوب بار النظيف المستقل
             const TopBar(),
             Expanded(child: Consumer<PlayerProvider>(builder: (context, player, child) { return _buildConditionalContent(player); })),
           ],
