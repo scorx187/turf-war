@@ -24,6 +24,7 @@ dependencies:
   awesome_notifications: ^0.11.0
   package_info_plus: ^9.0.1
   url_launcher: ^6.3.2
+  flutter_bloc: ^8.1.5  # الأداة اللي بتعطينا ميزة الـ Cubit
 
 dev_dependencies:
   flutter_test:
