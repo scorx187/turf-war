@@ -2,11 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_functions/cloud_functions.dart'; // 🟢 استدعاء مكتبة السيرفر
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../utils/game_data.dart';
+import '../controllers/black_market_cubit.dart'; // 🟢 استدعاء الكيوبت
 
 class BlackMarketView extends StatefulWidget {
   final VoidCallback onBack;
@@ -146,48 +147,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
     );
   }
 
-  // 🟢 الدالة الخارقة والآمنة للشراء من السيرفر
-  Future<void> _securePurchase(BuildContext context, PlayerProvider player, String itemId, int cost, String currencyType, int amount, String itemName) async {
-    // حماية مبدئية محلية عشان ما نكلم السيرفر على الفاضي
-    if (currencyType == 'cash' && player.cash < cost) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('كاش غير كافي لشراء $itemName!', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
-      return;
-    } else if (currencyType == 'gold' && player.gold < cost) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ذهب غير كافي لشراء $itemName!', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
-      return;
-    }
-
-    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.amber)));
-
-    try {
-      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('buyItem');
-      final result = await callable.call({
-        'uid': player.uid,
-        'itemId': itemId,
-        'cost': cost,
-        'currencyType': currencyType,
-        'amount': amount,
-      });
-
-      Navigator.pop(context); // إغلاق التحميل
-
-      if (result.data['success'] == true) {
-        // تحديث الأرقام بالشاشة لأن السيرفر حفظها خلاص
-        if (currencyType == 'cash') {
-          player.removeCash(cost, reason: "شراء من المتجر الأسود");
-        } else {
-          player.removeGold(cost);
-        }
-        player.addInventoryItem(itemId, amount);
-
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم شراء $itemName بنجاح 🤝', style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
-      }
-    } catch (e) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('مرفوض من السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
-    }
-  }
-
   Widget _buildGroupList(List<Map<String, dynamic>> groups) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -196,7 +155,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
         final group = groups[index];
         final Color color = group['color'];
         return Card(
-          color: const Color(0xFF262630), // لون الكرت أفتح قليلاً من الخلفية
+          color: const Color(0xFF262630),
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
@@ -238,7 +197,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
     );
   }
 
-  Widget _buildTabBody(PlayerProvider player, List<Map<String, dynamic>> groups, int currentTabIndex) {
+  Widget _buildTabBody(PlayerProvider player, List<Map<String, dynamic>> groups, int currentTabIndex, BlackMarketCubit cubit) {
     if (_activeGroupName != null && _activeGroupItems != null && _tabController.index == currentTabIndex) {
       return Column(
         children: [
@@ -255,7 +214,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
               ],
             ),
           ),
-          Expanded(child: _buildItemsList(player, _activeGroupItems!)),
+          Expanded(child: _buildItemsList(player, _activeGroupItems!, cubit)),
         ],
       );
     }
@@ -268,7 +227,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
 
     final List<Map<String, dynamic>> items = [
       ..._generateEquipment(player),
-
       {'id': 'dagger', 'name': 'خنجر كلاسيكي', 'description': 'قوة: +15%\nسرعة: +25%', 'price': 1500, 'currency': 'cash', 'icon': Icons.colorize, 'color': Colors.grey, 'type': 'weapon', 'isConsumable': false},
       {'id': 'revolver', 'name': 'مسدس كلاسيكي', 'description': 'قوة: +40%\nسرعة: +40%', 'price': 15000, 'currency': 'cash', 'icon': Icons.shutter_speed, 'color': Colors.blueGrey, 'type': 'weapon', 'isConsumable': false},
       {'id': 'katana', 'name': 'كاتانا كلاسيكي', 'description': 'قوة: +90%\nسرعة: +60%', 'price': 85000, 'currency': 'cash', 'icon': Icons.colorize_outlined, 'color': Colors.indigo, 'type': 'weapon', 'isConsumable': false},
@@ -281,10 +239,8 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
       {'id': 'steel_armor', 'name': 'فولاذ كلاسيكي', 'description': 'دفاع: +190%\nمهارة: +60%', 'price': 120000, 'currency': 'cash', 'icon': Icons.security, 'color': Colors.grey, 'type': 'armor', 'isConsumable': false},
       {'id': 'exoskeleton', 'name': 'بدلة خارقة كلاسيكية', 'description': 'دفاع: +175%\nمهارة: +175%', 'price': 2500, 'currency': 'gold', 'icon': Icons.precision_manufacturing, 'color': Colors.amber, 'type': 'armor', 'isConsumable': false},
       {'id': 'a_aladdin_defense', 'name': 'درع الجني الفولاذي', 'description': 'دفاع صلب لا يمكن اختراقه\nدفاع: +500% | مهارة: +100%', 'price': 50000, 'currency': 'gold', 'icon': Icons.shield, 'color': Colors.redAccent, 'type': 'armor', 'isConsumable': false},
-
       {'id': 'ninja_suit', 'name': 'نينجا كلاسيكي', 'description': 'دفاع: +60%\nمهارة: +190%', 'price': 500000, 'currency': 'cash', 'icon': Icons.accessibility_new, 'color': Colors.cyanAccent, 'type': 'armor', 'isConsumable': false},
       {'id': 'a_aladdin_evasion', 'name': 'عباءة علاء الدين', 'description': 'تفادي جميع الضربات بخفة\nدفاع: +100% | مهارة: +500%', 'price': 50000, 'currency': 'gold', 'icon': Icons.air, 'color': Colors.cyanAccent, 'type': 'armor', 'isConsumable': false},
-
       {'id': 't_aladdin_lamp', 'name': 'المصباح السحري', 'description': 'سعادة: +300\nقوة: +7% | سرعة: +3%', 'price': 800, 'currency': 'gold', 'icon': Icons.lightbulb, 'color': Colors.amberAccent, 'type': 'special', 'isConsumable': false},
       {'id': 't_aladdin_carpet', 'name': 'البساط الطائر', 'description': 'سعادة: +300\nسرعة: +8% | دفاع: +2%', 'price': 800, 'currency': 'gold', 'icon': Icons.map, 'color': Colors.purpleAccent, 'type': 'special', 'isConsumable': false},
       {'id': 't_magic_ring', 'name': 'خاتم السلطة', 'description': 'سعادة: +200\nدفاع: +6% | طاقة: +15', 'price': 500, 'currency': 'gold', 'icon': Icons.radio_button_checked, 'color': Colors.orange, 'type': 'special', 'isConsumable': false},
@@ -295,7 +251,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
       {'id': 't_phoenix_feather', 'name': 'ريشة العنقاء', 'description': 'سعادة: +600\nتعافي: +15% | صحة: +5%', 'price': 1500, 'currency': 'gold', 'icon': Icons.local_fire_department, 'color': Colors.deepOrange, 'type': 'special', 'isConsumable': false},
       {'id': 't_time_hourglass', 'name': 'ساعة الزمن', 'description': 'سعادة: +550\nجميع الخصائص: +3% | تعافي: +5%', 'price': 2000, 'currency': 'gold', 'icon': Icons.hourglass_empty, 'color': Colors.blueAccent, 'type': 'special', 'isConsumable': false},
       {'id': 't_midas_touch', 'name': 'قفاز ميداس', 'description': 'سعادة: +600\nعائد الجرائم: +15% | شجاعة: +5', 'price': 2500, 'currency': 'gold', 'icon': Icons.front_hand, 'color': Colors.amber, 'type': 'special', 'isConsumable': false},
-
       {'id': 'black_mask', 'name': 'قناع تنكر', 'description': 'مطلوب لسرقة السيارات ويهربك 35%', 'price': 15000, 'currency': 'cash', 'icon': Icons.theater_comedy, 'color': Colors.deepPurpleAccent, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'silicon_mask', 'name': 'قناع سيليكون', 'description': 'مطلوب لسطو البنك ويهربك 55%', 'price': 120000, 'currency': 'cash', 'icon': Icons.face_retouching_natural, 'color': Colors.pinkAccent, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'crowbar', 'name': 'عتلة فولاذية', 'description': 'تخفض فشل السطو 5%', 'price': 2500, 'currency': 'cash', 'icon': Icons.hardware, 'color': Colors.grey, 'type': 'crime_tool', 'isConsumable': false},
@@ -309,7 +264,6 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
       {'id': 'thermite', 'name': 'ثيرميت حارق', 'description': 'يصهر الأبواب (فشل البنك -25%)', 'price': 150000, 'currency': 'cash', 'icon': Icons.whatshot, 'color': Colors.deepOrange, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'emp_device', 'name': 'جهاز EMP', 'description': 'يعطل الكاميرات (فشل عام -30%)', 'price': 500, 'currency': 'gold', 'icon': Icons.electric_bolt, 'color': Colors.yellowAccent, 'type': 'crime_tool', 'isConsumable': false},
       {'id': 'master_key', 'name': 'المفتاح الرئيسي', 'description': 'مطلوب للسطو على الفلل الفاخرة', 'price': 150000, 'currency': 'cash', 'icon': Icons.vpn_key, 'color': Colors.amber, 'type': 'crime_tool', 'isConsumable': false},
-
       {'id': 'bribe_small', 'name': 'رشوة محقق', 'description': 'تبريد الحرارة (20 درجة)', 'price': 10000, 'currency': 'cash', 'icon': Icons.handshake, 'color': Colors.teal, 'type': 'consumable', 'isConsumable': true},
       {'id': 'fake_plates', 'name': 'لوحات مزورة', 'description': 'تبريد الحرارة (40 درجة)', 'price': 25000, 'currency': 'cash', 'icon': Icons.subtitles, 'color': Colors.lightBlue, 'type': 'consumable', 'isConsumable': true},
       {'id': 'bribe_big', 'name': 'رشوة كبرى', 'description': 'تصفر الملاحقة فوراً', 'price': 100, 'currency': 'gold', 'icon': Icons.account_balance_sharp, 'color': Colors.amber, 'type': 'consumable', 'isConsumable': true},
@@ -367,156 +321,187 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
       {'id': 'vip_365', 'name': 'عضوية سنة', 'days': 365, 'price': 10000},
     ];
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/ui/crime_bg.jpg'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
+    // 🟢 ربط الواجهة بالكيوبت
+    return BlocProvider(
+      create: (context) => BlackMarketCubit(),
+      child: BlocConsumer<BlackMarketCubit, BlackMarketState>(
+        listener: (context, state) {
+          if (state.errorMessage.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
+          }
+          if (state.successMessage.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.successMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
+          }
+        },
+        builder: (context, state) {
+          final cubit = context.read<BlackMarketCubit>();
+
+          return Stack(
             children: [
-              const SizedBox(height: 5),
+              Scaffold(
+                body: Container(
+                  decoration: const BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage('assets/images/ui/crime_bg.jpg'),
+                      fit: BoxFit.cover,
+                      colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
+                    ),
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 5),
 
-              if (_activeGroupName == null) ...[
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.shopping_cart_checkout, color: Colors.redAccent, size: 24),
-                    SizedBox(width: 8),
-                    Text('المتجر الأسود 🌑', style: TextStyle(color: Colors.redAccent, fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-                  ],
-                ),
-                const SizedBox(height: 5),
+                        if (_activeGroupName == null) ...[
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.shopping_cart_checkout, color: Colors.redAccent, size: 24),
+                              SizedBox(width: 8),
+                              Text('المتجر الأسود 🌑', style: TextStyle(color: Colors.redAccent, fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
 
-                Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: Container(
-                    width: double.infinity,
-                    alignment: Alignment.centerRight,
-                    child: TabBar(
-                      controller: _tabController,
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.start,
-                      padding: EdgeInsets.zero,
-                      indicatorPadding: EdgeInsets.zero,
-                      labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      indicatorColor: Colors.redAccent,
-                      labelColor: Colors.redAccent,
-                      unselectedLabelColor: Colors.white54,
-                      labelStyle: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold),
-                      tabs: const [
-                        Tab(text: 'الأسلحة', icon: Icon(Icons.colorize)),
-                        Tab(text: 'الدروع', icon: Icon(Icons.shield)),
-                        Tab(text: 'الأدوات الخاصة', icon: Icon(Icons.auto_awesome)),
-                        Tab(text: 'عتاد الجرائم', icon: Icon(Icons.engineering)),
-                        Tab(text: 'أدوات', icon: Icon(Icons.medical_services)),
-                        Tab(text: 'VIP', icon: Icon(Icons.workspace_premium)),
+                          Directionality(
+                            textDirection: TextDirection.rtl,
+                            child: Container(
+                              width: double.infinity,
+                              alignment: Alignment.centerRight,
+                              child: TabBar(
+                                controller: _tabController,
+                                isScrollable: true,
+                                tabAlignment: TabAlignment.start,
+                                padding: EdgeInsets.zero,
+                                indicatorPadding: EdgeInsets.zero,
+                                labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                indicatorColor: Colors.redAccent,
+                                labelColor: Colors.redAccent,
+                                unselectedLabelColor: Colors.white54,
+                                labelStyle: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold),
+                                tabs: const [
+                                  Tab(text: 'الأسلحة', icon: Icon(Icons.colorize)),
+                                  Tab(text: 'الدروع', icon: Icon(Icons.shield)),
+                                  Tab(text: 'الأدوات الخاصة', icon: Icon(Icons.auto_awesome)),
+                                  Tab(text: 'عتاد الجرائم', icon: Icon(Icons.engineering)),
+                                  Tab(text: 'أدوات', icon: Icon(Icons.medical_services)),
+                                  Tab(text: 'VIP', icon: Icon(Icons.workspace_premium)),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                _buildTabBody(player, weaponGroups, 0, cubit),
+                                _buildTabBody(player, armorGroups, 1, cubit),
+                                _buildTabBody(player, specialGroups, 2, cubit),
+                                _buildTabBody(player, crimeGroups, 3, cubit),
+                                _buildTabBody(player, consumableGroups, 4, cubit),
+                                _buildVIPList(player, vips, cubit),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(_activeGroupIcon, color: _activeGroupColor, size: 28),
+                              const SizedBox(width: 8),
+                              Text(_activeGroupName!, style: TextStyle(color: _activeGroupColor, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Expanded(
+                            child: _buildItemsList(player, _activeGroupItems!, cubit),
+                          )
+                        ]
                       ],
                     ),
                   ),
                 ),
 
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildTabBody(player, weaponGroups, 0),
-                      _buildTabBody(player, armorGroups, 1),
-                      _buildTabBody(player, specialGroups, 2),
-                      _buildTabBody(player, crimeGroups, 3),
-                      _buildTabBody(player, consumableGroups, 4),
-                      _buildVIPList(player, vips),
-                    ],
+                bottomNavigationBar: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      image: const DecorationImage(
+                        image: AssetImage('assets/images/ui/bottom_navbar_bg.png'),
+                        fit: BoxFit.cover,
+                      ),
+                      border: const Border(
+                        top: BorderSide(color: Color(0xFF856024), width: 2),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.8),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
+                    child: SafeArea(
+                      bottom: true,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                              _handleBack();
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24),
+                                SizedBox(height: 4),
+                                Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+
+                          GestureDetector(
+                            onTap: () => _showHelpDialog(context),
+                            behavior: HitTestBehavior.opaque,
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.menu_book, color: Colors.white70, size: 24),
+                                SizedBox(height: 4),
+                                Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ] else ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(_activeGroupIcon, color: _activeGroupColor, size: 28),
-                    const SizedBox(width: 8),
-                    Text(_activeGroupName!, style: TextStyle(color: _activeGroupColor, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Expanded(
-                  child: _buildItemsList(player, _activeGroupItems!),
-                )
-              ]
-            ],
-          ),
-        ),
-      ),
-
-      bottomNavigationBar: Directionality(
-        textDirection: TextDirection.rtl,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            image: const DecorationImage(
-              image: AssetImage('assets/images/ui/bottom_navbar_bg.png'),
-              fit: BoxFit.cover,
-            ),
-            border: const Border(
-              top: BorderSide(color: Color(0xFF856024), width: 2),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.8),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
               ),
-            ],
-          ),
-          padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
-          child: SafeArea(
-            bottom: true,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                    _handleBack();
-                  },
-                  behavior: HitTestBehavior.opaque,
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24),
-                      SizedBox(height: 4),
-                      Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
 
-                GestureDetector(
-                  onTap: () => _showHelpDialog(context),
-                  behavior: HitTestBehavior.opaque,
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.menu_book, color: Colors.white70, size: 24),
-                      SizedBox(height: 4),
-                      Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
+              // 🟢 شاشة التحميل (تغطي كامل الشاشة لمنع التكرار)
+              if (state.isLoading)
+                Container(
+                  color: Colors.black87,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.amber),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildItemsList(PlayerProvider player, List<Map<String, dynamic>> items) {
+  Widget _buildItemsList(PlayerProvider player, List<Map<String, dynamic>> items, BlackMarketCubit cubit) {
     if (items.isEmpty) {
       return const Center(
         child: Text("لا توجد عناصر في هذا القسم حالياً", style: TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 16)),
@@ -573,8 +558,8 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
                       if (!isConsumable && hasItem) return;
                       Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
 
-                      // 🟢 هنا التغيير الوحيد: استخدمنا دالة السيرفر بدال الخصم المحلي
-                      _securePurchase(context, player, item['id'], item['price'], currency, 1, item['name']);
+                      // 🟢 استدعاء الشراء عبر الكيوبت
+                      cubit.buyItem(player, item['id'], item['price'], currency, 1, item['name']);
                     },
                     child: Text((!isConsumable && hasItem) ? 'مملوك' : 'شراء', style: const TextStyle(fontSize: 12, fontFamily: 'Changa', fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
@@ -587,7 +572,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
     );
   }
 
-  Widget _buildVIPList(PlayerProvider player, List<Map<String, dynamic>> vips) {
+  Widget _buildVIPList(PlayerProvider player, List<Map<String, dynamic>> vips, BlackMarketCubit cubit) {
     return Column(
       children: [
         if (player.isVIP)
@@ -649,8 +634,8 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
                           ),
                           onPressed: player.isVIP ? null : () {
                             Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                            // هنا نترك شراء الـ VIP يعتمد على طريقتك الأصلية
-                            player.buyVIP(vip['days'], vip['price']);
+                            // 🟢 استدعاء الـ VIP عبر الكيوبت عشان نستفيد من شاشة التحميل
+                            cubit.buyVip(player, vip['days'], vip['price']);
                           },
                           child: const Text('تفعيل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'Changa')),
                         ),
