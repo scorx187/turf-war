@@ -703,3 +703,387 @@ exports.cancelRentedProperty = functions.https.onCall(async (request) => {
         return { success: true };
     });
 });
+
+// =======================================================
+// 13. 🟢 دوال البنك (Bank)
+// =======================================================
+exports.depositToBank = functions.https.onCall(async (request) => {
+    const { uid, amount } = request.data || request;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+        if ((data.cash || 0) < amount) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي');
+
+        transaction.update(playerRef, {
+            cash: data.cash - amount,
+            bankBalance: (data.bankBalance || 0) + amount
+        });
+        return { success: true };
+    });
+});
+
+exports.withdrawFromBank = functions.https.onCall(async (request) => {
+    const { uid, amount } = request.data || request;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+        if ((data.bankBalance || 0) < amount) throw new functions.https.HttpsError('failed-precondition', 'رصيد بنكي غير كافي');
+
+        transaction.update(playerRef, {
+            bankBalance: data.bankBalance - amount,
+            cash: (data.cash || 0) + amount
+        });
+        return { success: true };
+    });
+});
+
+exports.buyGold = functions.https.onCall(async (request) => {
+    const { uid, amount, price } = request.data || request;
+    const totalCost = amount * price;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+        if ((data.cash || 0) < totalCost) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي');
+
+        transaction.update(playerRef, {
+            cash: data.cash - totalCost,
+            gold: (data.gold || 0) + amount
+        });
+        return { success: true };
+    });
+});
+
+exports.sellGold = functions.https.onCall(async (request) => {
+    const { uid, amount, price } = request.data || request;
+    const totalGain = amount * price;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+        if ((data.gold || 0) < amount) throw new functions.https.HttpsError('failed-precondition', 'ذهب غير كافي');
+
+        transaction.update(playerRef, {
+            gold: data.gold - amount,
+            cash: (data.cash || 0) + totalGain
+        });
+        return { success: true };
+    });
+});
+
+exports.takeLoan = functions.https.onCall(async (request) => {
+    const { uid, amount } = request.data || request;
+    const netReceive = amount - Math.floor(amount * 0.05); // خصم 5% رسوم إدارية
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+        let maxLoan = data.maxLoanLimit || 50000;
+        let currentLoan = data.loanAmount || 0;
+
+        if (currentLoan + amount > maxLoan) throw new functions.https.HttpsError('failed-precondition', 'تجاوزت الحد المسموح للقروض');
+
+        transaction.update(playerRef, {
+            loanAmount: currentLoan + amount,
+            cash: (data.cash || 0) + netReceive,
+            loanTime: admin.firestore.FieldValue.serverTimestamp()
+        });
+        return { success: true };
+    });
+});
+
+exports.repayLoan = functions.https.onCall(async (request) => {
+    const { uid, amount } = request.data || request;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+
+        if ((data.cash || 0) < amount) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي للسداد');
+
+        let newLoan = (data.loanAmount || 0) - amount;
+        if (newLoan < 0) newLoan = 0;
+
+        transaction.update(playerRef, {
+            cash: data.cash - amount,
+            loanAmount: newLoan,
+            creditScore: (data.creditScore || 0) + 10 // مكافأة السداد
+        });
+        return { success: true };
+    });
+});
+
+exports.startLockedInvestment = functions.https.onCall(async (request) => {
+    const { uid, amount, minutes, rate } = request.data || request;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+
+        if ((data.cash || 0) < amount) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي للاستثمار');
+        if (data.isInvestmentLocked) throw new functions.https.HttpsError('failed-precondition', 'لديك استثمار نشط بالفعل');
+
+        let expireDate = new Date(Date.now() + minutes * 60000);
+
+        transaction.update(playerRef, {
+            cash: data.cash - amount,
+            isInvestmentLocked: true,
+            lockedBalance: amount,
+            lockedProfits: Math.floor(amount * rate),
+            lockedUntil: expireDate.toISOString()
+        });
+        return { success: true };
+    });
+});
+
+// =======================================================
+// 14. 🟢 دوال صالة التدريب (Gym)
+// =======================================================
+exports.trainMultipleStats = functions.https.onCall(async (request) => {
+    const { uid, strE, defE, skillE, spdE } = request.data || request;
+    const totalEnergyUsed = strE + defE + skillE + spdE;
+    if (totalEnergyUsed <= 0) throw new functions.https.HttpsError('invalid-argument', 'يجب تحديد طاقة للتدريب');
+
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+
+        if ((data.energy || 0) < totalEnergyUsed) throw new functions.https.HttpsError('failed-precondition', 'طاقة غير كافية');
+
+        let baseMultiplier = 0.1;
+        let happiness = data.happiness || 0;
+        let gainFactor = baseMultiplier * (1 + (happiness / 100)); // مكافأة السعادة
+
+        // هل المنشط شغال؟
+        if (data.activeSteroidEndTime && new Date(data.activeSteroidEndTime) > new Date()) {
+            gainFactor *= 2; // يضاعف النتائج
+        }
+
+        let strGain = strE * gainFactor;
+        let defGain = defE * gainFactor;
+        let skillGain = skillE * gainFactor;
+        let spdGain = spdE * gainFactor;
+
+        // هل المدرب شغال؟
+        if (data.activeCoach === 'russian') strGain *= 1.5;
+        if (data.activeCoach === 'tactical') defGain *= 1.5;
+        if (data.activeCoach === 'ninja') { skillGain *= 1.5; spdGain *= 1.5; }
+
+        let totalGained = strGain + defGain + skillGain + spdGain;
+
+        transaction.update(playerRef, {
+            energy: data.energy - totalEnergyUsed,
+            baseStrength: (data.baseStrength || 0) + strGain,
+            baseDefense: (data.baseDefense || 0) + defGain,
+            baseSkill: (data.baseSkill || 0) + skillGain,
+            baseSpeed: (data.baseSpeed || 0) + spdGain,
+        });
+
+        return { success: true, gained: parseFloat(totalGained.toFixed(2)) };
+    });
+});
+
+exports.hireCoach = functions.https.onCall(async (request) => {
+    const { uid, coachId, price } = request.data || request;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+
+        if ((data.cash || 0) < price) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي');
+        if (data.activeCoach) throw new functions.https.HttpsError('failed-precondition', 'لديك مدرب حالي');
+
+        let endTime = new Date(Date.now() + 30 * 60000); // 30 دقيقة
+        let cooldownTime = new Date(Date.now() + 6 * 3600000); // 6 ساعات راحة
+
+        transaction.update(playerRef, {
+            cash: data.cash - price,
+            activeCoach: coachId,
+            coachEndTime: endTime.toISOString(),
+            'inventory.coach_cooldown': cooldownTime.getTime()
+        });
+        return { success: true };
+    });
+});
+
+exports.buyAndUseSteroids = functions.https.onCall(async (request) => {
+    const { uid, price } = request.data || request;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+
+        if ((data.cash || 0) < price) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي');
+        if (data.activeSteroidEndTime && new Date(data.activeSteroidEndTime) > new Date()) {
+            throw new functions.https.HttpsError('failed-precondition', 'مفعول المنشط لا زال سارياً!');
+        }
+
+        let endTime = new Date(Date.now() + 20 * 60000); // 20 دقيقة
+        let cooldownTime = new Date(Date.now() + 6 * 3600000); // 6 ساعات راحة
+
+        transaction.update(playerRef, {
+            cash: data.cash - price,
+            activeSteroidEndTime: endTime.toISOString(),
+            'inventory.steroid_cooldown': cooldownTime.getTime()
+        });
+        return { success: true };
+    });
+});
+
+// =======================================================
+// 15. 🟢 دوال السجن (Prison) - دفع الكفالة
+// =======================================================
+exports.bailOutPlayer = functions.https.onCall(async (request) => {
+    const { uid, targetUid, bailCost } = request.data || request;
+    const db = admin.firestore();
+
+    const payerRef = db.collection('players').doc(uid);
+    const targetRef = db.collection('players').doc(targetUid);
+
+    return db.runTransaction(async (transaction) => {
+        const payerDoc = await transaction.get(payerRef);
+        const targetDoc = await transaction.get(targetRef);
+
+        if (!payerDoc.exists || !targetDoc.exists) throw new functions.https.HttpsError('not-found', 'حساب اللاعب غير موجود');
+        const payerData = payerDoc.data();
+
+        if ((payerData.cash || 0) < bailCost) throw new functions.https.HttpsError('failed-precondition', 'لا تملك كاش كافي لدفع الكفالة!');
+
+        // خصم الفلوس من الدافع
+        transaction.update(payerRef, {
+            cash: payerData.cash - bailCost
+        });
+
+        // إخراج المستهدف من السجن
+        transaction.update(targetRef, {
+            isInPrison: false,
+            prisonReleaseTime: null
+        });
+
+        return { success: true };
+    });
+});
+
+// =======================================================
+// 16. 🟢 دوال التشليح والورشة (Chop Shop)
+// =======================================================
+exports.startChoppingCar = functions.https.onCall(async (request) => {
+    const { uid } = request.data || request;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+
+        let stolenCars = (data.inventory && data.inventory['stolen_car']) ? data.inventory['stolen_car'] : 0;
+        if (stolenCars <= 0) throw new functions.https.HttpsError('failed-precondition', 'لا يوجد سيارات في المخزن');
+        if (data.isChopping) throw new functions.https.HttpsError('failed-precondition', 'هناك سيارة قيد التفكيك بالفعل');
+
+        let endTime = new Date(Date.now() + 30 * 60000); // 30 دقيقة
+
+        transaction.update(playerRef, {
+            'inventory.stolen_car': stolenCars - 1,
+            isChopping: true,
+            chopShopEndTime: endTime.toISOString()
+        });
+        return { success: true };
+    });
+});
+
+exports.collectChoppedCar = functions.https.onCall(async (request) => {
+    const { uid } = request.data || request;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+
+        if (!data.isChopping) throw new functions.https.HttpsError('failed-precondition', 'لا يوجد سيارة تم تفكيكها');
+        if (new Date(data.chopShopEndTime) > new Date()) throw new functions.https.HttpsError('failed-precondition', 'التفكيك لم ينتهِ بعد');
+
+        transaction.update(playerRef, {
+            isChopping: false,
+            chopShopEndTime: null,
+            cash: (data.cash || 0) + 15000 // 15 ألف كاش كأرباح ثابتة
+        });
+        return { success: true };
+    });
+});
+
+// =======================================================
+// 17. 🟢 دوال المخزن (استخدام الأدوات)
+// =======================================================
+exports.consumeItem = functions.https.onCall(async (request) => {
+    const { uid, itemId } = request.data || request;
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(playerRef);
+        const data = doc.data();
+
+        let inventory = data.inventory || {};
+        if ((inventory[itemId] || 0) <= 0) {
+            throw new functions.https.HttpsError('failed-precondition', 'لا تملك هذا العنصر في المخزن!');
+        }
+
+        let updates = {};
+        // 1. خصم العنصر من المخزن
+        updates[`inventory.${itemId}`] = inventory[itemId] - 1;
+
+        // 2. حساب القيم القصوى
+        let maxEnergy = (data.vipUntil && new Date(data.vipUntil) > new Date()) ? 200 : 100;
+        let maxCourage = (data.vipUntil && new Date(data.vipUntil) > new Date()) ? 200 : 100;
+        let maxHealth = data.maxHealth || 100;
+
+        // 3. تطبيق تأثير العنصر
+        if (itemId === 'steroids') updates.energy = maxEnergy;
+        else if (itemId === 'coffee') updates.courage = maxCourage;
+        else if (itemId === 'medkit') updates.health = maxHealth;
+        else if (itemId === 'bandage') updates.health = Math.min(maxHealth, (data.health || 0) + Math.floor(maxHealth * 0.25));
+        else if (itemId === 'bribe_small') updates.heat = Math.max(0, (data.heat || 0) - 20);
+        else if (itemId === 'fake_plates') updates.heat = Math.max(0, (data.heat || 0) - 40);
+        else if (itemId === 'bribe_big') updates.heat = 0;
+        else if (itemId === 'smoke_bomb') {
+            if (!data.isInPrison) throw new functions.https.HttpsError('failed-precondition', 'لا يمكنك استخدامها إلا داخل السجن!');
+            updates.isInPrison = false;
+            updates.prisonReleaseTime = null;
+        } else if (itemId === 'vip_7') {
+            let currentVip = (data.vipUntil && new Date(data.vipUntil) > new Date()) ? new Date(data.vipUntil) : new Date();
+            currentVip.setDate(currentVip.getDate() + 7);
+            updates.vipUntil = currentVip.toISOString();
+            updates.totalVipDays = (data.totalVipDays || 0) + 7;
+        } else {
+            throw new functions.https.HttpsError('invalid-argument', 'هذا العنصر غير قابل للاستهلاك المباشر.');
+        }
+
+        // 4. حفظ التحديثات في السيرفر
+        transaction.update(playerRef, updates);
+        return { success: true };
+    });
+});
