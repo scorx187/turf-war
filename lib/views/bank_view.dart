@@ -2,12 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../providers/player_provider.dart';
 import '../providers/market_provider.dart';
+import '../providers/audio_provider.dart';
 import 'package:intl/intl.dart';
-import '../controllers/bank_cubit.dart'; // 🟢 استدعاء الكيوبت
-import '../controllers/bank_state.dart'; // 🟢 استدعاء الحالة
+import '../controllers/bank_cubit.dart';
+import '../controllers/bank_state.dart';
 
 class BankView extends StatefulWidget {
   final VoidCallback onBack;
@@ -54,13 +55,12 @@ class _BankViewState extends State<BankView> {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
     final market = Provider.of<MarketProvider>(context);
+    final audio = Provider.of<AudioProvider>(context, listen: false);
 
-    // 🟢 ربط الواجهة بالكيوبت
     return BlocProvider(
       create: (context) => BankCubit(),
       child: BlocConsumer<BankCubit, BankState>(
         listener: (context, state) {
-          // 🟢 عرض رسائل النجاح أو الخطأ تلقائياً
           if (state.message.isNotEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(state.message, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
@@ -83,10 +83,14 @@ class _BankViewState extends State<BankView> {
                       child: Row(
                         children: [
                           IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Colors.white),
-                              onPressed: widget.onBack),
+                              icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+                              onPressed: () {
+                                audio.playEffect('click.mp3');
+                                widget.onBack();
+                              }),
+                          const SizedBox(width: 8),
                           const Text('بنك المدينة الاحترافي',
-                              style: TextStyle(color: Colors.green, fontSize: 22, fontWeight: FontWeight.bold)),
+                              style: TextStyle(color: Colors.green, fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                         ],
                       ),
                     ),
@@ -101,14 +105,15 @@ class _BankViewState extends State<BankView> {
                       indicatorColor: Colors.green,
                       labelColor: Colors.green,
                       unselectedLabelColor: Colors.grey,
+                      labelStyle: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold),
                     ),
                     Expanded(
                       child: TabBarView(
                         children: [
-                          _buildMainOperations(player, cubit), // 🟢 تمرير الكيوبت للدوال
+                          _buildMainOperations(player, audio, cubit),
                           _buildTransactionHistory(player),
-                          _buildLoanSection(player, cubit),
-                          _buildGoldMarket(player, market, cubit),
+                          _buildLoanSection(player, audio, cubit),
+                          _buildGoldMarket(player, market, audio, cubit),
                         ],
                       ),
                     ),
@@ -116,7 +121,6 @@ class _BankViewState extends State<BankView> {
                 ),
               ),
 
-              // 🟢 شاشة تحميل تظهر وقت تنفيذ العملية لتمنع التكرار
               if (state.isLoading)
                 Container(
                   color: Colors.black54,
@@ -131,7 +135,7 @@ class _BankViewState extends State<BankView> {
     );
   }
 
-  Widget _buildMainOperations(PlayerProvider player, BankCubit cubit) {
+  Widget _buildMainOperations(PlayerProvider player, AudioProvider audio, BankCubit cubit) {
     int depAmt = _depositSliderValue.toInt();
     int withAmt = _withdrawSliderValue.toInt();
     int lockAmt = _lockedInvestSliderValue.toInt();
@@ -141,7 +145,7 @@ class _BankViewState extends State<BankView> {
         children: [
           _buildFinancialReportCard(player),
           _buildBalanceCard(player),
-          _buildLockedInvestmentSection(player, lockAmt, cubit),
+          _buildLockedInvestmentSection(player, audio, lockAmt, cubit),
 
           _buildBankActionCard(
             title: 'إيداع كاش (مجرد حفظ)',
@@ -164,11 +168,10 @@ class _BankViewState extends State<BankView> {
             buttonColor: Colors.green,
             onPressed: () {
               if (depAmt > 0) {
-                // 🟢 التنفيذ عبر الكيوبت
-                cubit.executeTransaction(() async {
-                  await Future.sync(() => player.depositToBank(depAmt));
-                  if (mounted) setState(() { _depositSliderValue = 0; _depositController.text = '0'; });
-                }, 'تم إيداع \$${depAmt} بنجاح!');
+                audio.playEffect('click.mp3');
+                // 🟢 استدعاء الدالة النظيفة من الكيوبت
+                cubit.deposit(player, depAmt);
+                setState(() { _depositSliderValue = 0; _depositController.text = '0'; });
               }
             },
           ),
@@ -194,10 +197,10 @@ class _BankViewState extends State<BankView> {
             buttonColor: Colors.blueGrey,
             onPressed: () {
               if (withAmt > 0) {
-                cubit.executeTransaction(() async {
-                  await Future.sync(() => player.withdrawFromBank(withAmt));
-                  if (mounted) setState(() { _withdrawSliderValue = 0; _withdrawController.text = '0'; });
-                }, 'تم سحب \$${withAmt} بنجاح!');
+                audio.playEffect('click.mp3');
+                // 🟢 استدعاء الدالة النظيفة من الكيوبت
+                cubit.withdraw(player, withAmt);
+                setState(() { _withdrawSliderValue = 0; _withdrawController.text = '0'; });
               }
             },
           ),
@@ -211,14 +214,14 @@ class _BankViewState extends State<BankView> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.white10)
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('التقرير المالي والائتماني', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+          const Text('التقرير المالي والائتماني', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
           const SizedBox(height: 10),
           _buildReportRow('السمعة الائتمانية:', '${player.creditScore}', Colors.blueAccent),
           _buildReportRow('حد القرض المتاح:', '${player.maxLoanLimit}', Colors.amber),
@@ -236,14 +239,14 @@ class _BankViewState extends State<BankView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12, fontFamily: 'Changa')),
+          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'Changa')),
         ],
       ),
     );
   }
 
-  Widget _buildLockedInvestmentSection(PlayerProvider player, int amount, BankCubit cubit) {
+  Widget _buildLockedInvestmentSection(PlayerProvider player, AudioProvider audio, int amount, BankCubit cubit) {
     bool isLocked = player.isInvestmentLocked;
     String timeLeftStr = "";
     if (isLocked && player.lockedUntil != null) {
@@ -264,7 +267,7 @@ class _BankViewState extends State<BankView> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: isLocked ? Colors.cyan.withValues(alpha: 0.1) : Colors.black26,
+          color: isLocked ? Colors.cyan.withOpacity(0.1) : Colors.black26,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: isLocked ? Colors.cyan : Colors.white10)
       ),
@@ -273,15 +276,15 @@ class _BankViewState extends State<BankView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('الاستثمارات المقيدة', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
-              if (isLocked) Text('متبقي: $timeLeftStr', style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+              const Text('الاستثمارات المقيدة', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+              if (isLocked) Text('متبقي: $timeLeftStr', style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
             ],
           ),
           if (!isLocked) ...[
             const SizedBox(height: 10),
-            _buildInvestOption(player, cubit, "سريع", 1, 0.02, Colors.green),
-            _buildInvestOption(player, cubit, "متوسط", 3, 0.07, Colors.orange),
-            _buildInvestOption(player, cubit, "طويل", 5, 0.15, Colors.redAccent),
+            _buildInvestOption(player, audio, cubit, "سريع", 1, 0.02, Colors.green),
+            _buildInvestOption(player, audio, cubit, "متوسط", 3, 0.07, Colors.orange),
+            _buildInvestOption(player, audio, cubit, "طويل", 5, 0.15, Colors.redAccent),
             const SizedBox(height: 10),
             Slider(
               value: _lockedInvestSliderValue.clamp(0.0, maxVal),
@@ -295,43 +298,41 @@ class _BankViewState extends State<BankView> {
                 });
               },
             ),
-            Text('المبلغ المختار: ${_lockedInvestSliderValue.toInt()}', style: const TextStyle(color: Colors.white, fontSize: 12)),
+            Text('المبلغ المختار: ${_lockedInvestSliderValue.toInt()}', style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'Changa')),
           ] else ...[
             const SizedBox(height: 10),
-            Text('المبلغ الأصلي: ${player.lockedBalance}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-            Text('أرباح المتوقعة: ${player.lockedProfits}', style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+            Text('المبلغ الأصلي: ${player.lockedBalance}', style: const TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'Changa')),
+            Text('أرباح المتوقعة: ${player.lockedProfits}', style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
             const Divider(color: Colors.white10),
-            Text('المجموع عند الاستلام: ${player.lockedBalance + player.lockedProfits}', style: const TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('المجموع عند الاستلام: ${player.lockedBalance + player.lockedProfits}', style: const TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
           ]
         ],
       ),
     );
   }
 
-  Widget _buildInvestOption(PlayerProvider player, BankCubit cubit, String name, int mins, double rate, Color color) {
+  Widget _buildInvestOption(PlayerProvider player, AudioProvider audio, BankCubit cubit, String name, int mins, double rate, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-            backgroundColor: color.withValues(alpha: 0.2),
+            backgroundColor: color.withOpacity(0.2),
             side: BorderSide(color: color),
             minimumSize: const Size(double.infinity, 40)
         ),
         onPressed: _lockedInvestSliderValue > 0 ? () {
-          cubit.executeTransaction(() async {
-            await Future.sync(() => player.startLockedInvestment(_lockedInvestSliderValue.toInt(), mins, rate));
-            if (mounted) setState(() { _lockedInvestSliderValue = 0; _lockedInvestController.text = '0'; });
-          }, 'تم تجميد مبلغ الاستثمار بنجاح!');
+          audio.playEffect('click.mp3');
+          cubit.startLockedInvestment(player, _lockedInvestSliderValue.toInt(), mins, rate);
+          setState(() { _lockedInvestSliderValue = 0; _lockedInvestController.text = '0'; });
         } : null,
-        child: Text('$name: $mins دقائق (ربح ${(rate * 100).toInt()}%)', style: TextStyle(color: color)),
+        child: Text('$name: $mins دقائق (ربح ${(rate * 100).toInt()}%)', style: TextStyle(color: color, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
       ),
     );
   }
 
-  Widget _buildGoldMarket(PlayerProvider player, MarketProvider market, BankCubit cubit) {
+  Widget _buildGoldMarket(PlayerProvider player, MarketProvider market, AudioProvider audio, BankCubit cubit) {
     bool isPriceUp = market.goldPrice >= market.oldGoldPrice;
 
-    // 🟢 استخدام الكيوبت لحساب أقصى شراء
     int maxBuyable = cubit.calculateMaxGoldBuyable(player.cash, market.goldPrice);
     int buyAmt = _goldBuySliderValue.toInt();
     int sellAmt = _goldSellSliderValue.toInt();
@@ -349,12 +350,12 @@ class _BankViewState extends State<BankView> {
                 border: Border.all(color: Colors.amber, width: 2)),
             child: Column(
               children: [
-                const Text('السعر الحالي للذهب', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                const Text('السعر الحالي للذهب', style: TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Changa')),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text('${market.goldPrice} كاش',
-                        style: const TextStyle(color: Colors.amber, fontSize: 36, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(color: Colors.amber, fontSize: 36, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                     Icon(
                       isPriceUp ? Icons.arrow_upward : Icons.arrow_downward,
                       color: isPriceUp ? Colors.green : Colors.red,
@@ -364,10 +365,10 @@ class _BankViewState extends State<BankView> {
                 ),
                 Text(
                   'التغير: ${isPriceUp ? '+' : ''}${market.goldPrice - market.oldGoldPrice}',
-                  style: TextStyle(color: isPriceUp ? Colors.green : Colors.red, fontSize: 14),
+                  style: TextStyle(color: isPriceUp ? Colors.green : Colors.red, fontSize: 14, fontFamily: 'Changa'),
                 ),
                 const Divider(color: Colors.white24),
-                Text('ذهب في محفظتك: ${player.gold}', style: const TextStyle(color: Colors.white)),
+                Text('ذهب في محفظتك: ${player.gold}', style: const TextStyle(color: Colors.white, fontFamily: 'Changa')),
               ],
             ),
           ),
@@ -392,10 +393,9 @@ class _BankViewState extends State<BankView> {
             buttonColor: Colors.amber.shade700,
             onPressed: () {
               if (buyAmt > 0) {
-                cubit.executeTransaction(() async {
-                  await Future.sync(() => player.buyGold(buyAmt, market.goldPrice));
-                  if (mounted) setState(() { _goldBuySliderValue = 0; _goldBuyController.text = '0'; });
-                }, 'تم شراء $buyAmt سبيكة ذهب!');
+                audio.playEffect('click.mp3');
+                cubit.buyGold(player, buyAmt, market.goldPrice);
+                setState(() { _goldBuySliderValue = 0; _goldBuyController.text = '0'; });
               }
             },
           ),
@@ -420,10 +420,9 @@ class _BankViewState extends State<BankView> {
             buttonColor: Colors.orange.shade900,
             onPressed: () {
               if (sellAmt > 0) {
-                cubit.executeTransaction(() async {
-                  await Future.sync(() => player.sellGold(sellAmt, market.goldPrice));
-                  if (mounted) setState(() { _goldSellSliderValue = 0; _goldSellController.text = '0'; });
-                }, 'تم بيع $sellAmt سبيكة ذهب بنجاح!');
+                audio.playEffect('click.mp3');
+                cubit.sellGold(player, sellAmt, market.goldPrice);
+                setState(() { _goldSellSliderValue = 0; _goldSellController.text = '0'; });
               }
             },
           ),
@@ -432,12 +431,11 @@ class _BankViewState extends State<BankView> {
     );
   }
 
-  Widget _buildLoanSection(PlayerProvider player, BankCubit cubit) {
+  Widget _buildLoanSection(PlayerProvider player, AudioProvider audio, BankCubit cubit) {
     int takeAmt = _loanTakeSliderValue.toInt();
     int repayAmt = _loanRepaySliderValue.toInt();
     int remainingLimit = player.maxLoanLimit - player.loanAmount;
 
-    // 🟢 الحسابات انتقلت للكيوبت
     int adminFee = cubit.calculateAdminFee(takeAmt);
     int netReceive = cubit.calculateNetReceive(takeAmt);
 
@@ -472,24 +470,24 @@ class _BankViewState extends State<BankView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('إجمالي الديون', style: TextStyle(color: Colors.white70)),
+                    const Text('إجمالي الديون', style: TextStyle(color: Colors.white70, fontFamily: 'Changa')),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                          color: Colors.blueAccent.withValues(alpha: 0.2),
+                          color: Colors.blueAccent.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.blueAccent)
                       ),
-                      child: Text('السمعة: ${player.creditScore}', style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text('السمعة: ${player.creditScore}', style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'Changa')),
                     )
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text('${player.loanAmount} كاش',
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 36, fontWeight: FontWeight.bold)),
-                Text('الحد الحالي: ${player.maxLoanLimit}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 36, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                Text('الحد الحالي: ${player.maxLoanLimit}', style: const TextStyle(color: Colors.white54, fontSize: 12, fontFamily: 'Changa')),
                 const Divider(color: Colors.white24),
-                Text('المتبقي للاقتراض: $remainingLimit', style: const TextStyle(color: Colors.white54)),
+                Text('المتبقي للاقتراض: $remainingLimit', style: const TextStyle(color: Colors.white54, fontFamily: 'Changa')),
               ],
             ),
           ),
@@ -514,10 +512,9 @@ class _BankViewState extends State<BankView> {
             buttonColor: Colors.redAccent,
             onPressed: () {
               if (takeAmt > 0) {
-                cubit.executeTransaction(() async {
-                  await Future.sync(() => player.takeLoan(takeAmt));
-                  if (mounted) setState(() { _loanTakeSliderValue = 0; _loanTakeController.text = '0'; });
-                }, 'تم استلام القرض بنجاح!');
+                audio.playEffect('click.mp3');
+                cubit.takeLoan(player, takeAmt);
+                setState(() { _loanTakeSliderValue = 0; _loanTakeController.text = '0'; });
               }
             },
           ),
@@ -543,10 +540,9 @@ class _BankViewState extends State<BankView> {
             buttonColor: canRepay ? Colors.orange : Colors.grey,
             onPressed: canRepay ? () {
               if (repayAmt > 0) {
-                cubit.executeTransaction(() async {
-                  await Future.sync(() => player.repayLoan(repayAmt));
-                  if (mounted) setState(() { _loanRepaySliderValue = 0; _loanRepayController.text = '0'; });
-                }, 'تم سداد الدفعة وتحسين سمعتك!');
+                audio.playEffect('click.mp3');
+                cubit.repayLoan(player, repayAmt);
+                setState(() { _loanRepaySliderValue = 0; _loanRepayController.text = '0'; });
               }
             } : null,
           ),
@@ -566,17 +562,17 @@ class _BankViewState extends State<BankView> {
           border: Border.all(color: Colors.green, width: 2)),
       child: Column(
         children: [
-          const Text('رصيدك البنكي (للحفظ فقط)', style: TextStyle(color: Colors.white70, fontSize: 16)),
+          const Text('رصيدك البنكي (للحفظ فقط)', style: TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Changa')),
           const SizedBox(height: 10),
           Text('${player.bankBalance} كاش',
-              style: const TextStyle(color: Colors.green, fontSize: 36, fontWeight: FontWeight.bold)),
+              style: const TextStyle(color: Colors.green, fontSize: 36, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
           const Divider(color: Colors.white24, height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Column(children: [const Text('في جيبك', style: TextStyle(color: Colors.white54)), Text('${player.cash}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]),
+              Column(children: [const Text('في جيبك', style: TextStyle(color: Colors.white54, fontFamily: 'Changa')), Text('${player.cash}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Changa'))]),
               const VerticalDivider(color: Colors.white24),
-              Column(children: [const Text('الذهب', style: TextStyle(color: Colors.white54)), Text('${player.gold}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
+              Column(children: [const Text('الذهب', style: TextStyle(color: Colors.white54, fontFamily: 'Changa')), Text('${player.gold}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa'))]),
             ],
           )
         ],
@@ -586,7 +582,7 @@ class _BankViewState extends State<BankView> {
 
   Widget _buildTransactionHistory(PlayerProvider player) {
     if (player.transactions.isEmpty) {
-      return const Center(child: Text('لا توجد عمليات مسجلة حالياً', style: TextStyle(color: Colors.white54)));
+      return const Center(child: Text('لا توجد عمليات مسجلة حالياً', style: TextStyle(color: Colors.white54, fontFamily: 'Changa')));
     }
     return ListView.builder(
       itemCount: player.transactions.length,
@@ -599,11 +595,11 @@ class _BankViewState extends State<BankView> {
           child: ListTile(
             leading: Icon(tx.isPositive ? Icons.add_circle : Icons.remove_circle,
                 color: tx.isPositive ? Colors.green : Colors.red),
-            title: Text(tx.title, style: const TextStyle(color: Colors.white, fontSize: 14)),
-            subtitle: Text(timeStr, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            title: Text(tx.title, style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Changa')),
+            subtitle: Text(timeStr, style: const TextStyle(color: Colors.white54, fontSize: 12, fontFamily: 'Changa')),
             trailing: Text(
               '${tx.isPositive ? '+' : '-'}${tx.amount}',
-              style: TextStyle(color: tx.isPositive ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
+              style: TextStyle(color: tx.isPositive ? Colors.green : Colors.red, fontWeight: FontWeight.bold, fontFamily: 'Changa'),
             ),
           ),
         );
@@ -634,7 +630,7 @@ class _BankViewState extends State<BankView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -653,7 +649,7 @@ class _BankViewState extends State<BankView> {
                   controller: controller,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Changa'),
                   decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(8), border: OutlineInputBorder()),
                   enabled: onPressed != null,
                   onChanged: onTextChanged,
@@ -664,8 +660,8 @@ class _BankViewState extends State<BankView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(infoText, style: TextStyle(color: onPressed != null ? Colors.white54 : Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-              Text(actionText, style: TextStyle(color: buttonColor, fontWeight: FontWeight.bold)),
+              Text(infoText, style: TextStyle(color: onPressed != null ? Colors.white54 : Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+              Text(actionText, style: TextStyle(color: buttonColor, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
             ],
           ),
           const SizedBox(height: 15),
@@ -676,10 +672,10 @@ class _BankViewState extends State<BankView> {
                 style: ElevatedButton.styleFrom(
                     backgroundColor: buttonColor,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3)
+                    disabledBackgroundColor: Colors.grey.withOpacity(0.3)
                 ),
                 onPressed: (maxValue > 0 && sliderValue > 0 && onPressed != null) ? onPressed : null,
-                child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold))),
+                child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Changa'))),
           ),
         ],
       ),

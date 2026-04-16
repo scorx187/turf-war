@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import '../services/lucky_wheel_service.dart'; // 🟢 استدعينا الخدمة
 import 'lucky_wheel_state.dart';
 
 class LuckyWheelCubit extends Cubit<LuckyWheelState> {
+  final LuckyWheelService _luckyWheelService = LuckyWheelService();
+
   LuckyWheelCubit() : super(LuckyWheelState());
 
-  // نقلنا قائمة الجوائز هنا عشان المنطق يقدر يقارنها بسهولة
   final List<Map<String, dynamic>> prizes = [
     {'id': 'gold_600', 'name': '600 ذهب', 'icon': Icons.monetization_on, 'color': Colors.yellow, 'chance': 0.20},
     {'id': 'cash_50m', 'name': '50 مليون', 'icon': Icons.money, 'color': Colors.lightGreenAccent, 'chance': 0.05},
@@ -24,9 +25,9 @@ class LuckyWheelCubit extends Cubit<LuckyWheelState> {
 
   void claimPendingPrizes(String uid) async {
     try {
-      await FirebaseFunctions.instance.httpsCallable('claimLuckyWheel').call({'uid': uid});
+      await _luckyWheelService.claimPrizes(uid: uid);
     } catch (e) {
-      // تجاهل بصمت
+      // تجاهل بصمت إذا لم توجد جوائز معلقة
     }
   }
 
@@ -35,19 +36,18 @@ class LuckyWheelCubit extends Cubit<LuckyWheelState> {
 
     if (currentGold < cost) {
       emit(state.copyWith(errorMessage: 'لا تملك ذهب كافٍ!'));
-      emit(state.copyWith(errorMessage: '')); // تصفير الخطأ بعد إرساله
+      emit(state.copyWith(errorMessage: ''));
       return;
     }
 
-    // بدأ الدوران
     emit(state.copyWith(isSpinning: true, statusText: "", errorMessage: '', wonPrizes: null));
 
     try {
-      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('spinLuckyWheel');
-      final result = await callable.call({'uid': uid, 'times': times});
+      // 🟢 نكلم السيرفر عن طريق ملف الخدمة
+      final data = await _luckyWheelService.spinWheel(uid: uid, times: times);
 
-      if (result.data['success'] == true) {
-        List<dynamic> serverPrizes = result.data['wonPrizes'];
+      if (data['success'] == true) {
+        List<dynamic> serverPrizes = data['wonPrizes'];
         List<Map<String, dynamic>> wonPrizes = [];
 
         for (var sp in serverPrizes) {
@@ -68,23 +68,20 @@ class LuckyWheelCubit extends Cubit<LuckyWheelState> {
         int delay = 40;
         for(int i = 0; i < totalSteps; i++) {
           await Future.delayed(Duration(milliseconds: delay));
-
-          // تحديث الواجهة خطوة بخطوة أثناء الدوران
           emit(state.copyWith(currentIndex: (state.currentIndex + 1) % 12));
 
           if (totalSteps - i < 15) delay += 15;
           if (totalSteps - i < 5) delay += 40;
         }
 
-        playSound(); // تشغيل الصوت عند التوقف
+        playSound();
 
         try {
-          await FirebaseFunctions.instance.httpsCallable('claimLuckyWheel').call({'uid': uid});
+          await _luckyWheelService.claimPrizes(uid: uid);
         } catch(e) {
           debugPrint("خطأ في استلام الجوائز: $e");
         }
 
-        // إنهاء الدوران وإرسال الجوائز للواجهة عشان تعرضها
         emit(state.copyWith(isSpinning: false, wonPrizes: wonPrizes));
       }
     } catch (e) {
