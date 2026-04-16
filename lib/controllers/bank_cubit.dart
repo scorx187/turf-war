@@ -13,34 +13,25 @@ class BankCubit extends Cubit<BankState> {
   int calculateNetReceive(int amount) => amount - calculateAdminFee(amount);
   int calculateMaxGoldBuyable(int cash, int price) => price > 0 ? (cash / price).floor() : 0;
 
-  // دالة موحدة لتنفيذ العمليات البنكية
   Future<void> executeBankAction({
-    required Future<void> Function() serverTask, // دالة السيرفر
-    required Function() localUpdateTask,         // دالة تحديث الشاشة محلياً
+    required Future<void> Function() serverTask,
+    required Function() localUpdateTask,
     required String successMsg,
   }) async {
     emit(BankState(isLoading: true, message: '', isSuccess: false));
     try {
-      // 1. إرسال الطلب للسيرفر
       await serverTask();
-
-      // 2. تحديث الأرقام في الواجهة (عشان التوب بار يحس بالتغيير فوراً)
       localUpdateTask();
-
       emit(BankState(isLoading: false, message: successMsg, isSuccess: true));
     } catch (e) {
       emit(BankState(isLoading: false, message: e.toString(), isSuccess: false));
     }
   }
 
-  // 🟢 دوال العمليات البنكية
   void deposit(PlayerProvider player, int amount) {
     executeBankAction(
       serverTask: () => _bankService.deposit(uid: player.uid!, amount: amount),
-      localUpdateTask: () {
-        player.removeCash(amount, reason: 'إيداع بنكي');
-        player.addBankBalance(amount);
-      },
+      localUpdateTask: () => player.removeCash(amount, reason: 'إيداع بنكي'),
       successMsg: 'تم إيداع \$$amount بنجاح!',
     );
   }
@@ -48,10 +39,7 @@ class BankCubit extends Cubit<BankState> {
   void withdraw(PlayerProvider player, int amount) {
     executeBankAction(
       serverTask: () => _bankService.withdraw(uid: player.uid!, amount: amount),
-      localUpdateTask: () {
-        player.removeBankBalance(amount);
-        player.addCash(amount, reason: 'سحب بنكي');
-      },
+      localUpdateTask: () => player.addCash(amount, reason: 'سحب بنكي'),
       successMsg: 'تم سحب \$$amount بنجاح!',
     );
   }
@@ -82,10 +70,7 @@ class BankCubit extends Cubit<BankState> {
     int netReceive = calculateNetReceive(amount);
     executeBankAction(
       serverTask: () => _bankService.takeLoan(uid: player.uid!, amount: amount),
-      localUpdateTask: () {
-        player.addCash(netReceive, reason: 'قرض بنكي');
-        player.addLoan(amount);
-      },
+      localUpdateTask: () => player.addCash(netReceive, reason: 'قرض بنكي'),
       successMsg: 'تم استلام القرض بنجاح!',
     );
   }
@@ -93,10 +78,7 @@ class BankCubit extends Cubit<BankState> {
   void repayLoan(PlayerProvider player, int amount) {
     executeBankAction(
       serverTask: () => _bankService.repayLoan(uid: player.uid!, amount: amount),
-      localUpdateTask: () {
-        player.removeCash(amount, reason: 'سداد قرض');
-        player.removeLoan(amount);
-      },
+      localUpdateTask: () => player.removeCash(amount, reason: 'سداد قرض'),
       successMsg: 'تم سداد الدفعة وتحسين سمعتك!',
     );
   }
@@ -104,10 +86,7 @@ class BankCubit extends Cubit<BankState> {
   void startLockedInvestment(PlayerProvider player, int amount, int minutes, double rate) {
     executeBankAction(
       serverTask: () => _bankService.startLockedInvestment(uid: player.uid!, amount: amount, minutes: minutes, rate: rate),
-      localUpdateTask: () {
-        player.removeCash(amount, reason: 'استثمار مقيد');
-        player.setLockedInvestment(amount, (amount * rate).toInt());
-      },
+      localUpdateTask: () => player.removeCash(amount, reason: 'استثمار مقيد'),
       successMsg: 'تم تجميد مبلغ الاستثمار بنجاح!',
     );
   }
