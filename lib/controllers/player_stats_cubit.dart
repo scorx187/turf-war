@@ -16,11 +16,17 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
   DateTime? _lastTick;
   bool _isInitialized = false;
 
-  // 🟢 السر هنا: متغيرات كسرية دقيقة تحسب الزيادة بأجزاء الثانية لمنع القفزات!
+  // 🟢 القيم الكسرية الدقيقة للتجديد المحلي
   double _exactHealth = 100;
   double _exactEnergy = 100;
   double _exactCourage = 30;
   double _exactPrestige = 100;
+
+  // 🟢 السر هنا: نحفظ "آخر رقم رأيناه من السيرفر" لكي لا نمسح التجديد المحلي بالخطأ
+  int _lastSeenServerHealth = -1;
+  int _lastSeenServerEnergy = -1;
+  int _lastSeenServerCourage = -1;
+  int _lastSeenServerPrestige = -1;
 
   PlayerStatsCubit() : super(PlayerStatsState()) {
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
@@ -43,34 +49,46 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
         _serverData = snapshot.data() as Map<String, dynamic>;
 
         if (!_isInitialized) {
-          // أول مرة يفتح اللاعب اللعبة، نأخذ الأرقام من السيرفر كقاعدة أساسية
+          // أول مرة يفتح اللاعب اللعبة، نأخذ الأرقام كأساس
           _exactHealth = (_serverData['health'] ?? 100).toDouble();
           _exactEnergy = (_serverData['energy'] ?? 100).toDouble();
           _exactCourage = (_serverData['courage'] ?? 30).toDouble();
           _exactPrestige = (_serverData['prestige'] ?? 100).toDouble();
+
+          // نسجل الأرقام الأساسية
+          _lastSeenServerHealth = _exactHealth.toInt();
+          _lastSeenServerEnergy = _exactEnergy.toInt();
+          _lastSeenServerCourage = _exactCourage.toInt();
+          _lastSeenServerPrestige = _exactPrestige.toInt();
+
           _lastTick = DateTime.now();
           _isInitialized = true;
         } else {
-          // 🟢 هنا نمنع القفزات! إذا السيرفر أرسل رقم أقل (يعني صرفت طاقة/شجاعة) نأخذه فوراً
-          // أو إذا أرسل رقم أعلى بكثير (مكافأة أو شراء)
-          int srvEnergy = _serverData['energy'] ?? 100;
-          if (srvEnergy < _exactEnergy.toInt() || srvEnergy > _exactEnergy.toInt() + 2) {
-            _exactEnergy = srvEnergy.toDouble();
+          // 🟢 التحديث الذكي: لن نعدل الرقم المحلي إلا إذا السيرفر "غيره" فعلياً!
+          // هذا يمنع الجرائم من تصفير أو تفويل الطاقة بالخطأ
+
+          int srvEnergy = (_serverData['energy'] ?? 100).toInt();
+          if (srvEnergy != _lastSeenServerEnergy) {
+            _exactEnergy = srvEnergy.toDouble(); // نعتمد تحديث السيرفر
+            _lastSeenServerEnergy = srvEnergy;   // نحفظ الرقم الجديد
           }
 
-          int srvCourage = _serverData['courage'] ?? 30;
-          if (srvCourage < _exactCourage.toInt() || srvCourage > _exactCourage.toInt() + 2) {
+          int srvCourage = (_serverData['courage'] ?? 30).toInt();
+          if (srvCourage != _lastSeenServerCourage) {
             _exactCourage = srvCourage.toDouble();
+            _lastSeenServerCourage = srvCourage;
           }
 
-          int srvHealth = _serverData['health'] ?? 100;
-          if (srvHealth < _exactHealth.toInt() || srvHealth > _exactHealth.toInt() + 2) {
+          int srvHealth = (_serverData['health'] ?? 100).toInt();
+          if (srvHealth != _lastSeenServerHealth) {
             _exactHealth = srvHealth.toDouble();
+            _lastSeenServerHealth = srvHealth;
           }
 
-          int srvPrestige = _serverData['prestige'] ?? 100;
-          if (srvPrestige < _exactPrestige.toInt() || srvPrestige > _exactPrestige.toInt() + 2) {
+          int srvPrestige = (_serverData['prestige'] ?? 100).toInt();
+          if (srvPrestige != _lastSeenServerPrestige) {
             _exactPrestige = srvPrestige.toDouble();
+            _lastSeenServerPrestige = srvPrestige;
           }
         }
 
@@ -95,7 +113,6 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
 
   void _tickRegeneration() {
     DateTime now = DateTime.now();
-    // نحسب كم ثانية وجزء من الثانية مر بدقة شديدة
     double deltaSeconds = now.difference(_lastTick ?? now).inMilliseconds / 1000.0;
     _lastTick = now;
 
@@ -114,26 +131,21 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
       }
     }
 
-    // 🟢 الحساب الرياضي السلس (يجمع كسور الثواني بالتدريج بدون قفزات)
-    // 1. الصحة (تمتلئ في 30 دقيقة)
     if (_exactHealth < maxHealth) {
       _exactHealth += (maxHealth / 1800.0) * deltaSeconds;
       if (_exactHealth > maxHealth) _exactHealth = maxHealth.toDouble();
     }
 
-    // 2. الطاقة (الحالي: نقطة كل 8 ثواني) -> إذا تبغاها كل ثانية غيّر الـ 8.0 إلى 1.0
     if (_exactEnergy < maxEnergy) {
       _exactEnergy += (1.0 / 8.0) * deltaSeconds;
       if (_exactEnergy > maxEnergy) _exactEnergy = maxEnergy.toDouble();
     }
 
-    // 3. الشجاعة (الحالي: نقطة كل 4 ثواني) -> إذا تبغاها كل ثانية غيّر الـ 4.0 إلى 1.0
     if (_exactCourage < maxCourage) {
-      _exactCourage += (1.0 / 4.0) * deltaSeconds;
+      _exactCourage += (1.0 / 4.0) * deltaSeconds; // يمكن جعلها 1.0/1.0 لتزيد كل ثانية
       if (_exactCourage > maxCourage) _exactCourage = maxCourage.toDouble();
     }
 
-    // 4. الهيبة (الحالي: نقطة كل 6 ثواني) -> إذا تبغاها كل ثانية غيّر الـ 6.0 إلى 1.0
     if (_exactPrestige < maxPrestige) {
       _exactPrestige += (1.0 / 6.0) * deltaSeconds;
       if (_exactPrestige > maxPrestige) _exactPrestige = maxPrestige.toDouble();
@@ -162,7 +174,6 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
     int currentXp = _serverData['crimeXP'] ?? 0;
     int maxXp = (100 * pow(1.05, crimeLevel - 1)).toInt();
 
-    // نرسل الأرقام كأعداد صحيحة (.toInt) للواجهة بعد أن نكون جمعنا الكسور بالخفاء
     emit(state.copyWith(
       cash: _serverData['cash'] ?? 0,
       gold: _serverData['gold'] ?? 0,
