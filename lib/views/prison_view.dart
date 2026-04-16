@@ -3,15 +3,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
 import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 import '../providers/player_provider.dart';
+import '../providers/audio_provider.dart'; // 🟢 أضفنا الصوت
+import '../controllers/prison_cubit.dart'; // 🟢 استدعاء الكيوبت
 
 class PrisonView extends StatefulWidget {
   final VoidCallback? onBack;
 
-  const PrisonView({Key? key, this.onBack}) : super(key: key);
+  const PrisonView({super.key, this.onBack});
 
   @override
   State<PrisonView> createState() => _PrisonViewState();
@@ -33,88 +36,128 @@ class _PrisonViewState extends State<PrisonView> {
   Widget build(BuildContext context) {
     final playerProvider = Provider.of<PlayerProvider>(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('السجن المركزي', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: Colors.grey[900],
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-        leading: widget.onBack != null && !playerProvider.isInPrison
-            ? IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: widget.onBack)
-            : const SizedBox.shrink(),
-      ),
-      backgroundColor: Colors.black,
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.grey[850],
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+    // 🟢 تغليف الشاشة كاملة بالكيوبت
+    return BlocProvider(
+      create: (context) => PrisonCubit(),
+      child: BlocConsumer<PrisonCubit, PrisonState>(
+        listener: (context, state) {
+          if (state.errorMessage.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.redAccent));
+          }
+          if (state.successMessage.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.successMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
+          }
+        },
+        builder: (context, state) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('السجن المركزي', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold, color: Colors.white)),
+              backgroundColor: Colors.grey[900],
+              centerTitle: true,
+              iconTheme: const IconThemeData(color: Colors.white),
+              leading: widget.onBack != null && !playerProvider.isInPrison
+                  ? IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () {
+                Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                widget.onBack!();
+              })
+                  : const SizedBox.shrink(),
+            ),
+            backgroundColor: Colors.black,
+            body: Stack(
               children: [
-                Text('المساجين الحاليين', style: TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      color: Colors.grey[850],
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('المساجين الحاليين', style: TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+
+                    Expanded(
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: _prisonStream,
+                        builder: (context, snapshot) {
+                          List<Map<String, dynamic>> prisonersList = [];
+                          Set<String> addedIds = {};
+
+                          if (playerProvider.isInPrison && playerProvider.uid != null) {
+                            prisonersList.add({
+                              'uid': playerProvider.uid,
+                              'playerName': playerProvider.playerName,
+                              'crimeLevel': playerProvider.crimeLevel,
+                              'lastCrimeName': playerProvider.lastCrimeName,
+                              'bailCost': playerProvider.playerBailCost,
+                              'prisonReleaseTime': playerProvider.prisonReleaseTime?.toIso8601String(),
+                              'profilePicUrl': playerProvider.profilePicUrl,
+                            });
+                            addedIds.add(playerProvider.uid!);
+                          }
+
+                          if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                            for (var doc in snapshot.data!.docs) {
+                              if (!addedIds.contains(doc.id)) {
+                                var data = doc.data() as Map<String, dynamic>;
+                                data['uid'] = doc.id;
+                                prisonersList.add(data);
+                                addedIds.add(doc.id);
+                              }
+                            }
+                          }
+
+                          if (snapshot.connectionState == ConnectionState.waiting && prisonersList.isEmpty) {
+                            return const Center(child: CircularProgressIndicator(color: Colors.orange));
+                          }
+
+                          if (prisonersList.isEmpty) {
+                            return const Center(
+                              child: Text(
+                                'السجن خالي حالياً! \nيبدو أن الجميع ملتزمون بالقانون.',
+                                style: TextStyle(color: Colors.grey, fontSize: 18, fontFamily: 'Changa'),
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            itemCount: prisonersList.length,
+                            padding: const EdgeInsets.only(top: 10, bottom: 20),
+                            itemBuilder: (context, index) {
+                              var data = prisonersList[index];
+                              String docId = data['uid'] ?? '';
+                              // 🟢 تمرير الكيوبت للكارد عشان نقدر نستدعيه لما نضغط زر الكفالة
+                              return PrisonPlayerCard(data: data, docId: docId, playerProvider: playerProvider, cubit: context.read<PrisonCubit>());
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+
+                // 🟢 شاشة تحميل خفيفة تغطي الشاشة أثناء دفع الكفالة
+                if (state.isBailingOut)
+                  Container(
+                    color: Colors.black54,
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(color: Colors.orange),
+                          SizedBox(height: 10),
+                          Text('جاري دفع الكفالة والإفراج...', style: TextStyle(color: Colors.orange, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
-          ),
-
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _prisonStream,
-              builder: (context, snapshot) {
-                List<Map<String, dynamic>> prisonersList = [];
-                Set<String> addedIds = {};
-
-                if (playerProvider.isInPrison && playerProvider.uid != null) {
-                  prisonersList.add({
-                    'uid': playerProvider.uid,
-                    'playerName': playerProvider.playerName,
-                    'crimeLevel': playerProvider.crimeLevel,
-                    'lastCrimeName': playerProvider.lastCrimeName,
-                    'bailCost': playerProvider.playerBailCost,
-                    'prisonReleaseTime': playerProvider.prisonReleaseTime?.toIso8601String(),
-                    'profilePicUrl': playerProvider.profilePicUrl,
-                  });
-                  addedIds.add(playerProvider.uid!);
-                }
-
-                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                  for (var doc in snapshot.data!.docs) {
-                    if (!addedIds.contains(doc.id)) {
-                      var data = doc.data() as Map<String, dynamic>;
-                      data['uid'] = doc.id;
-                      prisonersList.add(data);
-                      addedIds.add(doc.id);
-                    }
-                  }
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting && prisonersList.isEmpty) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.orange));
-                }
-
-                if (prisonersList.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'السجن خالي حالياً! \nيبدو أن الجميع ملتزمون بالقانون.',
-                      style: TextStyle(color: Colors.grey, fontSize: 18, fontFamily: 'Changa'),
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  itemCount: prisonersList.length,
-                  padding: const EdgeInsets.only(top: 10, bottom: 20),
-                  itemBuilder: (context, index) {
-                    var data = prisonersList[index];
-                    String docId = data['uid'] ?? '';
-                    return PrisonPlayerCard(data: data, docId: docId, playerProvider: playerProvider);
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -124,8 +167,9 @@ class PrisonPlayerCard extends StatefulWidget {
   final Map<String, dynamic> data;
   final String docId;
   final PlayerProvider playerProvider;
+  final PrisonCubit cubit; // 🟢 الكيوبت ممرر هنا
 
-  const PrisonPlayerCard({Key? key, required this.data, required this.docId, required this.playerProvider}) : super(key: key);
+  const PrisonPlayerCard({super.key, required this.data, required this.docId, required this.playerProvider, required this.cubit});
 
   @override
   State<PrisonPlayerCard> createState() => _PrisonPlayerCardState();
@@ -139,8 +183,12 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
   @override
   void initState() {
     super.initState();
-    if (widget.data['profilePicUrl'] != null) {
-      _avatarBytes = base64Decode(widget.data['profilePicUrl']);
+    if (widget.data['profilePicUrl'] != null && widget.data['profilePicUrl'].toString().isNotEmpty) {
+      try {
+        _avatarBytes = base64Decode(widget.data['profilePicUrl']);
+      } catch (e) {
+        _avatarBytes = null;
+      }
     }
     _updateTime();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) { _updateTime(); });
@@ -151,8 +199,6 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
     String? releaseTimeStr = widget.data['prisonReleaseTime'];
     if (releaseTimeStr != null) {
       DateTime releaseTime = DateTime.parse(releaseTimeStr);
-
-      // 🟢 التعديل الأهم: مقارنة الوقت بوقت السيرفر لحل مشكلة "يتم الإفراج"
       Duration diff = releaseTime.difference(widget.playerProvider.secureNow);
 
       if (diff.isNegative) {
@@ -177,6 +223,7 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
     String crimeName = widget.data['lastCrimeName'] ?? 'تهمة مجهولة';
     int bailCost = widget.data['bailCost'] ?? 1500;
     bool isMe = widget.docId == widget.playerProvider.uid;
+    final audio = Provider.of<AudioProvider>(context, listen: false);
 
     return Card(
       color: Colors.grey[800],
@@ -210,7 +257,11 @@ class _PrisonPlayerCardState extends State<PrisonPlayerCard> {
                 ? const Padding(padding: EdgeInsets.all(8.0), child: Text('تنتظر الكفالة...', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 13)))
                 : ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, padding: const EdgeInsets.symmetric(horizontal: 10)),
-              onPressed: () { widget.playerProvider.bailOutPlayer(widget.docId, bailCost, name); },
+              onPressed: () {
+                audio.playEffect('click.mp3');
+                // 🟢 استدعاء الدفع عن طريق الكيوبت
+                widget.cubit.payBail(widget.playerProvider, widget.docId, bailCost, name);
+              },
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

@@ -2,13 +2,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
 import '../providers/player_provider.dart';
-import '../utils/game_data.dart'; // 🟢 استدعاء مستودع البيانات
+import '../providers/audio_provider.dart'; // 🟢 أضفنا الصوت للضغطة
+import '../utils/game_data.dart';
+import '../controllers/inventory_cubit.dart'; // 🟢 استدعاء الكيوبت
 
 class InventoryView extends StatelessWidget {
   const InventoryView({super.key});
 
-  // --- 🧠 مولد العتاد الذكي للمخزن (يسحب الأرقام من GameData) ---
   List<Map<String, dynamic>> _generateEquipment(PlayerProvider player) {
     List<Map<String, dynamic>> equipment = [];
     final rarities = [
@@ -39,7 +41,6 @@ class InventoryView extends StatelessWidget {
     for (var r in rarities) {
       for (var w in weaponTypes) {
         String itemId = 'w_${r['id']}_${w['id']}';
-        // 🟢 التعديل: سحب الأرقام من GameData
         int strVal = ((GameData.weaponStats[itemId]?['str'] ?? 0.0) * 100).toInt();
         int spdVal = ((GameData.weaponStats[itemId]?['spd'] ?? 0.0) * 100).toInt();
 
@@ -54,7 +55,6 @@ class InventoryView extends StatelessWidget {
       }
       for (var a in armorTypes) {
         String itemId = 'a_${r['id']}_${a['id']}';
-        // 🟢 التعديل: سحب الأرقام من GameData
         int defVal = ((GameData.armorStats[itemId]?['def'] ?? 0.0) * 100).toInt();
         int sklVal = ((GameData.armorStats[itemId]?['skl'] ?? 0.0) * 100).toInt();
 
@@ -75,7 +75,6 @@ class InventoryView extends StatelessWidget {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // --- قاعدة بيانات الأدوات الشاملة ---
     final List<Map<String, dynamic>> allPossibleItems = [
       ..._generateEquipment(player),
 
@@ -123,34 +122,56 @@ class InventoryView extends StatelessWidget {
     final crimeTools = allPossibleItems.where((item) => item['type'] == 'crime_tool' && player.inventory.containsKey(item['id'])).toList();
     final consumables = allPossibleItems.where((item) => (item['type'] == 'consumable' || item['type'] == 'passive') && player.inventory.containsKey(item['id'])).toList();
 
-    return DefaultTabController(
-      length: 4,
-      child: Column(
-        children: [
-          _buildInventoryHeader(player.spareParts),
-          const TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(text: 'الأسلحة', icon: Icon(Icons.colorize)),
-              Tab(text: 'الدفاع', icon: Icon(Icons.shield)),
-              Tab(text: 'العمليات', icon: Icon(Icons.engineering)),
-              Tab(text: 'أدوات', icon: Icon(Icons.inventory_2)),
-            ],
-            indicatorColor: Colors.amber,
-            labelColor: Colors.amber,
-            unselectedLabelColor: Colors.grey,
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildItemList(player, weapons, 'لا تملك أسلحة قتالية.'),
-                _buildItemList(player, defense, 'لا تملك دروع أو أقنعة.'),
-                _buildItemList(player, crimeTools, 'لا تملك أدوات عمليات.'),
-                _buildItemList(player, consumables, 'المخزن فارغ من الأدوات.'),
-              ],
+    // 🟢 تغليف الشاشة بالكيوبت لمراقبة الأحداث
+    return BlocProvider(
+      create: (context) => InventoryCubit(),
+      child: BlocConsumer<InventoryCubit, InventoryState>(
+        listener: (context, state) {
+          if (state.message.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(state.message, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+              backgroundColor: state.isError ? Colors.redAccent : Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ));
+          }
+        },
+        builder: (context, state) {
+          final cubit = context.read<InventoryCubit>();
+
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: DefaultTabController(
+              length: 4,
+              child: Column(
+                children: [
+                  _buildInventoryHeader(player.spareParts),
+                  const TabBar(
+                    isScrollable: true,
+                    tabs: [
+                      Tab(text: 'الأسلحة', icon: Icon(Icons.colorize)),
+                      Tab(text: 'الدفاع', icon: Icon(Icons.shield)),
+                      Tab(text: 'العمليات', icon: Icon(Icons.engineering)),
+                      Tab(text: 'أدوات', icon: Icon(Icons.inventory_2)),
+                    ],
+                    indicatorColor: Colors.amber,
+                    labelColor: Colors.amber,
+                    unselectedLabelColor: Colors.grey,
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildItemList(player, cubit, weapons, 'لا تملك أسلحة قتالية.'),
+                        _buildItemList(player, cubit, defense, 'لا تملك دروع أو أقنعة.'),
+                        _buildItemList(player, cubit, crimeTools, 'لا تملك أدوات عمليات.'),
+                        _buildItemList(player, cubit, consumables, 'المخزن فارغ من الأدوات.'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -165,7 +186,7 @@ class InventoryView extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('مخزن المعدات 📦', style: TextStyle(color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text('مخزن المعدات 📦', style: TextStyle(color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(color: Colors.blueGrey.withValues(alpha:0.3), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blueAccent.withValues(alpha:0.5))),
@@ -173,7 +194,7 @@ class InventoryView extends StatelessWidget {
               children: [
                 const Icon(Icons.settings, color: Colors.blueAccent, size: 16),
                 const SizedBox(width: 6),
-                Text('قطع غيار: $spareParts', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                Text('قطع غيار: $spareParts', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'Changa')),
               ],
             ),
           ),
@@ -182,9 +203,9 @@ class InventoryView extends StatelessWidget {
     );
   }
 
-  Widget _buildItemList(PlayerProvider player, List<Map<String, dynamic>> items, String emptyMessage) {
+  Widget _buildItemList(PlayerProvider player, InventoryCubit cubit, List<Map<String, dynamic>> items, String emptyMessage) {
     if (items.isEmpty) {
-      return Center(child: Text(emptyMessage, style: const TextStyle(color: Colors.white24, fontSize: 16)));
+      return Center(child: Text(emptyMessage, style: const TextStyle(color: Colors.white24, fontSize: 16, fontFamily: 'Changa')));
     }
     return ListView.builder(
       itemCount: items.length,
@@ -220,20 +241,20 @@ class InventoryView extends StatelessWidget {
               ),
               title: Row(
                 children: [
-                  Text(item['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text(item['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                   if (isEquipped) ...[const SizedBox(width: 8), const Icon(Icons.check_circle, color: Colors.amber, size: 16)],
                 ],
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item['description'], style: const TextStyle(color: Colors.white70, height: 1.5, fontSize: 11)),
+                  Text(item['description'], style: const TextStyle(color: Colors.white70, height: 1.5, fontSize: 11, fontFamily: 'Changa')),
                   const SizedBox(height: 8),
                   if (type == 'crime_tool')
                     _buildDurabilityBar(durability),
                 ],
               ),
-              trailing: _buildActionBtn(context, player, item, type, isEquipped),
+              trailing: _buildActionBtn(context, player, cubit, item, type, isEquipped),
             ),
           ),
         );
@@ -249,8 +270,8 @@ class InventoryView extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('المتانة:', style: TextStyle(color: Colors.white38, fontSize: 9)),
-            Text('${durability.toInt()}%', style: TextStyle(color: barColor, fontSize: 9, fontWeight: FontWeight.bold)),
+            const Text('المتانة:', style: TextStyle(color: Colors.white38, fontSize: 9, fontFamily: 'Changa')),
+            Text('${durability.toInt()}%', style: TextStyle(color: barColor, fontSize: 9, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
           ],
         ),
         const SizedBox(height: 2),
@@ -267,22 +288,29 @@ class InventoryView extends StatelessWidget {
     );
   }
 
-  Widget _buildActionBtn(BuildContext context, PlayerProvider player, Map<String, dynamic> item, String type, bool isEquipped) {
+  Widget _buildActionBtn(BuildContext context, PlayerProvider player, InventoryCubit cubit, Map<String, dynamic> item, String type, bool isEquipped) {
     final id = item['id'];
+    final itemName = item['name'];
 
     if (id == 'name_change_card') {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan.withValues(alpha:0.2), side: const BorderSide(color: Colors.cyan), minimumSize: const Size(60, 30)),
-        onPressed: () => _showNameChangeDialog(context, player),
-        child: const Text('استخدام', style: TextStyle(color: Colors.cyan, fontSize: 11)),
+        onPressed: () {
+          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+          _showNameChangeDialog(context, player, cubit);
+        },
+        child: const Text('استخدام', style: TextStyle(color: Colors.cyan, fontSize: 11, fontFamily: 'Changa')),
       );
     }
 
     if (type == 'consumable') {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.green.withValues(alpha:0.2), side: const BorderSide(color: Colors.green), minimumSize: const Size(60, 30)),
-        onPressed: () => player.useItem(id),
-        child: const Text('استخدام', style: TextStyle(color: Colors.green, fontSize: 11)),
+        onPressed: () {
+          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+          cubit.useOrEquipItem(player, id, itemName, false, false);
+        },
+        child: const Text('استخدام', style: TextStyle(color: Colors.green, fontSize: 11, fontFamily: 'Changa')),
       );
     }
 
@@ -294,45 +322,51 @@ class InventoryView extends StatelessWidget {
             side: BorderSide(color: btnColor),
             minimumSize: const Size(70, 30)
         ),
-        onPressed: () => player.useItem(id),
-        child: Text(isEquipped ? 'نزع' : 'تجهيز', style: TextStyle(color: btnColor, fontSize: 11)),
+        onPressed: () {
+          Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+          cubit.useOrEquipItem(player, id, itemName, true, isEquipped);
+        },
+        child: Text(isEquipped ? 'نزع' : 'تجهيز', style: TextStyle(color: btnColor, fontSize: 11, fontFamily: 'Changa')),
       );
     }
 
     return const Icon(Icons.check_circle_outline, color: Colors.white10, size: 20);
   }
 
-  void _showNameChangeDialog(BuildContext context, PlayerProvider player) {
+  void _showNameChangeDialog(BuildContext context, PlayerProvider player, InventoryCubit cubit) {
     final TextEditingController nameController = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.cyan)),
-        title: const Text('تغيير اسم اللاعب 📛', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: TextField(
-            controller: nameController,
-            maxLength: 14,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-                counterText: "",
-                hintText: 'الاسم الجديد...',
-                hintStyle: TextStyle(color: Colors.white24)
-            )
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
-          ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan),
-              onPressed: () {
-                if (nameController.text.trim().isNotEmpty) {
-                  player.updateName(nameController.text.trim());
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('تغيير', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: Colors.grey[900],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.cyan)),
+          title: const Text('تغيير اسم اللاعب 📛', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+          content: TextField(
+              controller: nameController,
+              maxLength: 14,
+              style: const TextStyle(color: Colors.white, fontFamily: 'Changa'),
+              decoration: const InputDecoration(
+                  counterText: "",
+                  hintText: 'الاسم الجديد...',
+                  hintStyle: TextStyle(color: Colors.white24, fontFamily: 'Changa')
+              )
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54, fontFamily: 'Changa'))),
+            ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan),
+                onPressed: () {
+                  if (nameController.text.trim().isNotEmpty) {
+                    Navigator.pop(context);
+                    cubit.changePlayerName(player, nameController.text.trim());
+                  }
+                },
+                child: const Text('تغيير', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontFamily: 'Changa'))
+            ),
+          ],
+        ),
       ),
     );
   }
