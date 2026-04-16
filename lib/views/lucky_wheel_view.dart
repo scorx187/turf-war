@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../providers/audio_provider.dart';
 import '../providers/player_provider.dart';
 import 'player_profile_view.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'dart:math';
-import 'dart:async';
+import '../controllers/lucky_wheel_cubit.dart';
+import '../controllers/lucky_wheel_state.dart';
 
-class LuckyWheelView extends StatefulWidget {
+class LuckyWheelView extends StatelessWidget {
   final int cash;
   final int maxEnergy;
   final int maxCourage;
@@ -34,30 +34,29 @@ class LuckyWheelView extends StatefulWidget {
   });
 
   @override
-  State<LuckyWheelView> createState() => _LuckyWheelViewState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) {
+        final cubit = LuckyWheelCubit();
+        final player = Provider.of<PlayerProvider>(context, listen: false);
+        cubit.claimPendingPrizes(player.uid!);
+        return cubit;
+      },
+      child: _LuckyWheelContent(onBack: onBack),
+    );
+  }
 }
 
-class _LuckyWheelViewState extends State<LuckyWheelView> {
-  bool _isSpinning = false;
-  int _currentIndex = 0;
-  String _statusText = "";
+class _LuckyWheelContent extends StatefulWidget {
+  final VoidCallback onBack;
+  const _LuckyWheelContent({required this.onBack});
 
+  @override
+  State<_LuckyWheelContent> createState() => _LuckyWheelContentState();
+}
+
+class _LuckyWheelContentState extends State<_LuckyWheelContent> {
   late Stream<QuerySnapshot> _winnersStream;
-
-  final List<Map<String, dynamic>> prizes = [
-    {'id': 'gold_600', 'name': '600 ذهب', 'icon': Icons.monetization_on, 'color': Colors.yellow, 'chance': 0.20},
-    {'id': 'cash_50m', 'name': '50 مليون', 'icon': Icons.money, 'color': Colors.lightGreenAccent, 'chance': 0.05},
-    {'id': 'cash_10m', 'name': '10 مليون', 'icon': Icons.attach_money, 'color': Colors.green, 'chance': 0.25},
-    {'id': 't_aladdin_lamp', 'name': 'المصباح السحري', 'icon': Icons.lightbulb, 'color': Colors.amberAccent, 'chance': 0.06},
-    {'id': 't_aladdin_carpet', 'name': 'البساط الطائر', 'icon': Icons.map, 'color': Colors.purpleAccent, 'chance': 0.06},
-    {'id': 't_magic_ring', 'name': 'خاتم السلطة', 'icon': Icons.radio_button_checked, 'color': Colors.orange, 'chance': 0.06},
-    {'id': 'w_aladdin_damage', 'name': 'سيف الضرر', 'icon': Icons.hardware, 'color': Colors.redAccent, 'chance': 0.03},
-    {'id': 'a_aladdin_evasion', 'name': 'عباءة مراوغة', 'icon': Icons.air, 'color': Colors.cyanAccent, 'chance': 0.03},
-    {'id': 'a_aladdin_defense', 'name': 'درع دفاع', 'icon': Icons.shield, 'color': Colors.blue, 'chance': 0.03},
-    {'id': 'w_aladdin_accuracy', 'name': 'خنجر الدقة', 'icon': Icons.flash_on, 'color': Colors.deepOrange, 'chance': 0.03},
-    {'id': 'vip_7', 'name': 'VIP أسبوع', 'icon': Icons.workspace_premium, 'color': Colors.amber, 'chance': 0.10},
-    {'id': 'perk_point', 'name': 'نقطة امتياز', 'icon': Icons.star, 'color': Colors.blueAccent, 'chance': 0.10},
-  ];
 
   @override
   void initState() {
@@ -67,110 +66,11 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
         .orderBy('timestamp', descending: true)
         .limit(20)
         .snapshots();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _claimPendingPrizes();
-    });
   }
 
-  void _claimPendingPrizes() async {
-    try {
-      final player = Provider.of<PlayerProvider>(context, listen: false);
-      await FirebaseFunctions.instance.httpsCallable('claimLuckyWheel').call({'uid': player.uid});
-    } catch (e) {
-      // تجاهل بصمت
-    }
-  }
-
-  Future<void> _spin(int times, AudioProvider audio, PlayerProvider player) async {
-    int cost = times == 1 ? 500 : 4500;
-
-    if (player.gold < cost) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا تملك ذهب كافٍ!', style: TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
-      return;
-    }
-
-    setState(() {
-      _isSpinning = true;
-      _statusText = "";
-    });
-
-    try {
-      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('spinLuckyWheel');
-      final result = await callable.call({
-        'uid': player.uid,
-        'times': times,
-      });
-
-      if (result.data['success'] == true) {
-        List<dynamic> serverPrizes = result.data['wonPrizes'];
-        List<Map<String, dynamic>> wonPrizes = [];
-
-        for (var sp in serverPrizes) {
-          wonPrizes.add({
-            'id': sp['id'],
-            'name': sp['name'],
-            'color': Color(sp['colorValue']),
-            'icon': prizes.firstWhere((p) => p['id'] == sp['id'], orElse: () => prizes.first)['icon'],
-          });
-        }
-
-        int targetIndex = prizes.indexWhere((p) => p['id'] == wonPrizes.last['id']);
-        if (targetIndex == -1) targetIndex = 0;
-
-        int totalSteps = (12 * 3) + targetIndex - _currentIndex;
-        if (totalSteps < 12) totalSteps += 12;
-
-        int delay = 40;
-        for(int i = 0; i < totalSteps; i++) {
-          await Future.delayed(Duration(milliseconds: delay));
-          if (!mounted) return;
-          setState(() {
-            _currentIndex = (_currentIndex + 1) % 12;
-          });
-
-          if (totalSteps - i < 15) delay += 15;
-          if (totalSteps - i < 5) delay += 40;
-        }
-
-        audio.playEffect('click.mp3');
-
-        try {
-          await FirebaseFunctions.instance.httpsCallable('claimLuckyWheel').call({'uid': player.uid});
-        } catch(e) {
-          debugPrint("خطأ في استلام الجوائز: $e");
-        }
-
-        if (mounted) {
-          setState(() {
-            _isSpinning = false;
-            _statusText = "";
-          });
-
-          if (times == 1) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text("مبروك! حصلت على ${wonPrizes.first['name']}!", style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-              backgroundColor: Colors.green,
-            ));
-          } else {
-            _show10xRewardsDialog(wonPrizes);
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isSpinning = false;
-          _statusText = "";
-        });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ السيرفر: ${e.toString()}', style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
-      }
-    }
-  }
-
-  void _show10xRewardsDialog(List<Map<String, dynamic>> wonPrizes) {
+  void _show10xRewardsDialog(List<Map<String, dynamic>> wonPrizes, LuckyWheelCubit cubit) {
     Map<String, int> counts = {};
-    for(var w in wonPrizes) {
+    for (var w in wonPrizes) {
       counts[w['name']] = (counts[w['name']] ?? 0) + 1;
     }
 
@@ -187,7 +87,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
             runSpacing: 10,
             alignment: WrapAlignment.center,
             children: counts.entries.map((e) {
-              var prizeData = prizes.firstWhere((p) => p['name'] == e.key);
+              var prizeData = cubit.prizes.firstWhere((p) => p['name'] == e.key);
               return Container(
                 width: 80,
                 padding: const EdgeInsets.all(8),
@@ -216,13 +116,13 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
             ),
           ],
         ),
-      ),
+      ), // 🟢 هذا القوس اللي كان ناقص
     );
   }
 
-  Widget _buildCell(int index) {
-    var prize = prizes[index];
-    bool isHighlighted = _currentIndex == index;
+  Widget _buildCell(int index, LuckyWheelState state, LuckyWheelCubit cubit) {
+    var prize = cubit.prizes[index];
+    bool isHighlighted = state.currentIndex == index;
 
     return AspectRatio(
         aspectRatio: 1,
@@ -259,7 +159,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
     );
   }
 
-  Widget _buildCenterTop(AudioProvider audio, PlayerProvider player) {
+  Widget _buildCenterTop(AudioProvider audio, PlayerProvider player, LuckyWheelState state, LuckyWheelCubit cubit) {
     return Container(
       margin: const EdgeInsets.all(1),
       child: ElevatedButton(
@@ -268,7 +168,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: const BorderSide(color: Colors.orangeAccent)),
           padding: EdgeInsets.zero,
         ),
-        onPressed: _isSpinning ? null : () => _spin(1, audio, player),
+        onPressed: state.isSpinning ? null : () => cubit.spin(1, player.uid!, player.gold, () => audio.playEffect('click.mp3')),
         child: const FittedBox(
           fit: BoxFit.scaleDown,
           child: Column(
@@ -283,7 +183,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
     );
   }
 
-  Widget _buildCenterBot(AudioProvider audio, PlayerProvider player) {
+  Widget _buildCenterBot(AudioProvider audio, PlayerProvider player, LuckyWheelState state, LuckyWheelCubit cubit) {
     return Container(
       margin: const EdgeInsets.all(1),
       child: ElevatedButton(
@@ -292,7 +192,7 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: const BorderSide(color: Colors.redAccent)),
           padding: EdgeInsets.zero,
         ),
-        onPressed: _isSpinning ? null : () => _spin(10, audio, player),
+        onPressed: state.isSpinning ? null : () => cubit.spin(10, player.uid!, player.gold, () => audio.playEffect('click.mp3')),
         child: const FittedBox(
           fit: BoxFit.scaleDown,
           child: Column(
@@ -331,8 +231,6 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
               child: StreamBuilder<QuerySnapshot>(
                 stream: _winnersStream,
                 builder: (context, snapshot) {
-                  // تم تنظيف كود تشخيص الأخطاء من هنا 🧹
-
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2));
                   }
@@ -414,67 +312,88 @@ class _LuckyWheelViewState extends State<LuckyWheelView> {
   Widget build(BuildContext context) {
     final audio = Provider.of<AudioProvider>(context, listen: false);
     final player = Provider.of<PlayerProvider>(context, listen: false);
+    final cubit = context.read<LuckyWheelCubit>();
 
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 10.0, right: 10, left: 10, bottom: 5),
-            child: Row(
-              children: [
-                IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
-                    onPressed: _isSpinning ? null : widget.onBack),
-                const Text('عجلة الحظ الأسطورية',
-                    style: TextStyle(color: Colors.orange, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              ],
-            ),
-          ),
-
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 65),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-                color: Colors.black45,
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.orange.withOpacity(0.5), width: 2),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)]
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(children: [ Expanded(child: _buildCell(0)), Expanded(child: _buildCell(1)), Expanded(child: _buildCell(2)), Expanded(child: _buildCell(3)) ]),
-                Row(
+      child: BlocConsumer<LuckyWheelCubit, LuckyWheelState>(
+        listener: (context, state) {
+          if (state.errorMessage.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage, style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.red));
+          }
+          if (state.wonPrizes != null && !state.isSpinning) {
+            if (state.wonPrizes!.length == 1) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text("مبروك! حصلت على ${state.wonPrizes!.first['name']}!", style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                backgroundColor: Colors.green,
+              ));
+            } else {
+              _show10xRewardsDialog(state.wonPrizes!, cubit);
+            }
+            cubit.resetPrizes();
+          }
+        },
+        builder: (context, state) {
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 10.0, right: 10, left: 10, bottom: 5),
+                child: Row(
                   children: [
-                    Expanded(child: Column(children: [ _buildCell(11), _buildCell(10) ])),
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        children: [
-                          AspectRatio(aspectRatio: 2 / 1, child: _buildCenterTop(audio, player)),
-                          AspectRatio(aspectRatio: 2 / 1, child: _buildCenterBot(audio, player)),
-                        ],
-                      ),
-                    ),
-                    Expanded(child: Column(children: [ _buildCell(4), _buildCell(5) ])),
+                    IconButton(
+                        icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+                        onPressed: state.isSpinning ? null : widget.onBack),
+                    const Text('عجلة الحظ الأسطورية',
+                        style: TextStyle(color: Colors.orange, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                   ],
                 ),
-                Row(children: [ Expanded(child: _buildCell(9)), Expanded(child: _buildCell(8)), Expanded(child: _buildCell(7)), Expanded(child: _buildCell(6)) ]),
-              ],
-            ),
-          ),
+              ),
 
-          const SizedBox(height: 8),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 65),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                    color: Colors.black45,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.orange.withOpacity(0.5), width: 2),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)]
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(children: [ Expanded(child: _buildCell(0, state, cubit)), Expanded(child: _buildCell(1, state, cubit)), Expanded(child: _buildCell(2, state, cubit)), Expanded(child: _buildCell(3, state, cubit)) ]),
+                    Row(
+                      children: [
+                        Expanded(child: Column(children: [ _buildCell(11, state, cubit), _buildCell(10, state, cubit) ])),
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            children: [
+                              AspectRatio(aspectRatio: 2 / 1, child: _buildCenterTop(audio, player, state, cubit)),
+                              AspectRatio(aspectRatio: 2 / 1, child: _buildCenterBot(audio, player, state, cubit)),
+                            ],
+                          ),
+                        ),
+                        Expanded(child: Column(children: [ _buildCell(4, state, cubit), _buildCell(5, state, cubit) ])),
+                      ],
+                    ),
+                    Row(children: [ Expanded(child: _buildCell(9, state, cubit)), Expanded(child: _buildCell(8, state, cubit)), Expanded(child: _buildCell(7, state, cubit)), Expanded(child: _buildCell(6, state, cubit)) ]),
+                  ],
+                ),
+              ),
 
-          if (_statusText.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text(_statusText, style: const TextStyle(color: Colors.orangeAccent, fontSize: 14, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-            ),
+              const SizedBox(height: 8),
 
-          _buildWinnersFeed(player),
-        ],
+              if (state.statusText.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text(state.statusText, style: const TextStyle(color: Colors.orangeAccent, fontSize: 14, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+                ),
+
+              _buildWinnersFeed(player),
+            ],
+          );
+        },
       ),
     );
   }

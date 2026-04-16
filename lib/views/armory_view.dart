@@ -305,12 +305,7 @@ class ArmoryView extends StatelessWidget {
         backgroundColor: const Color(0xFF1A1A1D),
         body: Column(
           children: [
-            TopBar(
-              cash: player.cash, gold: player.gold, level: player.crimeLevel, currentXp: player.crimeXP, maxXp: player.xpToNextLevel,
-              health: player.health, maxHealth: player.maxHealth, energy: player.energy, maxEnergy: player.maxEnergy,
-              courage: player.courage, maxCourage: player.maxCourage, prestige: player.prestige, maxPrestige: player.maxPrestige,
-              playerName: player.playerName, profilePicUrl: player.profilePicUrl, isVIP: player.isVIP,
-            ),
+            const TopBar(),
 
             const Padding(padding: EdgeInsets.only(top: 15.0, bottom: 5.0), child: Center(child: Text('التسليح', style: TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Changa')))),
 

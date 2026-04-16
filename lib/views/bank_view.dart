@@ -2,9 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
 import '../providers/player_provider.dart';
-import '../providers/market_provider.dart'; // 🟢 تم إضافة السوق هنا
+import '../providers/market_provider.dart';
 import 'package:intl/intl.dart';
+import '../controllers/bank_cubit.dart'; // 🟢 استدعاء الكيوبت
+import '../controllers/bank_state.dart'; // 🟢 استدعاء الحالة
 
 class BankView extends StatefulWidget {
   final VoidCallback onBack;
@@ -50,52 +53,85 @@ class _BankViewState extends State<BankView> {
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
-    final market = Provider.of<MarketProvider>(context); // 🟢 جلب بيانات السوق
+    final market = Provider.of<MarketProvider>(context);
 
-    return DefaultTabController(
-      length: 4,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: widget.onBack),
-                const Text('بنك المدينة الاحترافي',
-                    style: TextStyle(color: Colors.green, fontSize: 22, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          const TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(icon: Icon(Icons.account_balance), text: 'العمليات'),
-              Tab(icon: Icon(Icons.history), text: 'السجل'),
-              Tab(icon: Icon(Icons.monetization_on), text: 'القروض'),
-              Tab(icon: Icon(Icons.trending_up), text: 'بورصة الذهب'),
+    // 🟢 ربط الواجهة بالكيوبت
+    return BlocProvider(
+      create: (context) => BankCubit(),
+      child: BlocConsumer<BankCubit, BankState>(
+        listener: (context, state) {
+          // 🟢 عرض رسائل النجاح أو الخطأ تلقائياً
+          if (state.message.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(state.message, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+              backgroundColor: state.isSuccess ? Colors.green : Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ));
+          }
+        },
+        builder: (context, state) {
+          final cubit = context.read<BankCubit>();
+
+          return Stack(
+            children: [
+              DefaultTabController(
+                length: 4,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          IconButton(
+                              icon: const Icon(Icons.arrow_back, color: Colors.white),
+                              onPressed: widget.onBack),
+                          const Text('بنك المدينة الاحترافي',
+                              style: TextStyle(color: Colors.green, fontSize: 22, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    const TabBar(
+                      isScrollable: true,
+                      tabs: [
+                        Tab(icon: Icon(Icons.account_balance), text: 'العمليات'),
+                        Tab(icon: Icon(Icons.history), text: 'السجل'),
+                        Tab(icon: Icon(Icons.monetization_on), text: 'القروض'),
+                        Tab(icon: Icon(Icons.trending_up), text: 'بورصة الذهب'),
+                      ],
+                      indicatorColor: Colors.green,
+                      labelColor: Colors.green,
+                      unselectedLabelColor: Colors.grey,
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          _buildMainOperations(player, cubit), // 🟢 تمرير الكيوبت للدوال
+                          _buildTransactionHistory(player),
+                          _buildLoanSection(player, cubit),
+                          _buildGoldMarket(player, market, cubit),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // 🟢 شاشة تحميل تظهر وقت تنفيذ العملية لتمنع التكرار
+              if (state.isLoading)
+                Container(
+                  color: Colors.black54,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.green),
+                  ),
+                ),
             ],
-            indicatorColor: Colors.green,
-            labelColor: Colors.green,
-            unselectedLabelColor: Colors.grey,
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildMainOperations(player),
-                _buildTransactionHistory(player),
-                _buildLoanSection(player),
-                _buildGoldMarket(player, market), // 🟢 إرسال السوق لهذي الدالة
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildMainOperations(PlayerProvider player) {
+  Widget _buildMainOperations(PlayerProvider player, BankCubit cubit) {
     int depAmt = _depositSliderValue.toInt();
     int withAmt = _withdrawSliderValue.toInt();
     int lockAmt = _lockedInvestSliderValue.toInt();
@@ -105,7 +141,7 @@ class _BankViewState extends State<BankView> {
         children: [
           _buildFinancialReportCard(player),
           _buildBalanceCard(player),
-          _buildLockedInvestmentSection(player, lockAmt),
+          _buildLockedInvestmentSection(player, lockAmt, cubit),
 
           _buildBankActionCard(
             title: 'إيداع كاش (مجرد حفظ)',
@@ -128,8 +164,11 @@ class _BankViewState extends State<BankView> {
             buttonColor: Colors.green,
             onPressed: () {
               if (depAmt > 0) {
-                player.depositToBank(depAmt);
-                setState(() { _depositSliderValue = 0; _depositController.text = '0'; });
+                // 🟢 التنفيذ عبر الكيوبت
+                cubit.executeTransaction(() async {
+                  await Future.sync(() => player.depositToBank(depAmt));
+                  if (mounted) setState(() { _depositSliderValue = 0; _depositController.text = '0'; });
+                }, 'تم إيداع \$${depAmt} بنجاح!');
               }
             },
           ),
@@ -155,8 +194,10 @@ class _BankViewState extends State<BankView> {
             buttonColor: Colors.blueGrey,
             onPressed: () {
               if (withAmt > 0) {
-                player.withdrawFromBank(withAmt);
-                setState(() { _withdrawSliderValue = 0; _withdrawController.text = '0'; });
+                cubit.executeTransaction(() async {
+                  await Future.sync(() => player.withdrawFromBank(withAmt));
+                  if (mounted) setState(() { _withdrawSliderValue = 0; _withdrawController.text = '0'; });
+                }, 'تم سحب \$${withAmt} بنجاح!');
               }
             },
           ),
@@ -202,7 +243,7 @@ class _BankViewState extends State<BankView> {
     );
   }
 
-  Widget _buildLockedInvestmentSection(PlayerProvider player, int amount) {
+  Widget _buildLockedInvestmentSection(PlayerProvider player, int amount, BankCubit cubit) {
     bool isLocked = player.isInvestmentLocked;
     String timeLeftStr = "";
     if (isLocked && player.lockedUntil != null) {
@@ -238,9 +279,9 @@ class _BankViewState extends State<BankView> {
           ),
           if (!isLocked) ...[
             const SizedBox(height: 10),
-            _buildInvestOption(player, "سريع", 1, 0.02, Colors.green),
-            _buildInvestOption(player, "متوسط", 3, 0.07, Colors.orange),
-            _buildInvestOption(player, "طويل", 5, 0.15, Colors.redAccent),
+            _buildInvestOption(player, cubit, "سريع", 1, 0.02, Colors.green),
+            _buildInvestOption(player, cubit, "متوسط", 3, 0.07, Colors.orange),
+            _buildInvestOption(player, cubit, "طويل", 5, 0.15, Colors.redAccent),
             const SizedBox(height: 10),
             Slider(
               value: _lockedInvestSliderValue.clamp(0.0, maxVal),
@@ -267,7 +308,7 @@ class _BankViewState extends State<BankView> {
     );
   }
 
-  Widget _buildInvestOption(PlayerProvider player, String name, int mins, double rate, Color color) {
+  Widget _buildInvestOption(PlayerProvider player, BankCubit cubit, String name, int mins, double rate, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: ElevatedButton(
@@ -277,18 +318,21 @@ class _BankViewState extends State<BankView> {
             minimumSize: const Size(double.infinity, 40)
         ),
         onPressed: _lockedInvestSliderValue > 0 ? () {
-          player.startLockedInvestment(_lockedInvestSliderValue.toInt(), mins, rate);
-          setState(() { _lockedInvestSliderValue = 0; _lockedInvestController.text = '0'; });
+          cubit.executeTransaction(() async {
+            await Future.sync(() => player.startLockedInvestment(_lockedInvestSliderValue.toInt(), mins, rate));
+            if (mounted) setState(() { _lockedInvestSliderValue = 0; _lockedInvestController.text = '0'; });
+          }, 'تم تجميد مبلغ الاستثمار بنجاح!');
         } : null,
         child: Text('$name: $mins دقائق (ربح ${(rate * 100).toInt()}%)', style: TextStyle(color: color)),
       ),
     );
   }
 
-  // 🟢 دالة بورصة الذهب معدلة لتقرأ من MarketProvider
-  Widget _buildGoldMarket(PlayerProvider player, MarketProvider market) {
+  Widget _buildGoldMarket(PlayerProvider player, MarketProvider market, BankCubit cubit) {
     bool isPriceUp = market.goldPrice >= market.oldGoldPrice;
-    int maxBuyable = (player.cash / market.goldPrice).floor();
+
+    // 🟢 استخدام الكيوبت لحساب أقصى شراء
+    int maxBuyable = cubit.calculateMaxGoldBuyable(player.cash, market.goldPrice);
     int buyAmt = _goldBuySliderValue.toInt();
     int sellAmt = _goldSellSliderValue.toInt();
 
@@ -343,13 +387,15 @@ class _BankViewState extends State<BankView> {
               if (v > maxBuyable) v = maxBuyable;
               setState(() => _goldBuySliderValue = v.toDouble());
             },
-            actionText: 'تكلفة: ${buyAmt * market.goldPrice}', // السعر من السوق
+            actionText: 'تكلفة: ${buyAmt * market.goldPrice}',
             infoText: 'سيتم الخصم من الكاش',
             buttonColor: Colors.amber.shade700,
             onPressed: () {
               if (buyAmt > 0) {
-                player.buyGold(buyAmt, market.goldPrice); // 🟢 إرسال السعر للدالة
-                setState(() { _goldBuySliderValue = 0; _goldBuyController.text = '0'; });
+                cubit.executeTransaction(() async {
+                  await Future.sync(() => player.buyGold(buyAmt, market.goldPrice));
+                  if (mounted) setState(() { _goldBuySliderValue = 0; _goldBuyController.text = '0'; });
+                }, 'تم شراء $buyAmt سبيكة ذهب!');
               }
             },
           ),
@@ -369,13 +415,15 @@ class _BankViewState extends State<BankView> {
               if (v > player.gold) v = player.gold;
               setState(() => _goldSellSliderValue = v.toDouble());
             },
-            actionText: 'عائد: ${sellAmt * market.goldPrice}', // السعر من السوق
+            actionText: 'عائد: ${sellAmt * market.goldPrice}',
             infoText: 'ستحصل على كاش فوري',
             buttonColor: Colors.orange.shade900,
             onPressed: () {
               if (sellAmt > 0) {
-                player.sellGold(sellAmt, market.goldPrice); // 🟢 إرسال السعر للدالة
-                setState(() { _goldSellSliderValue = 0; _goldSellController.text = '0'; });
+                cubit.executeTransaction(() async {
+                  await Future.sync(() => player.sellGold(sellAmt, market.goldPrice));
+                  if (mounted) setState(() { _goldSellSliderValue = 0; _goldSellController.text = '0'; });
+                }, 'تم بيع $sellAmt سبيكة ذهب بنجاح!');
               }
             },
           ),
@@ -384,13 +432,14 @@ class _BankViewState extends State<BankView> {
     );
   }
 
-  Widget _buildLoanSection(PlayerProvider player) {
+  Widget _buildLoanSection(PlayerProvider player, BankCubit cubit) {
     int takeAmt = _loanTakeSliderValue.toInt();
     int repayAmt = _loanRepaySliderValue.toInt();
     int remainingLimit = player.maxLoanLimit - player.loanAmount;
 
-    int adminFee = (takeAmt * 0.05).floor();
-    int netReceive = takeAmt - adminFee;
+    // 🟢 الحسابات انتقلت للكيوبت
+    int adminFee = cubit.calculateAdminFee(takeAmt);
+    int netReceive = cubit.calculateNetReceive(takeAmt);
 
     bool canRepay = player.canRepayLoan();
     String repayInfoText = 'سداد الديون يزيد من سمعتك (+10)';
@@ -465,8 +514,10 @@ class _BankViewState extends State<BankView> {
             buttonColor: Colors.redAccent,
             onPressed: () {
               if (takeAmt > 0) {
-                player.takeLoan(takeAmt);
-                setState(() { _loanTakeSliderValue = 0; _loanTakeController.text = '0'; });
+                cubit.executeTransaction(() async {
+                  await Future.sync(() => player.takeLoan(takeAmt));
+                  if (mounted) setState(() { _loanTakeSliderValue = 0; _loanTakeController.text = '0'; });
+                }, 'تم استلام القرض بنجاح!');
               }
             },
           ),
@@ -492,8 +543,10 @@ class _BankViewState extends State<BankView> {
             buttonColor: canRepay ? Colors.orange : Colors.grey,
             onPressed: canRepay ? () {
               if (repayAmt > 0) {
-                player.repayLoan(repayAmt);
-                setState(() { _loanRepaySliderValue = 0; _loanRepayController.text = '0'; });
+                cubit.executeTransaction(() async {
+                  await Future.sync(() => player.repayLoan(repayAmt));
+                  if (mounted) setState(() { _loanRepaySliderValue = 0; _loanRepayController.text = '0'; });
+                }, 'تم سداد الدفعة وتحسين سمعتك!');
               }
             } : null,
           ),

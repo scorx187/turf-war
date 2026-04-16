@@ -1,3 +1,5 @@
+// المسار: lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 أضفنا مكتبة Bloc
 import 'dart:io';
 import 'dart:async';
 import 'firebase_options.dart';
@@ -14,6 +17,7 @@ import 'providers/audio_provider.dart';
 import 'providers/market_provider.dart';
 import 'utils/local_notification_service.dart';
 import 'views/version_check_view.dart';
+import 'controllers/player_stats_cubit.dart'; // 🟢 استدعينا الـ Cubit الخاص بالموارد
 
 class GameColors {
   static const Color primary = Colors.amber;
@@ -34,13 +38,19 @@ void main() async {
   await LocalNotificationService.initialize();
 
   runApp(
-    MultiProvider(
+    // 🟢 هنا غلفنا التطبيق بالـ BlocProvider عشان يكون الـ Cubit متاح للـ TopBar
+    MultiBlocProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => PlayerProvider()),
-        ChangeNotifierProvider(create: (_) => AudioProvider()),
-        ChangeNotifierProvider(create: (_) => MarketProvider()),
+        BlocProvider(create: (_) => PlayerStatsCubit()),
       ],
-      child: const MyGame(),
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => PlayerProvider()),
+          ChangeNotifierProvider(create: (_) => AudioProvider()),
+          ChangeNotifierProvider(create: (_) => MarketProvider()),
+        ],
+        child: const MyGame(),
+      ),
     ),
   );
 }
@@ -52,7 +62,6 @@ class MyGame extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      // 🟢 إجبار جميع الشاشات في التطبيق بلا استثناء على الاتجاه من اليمين لليسار
       builder: (context, child) {
         return Directionality(
           textDirection: TextDirection.rtl,
@@ -68,7 +77,6 @@ class MyGame extends StatelessWidget {
         scaffoldBackgroundColor: GameColors.background,
         fontFamily: 'Changa',
       ),
-      // 🟢 شلنا Directionality من هنا لأن الـ builder فوق تكفل بها لكل التطبيق
       home: const FirebaseInitWrapper(),
     );
   }

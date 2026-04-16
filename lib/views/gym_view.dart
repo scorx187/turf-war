@@ -3,27 +3,41 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
 import 'dart:async';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/quick_recovery_dialog.dart';
+import '../controllers/gym_cubit.dart'; // 🟢 استدعاء الكيوبت
 
-class GymView extends StatefulWidget {
+class GymView extends StatelessWidget {
   final VoidCallback onBack;
   const GymView({super.key, required this.onBack});
 
   @override
-  State<GymView> createState() => _GymViewState();
+  Widget build(BuildContext context) {
+    // 🟢 تغليف الشاشة بالكيوبت
+    return BlocProvider(
+      create: (context) => GymCubit(),
+      child: _GymViewContent(onBack: onBack),
+    );
+  }
 }
 
-class _GymViewState extends State<GymView> {
+class _GymViewContent extends StatefulWidget {
+  final VoidCallback onBack;
+  const _GymViewContent({required this.onBack});
+
+  @override
+  State<_GymViewContent> createState() => _GymViewContentState();
+}
+
+class _GymViewContentState extends State<_GymViewContent> {
   int strE = 0;
   int defE = 0;
   int skillE = 0;
   int spdE = 0;
   Timer? _timer;
-
-  bool _isLoading = false;
 
   bool _showFloatingEffect = false;
   String _floatingMessage = '';
@@ -34,7 +48,8 @@ class _GymViewState extends State<GymView> {
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && !_isLoading) setState(() {});
+      // 🟢 تحديث الوقت فقط إذا لم يكن هناك تحميل جاري
+      if (mounted && !context.read<GymCubit>().state.isLoading) setState(() {});
     });
   }
 
@@ -70,27 +85,15 @@ class _GymViewState extends State<GymView> {
     });
 
     Future.delayed(const Duration(milliseconds: 50), () {
-      if (mounted) {
-        setState(() {
-          _floatBottom = MediaQuery.of(context).size.height * 0.5;
-        });
-      }
+      if (mounted) setState(() => _floatBottom = MediaQuery.of(context).size.height * 0.5);
     });
 
     Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) {
-        setState(() {
-          _floatOpacity = 0.0;
-        });
-      }
+      if (mounted) setState(() => _floatOpacity = 0.0);
     });
 
     Future.delayed(const Duration(milliseconds: 1300), () {
-      if (mounted) {
-        setState(() {
-          _showFloatingEffect = false;
-        });
-      }
+      if (mounted) setState(() => _showFloatingEffect = false);
     });
   }
 
@@ -98,7 +101,7 @@ class _GymViewState extends State<GymView> {
     TextEditingController controller = TextEditingController(text: currentValue > 0 ? currentValue.toString() : '');
     showDialog(
         context: context,
-        builder: (context) => Directionality( // 🟢 إجبار النافذة على اليمين
+        builder: (context) => Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
               backgroundColor: const Color(0xFF1A1A1A),
@@ -143,7 +146,7 @@ class _GymViewState extends State<GymView> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Directionality( // 🟢 إجبار النافذة على اليمين
+      builder: (context) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
@@ -169,7 +172,7 @@ class _GymViewState extends State<GymView> {
   void _showExplanationDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => Directionality( // 🟢 إجبار النافذة على اليمين
+      builder: (context) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
@@ -201,137 +204,159 @@ class _GymViewState extends State<GymView> {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
     final audio = Provider.of<AudioProvider>(context, listen: false);
+    final cubit = context.read<GymCubit>();
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage('assets/images/ui/crime_bg.jpg'),
-                fit: BoxFit.cover,
-                colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
-              ),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Directionality(
-                textDirection: TextDirection.rtl,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    const Center(child: Text('صالة التدريب القتالي 🏋️‍♂️', style: TextStyle(color: Colors.amber, fontSize: 26, fontWeight: FontWeight.bold, fontFamily: 'Changa', shadows: [Shadow(color: Colors.black, blurRadius: 10)])),),
-                    const SizedBox(height: 10),
+    return BlocConsumer<GymCubit, GymState>(
+      listener: (context, state) {
+        // 🟢 الاستماع لرسائل النجاح والخطأ من الكيوبت وعرضها
+        if (state.errorMessage.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage, style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
+        }
+        if (state.successMessage.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.successMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
+        }
 
-                    Expanded(
-                      child: DefaultTabController(
-                        length: 3,
-                        child: Column(
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white12)),
-                              child: const TabBar(
-                                indicator: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.all(Radius.circular(10))),
-                                labelColor: Colors.black,
-                                labelStyle: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Changa'),
-                                unselectedLabelColor: Colors.white54,
-                                tabs: [Tab(text: "صالة الحديد"), Tab(text: "المدربون"), Tab(text: "المنشطات")],
-                              ),
+        // 🟢 الاستماع لقيمة الزيادة لتشغيل الأنيميشن وتصفير العدادات
+        if (state.gainedStats != null) {
+          _triggerFloatingAnimation(state.gainedStats!);
+          setState(() {
+            strE = 0; defE = 0; skillE = 0; spdE = 0;
+          });
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          body: Stack(
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/ui/crime_bg.jpg'),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
+                  ),
+                ),
+                child: SafeArea(
+                  bottom: false,
+                  child: Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        const Center(child: Text('صالة التدريب القتالي 🏋️‍♂️', style: TextStyle(color: Colors.amber, fontSize: 26, fontWeight: FontWeight.bold, fontFamily: 'Changa', shadows: [Shadow(color: Colors.black, blurRadius: 10)])),),
+                        const SizedBox(height: 10),
+
+                        Expanded(
+                          child: DefaultTabController(
+                            length: 3,
+                            child: Column(
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white12)),
+                                  child: const TabBar(
+                                    indicator: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.all(Radius.circular(10))),
+                                    labelColor: Colors.black,
+                                    labelStyle: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Changa'),
+                                    unselectedLabelColor: Colors.white54,
+                                    tabs: [Tab(text: "صالة الحديد"), Tab(text: "المدربون"), Tab(text: "المنشطات")],
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Expanded(
+                                  child: TabBarView(
+                                    children: [
+                                      _buildGymTab(player, audio, cubit),
+                                      _buildCoachesTab(player, audio, cubit),
+                                      _buildSteroidsTab(player, audio, cubit),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 10),
-                            Expanded(
-                              child: TabBarView(
-                                children: [
-                                  _buildGymTab(player, audio),
-                                  _buildCoachesTab(player, audio),
-                                  _buildSteroidsTab(player, audio),
-                                ],
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              if (state.isLoading)
+                Container(
+                  color: Colors.black.withOpacity(0.8),
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Colors.amber),
+                        SizedBox(height: 20),
+                        Text('جاري التنفيذ والحفظ...', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 18)),
+                      ],
+                    ),
+                  ),
+                ),
+
+              if (_showFloatingEffect)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 1000),
+                  curve: Curves.easeOutCubic,
+                  bottom: _floatBottom,
+                  left: 0, right: 0,
+                  child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 400),
+                      opacity: _floatOpacity,
+                      child: Center(
+                          child: Text(
+                              _floatingMessage,
+                              style: const TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontSize: 35,
+                                  fontFamily: 'Changa',
+                                  fontWeight: FontWeight.bold,
+                                  shadows: [Shadow(color: Colors.black, blurRadius: 15, offset: Offset(0, 3)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(2, 2))]
+                              )
+                          )
+                      )
+                  ),
+                ),
+            ],
+          ),
+          bottomNavigationBar: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                image: const DecorationImage(image: AssetImage('assets/images/ui/bottom_navbar_bg.png'), fit: BoxFit.cover),
+                border: const Border(top: BorderSide(color: Color(0xFF856024), width: 2)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 10, offset: const Offset(0, -5))],
+              ),
+              padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
+              child: SafeArea(
+                bottom: true,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    GestureDetector(
+                      onTap: () { audio.playEffect('click.mp3'); widget.onBack(); },
+                      child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24), SizedBox(height: 4), Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
+                    ),
+                    GestureDetector(
+                      onTap: () { audio.playEffect('click.mp3'); _showExplanationDialog(context); },
+                      child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.menu_book, color: Colors.white70, size: 24), SizedBox(height: 4), Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-
-          if (_isLoading)
-            Container(
-              color: Colors.black.withOpacity(0.8),
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: Colors.amber),
-                    SizedBox(height: 20),
-                    Text('جاري التنفيذ والحفظ...', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 18)),
-                  ],
-                ),
-              ),
-            ),
-
-          if (_showFloatingEffect)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 1000),
-              curve: Curves.easeOutCubic,
-              bottom: _floatBottom,
-              left: 0, right: 0,
-              child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 400),
-                  opacity: _floatOpacity,
-                  child: Center(
-                      child: Text(
-                          _floatingMessage,
-                          style: const TextStyle(
-                              color: Colors.greenAccent,
-                              fontSize: 35,
-                              fontFamily: 'Changa',
-                              fontWeight: FontWeight.bold,
-                              shadows: [Shadow(color: Colors.black, blurRadius: 15, offset: Offset(0, 3)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(2, 2))]
-                          )
-                      )
-                  )
-              ),
-            ),
-        ],
-      ),
-      bottomNavigationBar: Directionality(
-        textDirection: TextDirection.rtl,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            image: const DecorationImage(image: AssetImage('assets/images/ui/bottom_navbar_bg.png'), fit: BoxFit.cover),
-            border: const Border(top: BorderSide(color: Color(0xFF856024), width: 2)),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 10, offset: const Offset(0, -5))],
-          ),
-          padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
-          child: SafeArea(
-            bottom: true,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: () { audio.playEffect('click.mp3'); widget.onBack(); },
-                  child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24), SizedBox(height: 4), Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
-                ),
-                GestureDetector(
-                  onTap: () { audio.playEffect('click.mp3'); _showExplanationDialog(context); },
-                  child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.menu_book, color: Colors.white70, size: 24), SizedBox(height: 4), Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  // 🟢 1. صالة الحديد الأساسية 🟢
-  Widget _buildGymTab(PlayerProvider player, AudioProvider audio) {
+  // 🟢 1. صالة الحديد الأساسية
+  Widget _buildGymTab(PlayerProvider player, AudioProvider audio, GymCubit cubit) {
     int totalAllocated = strE + defE + skillE + spdE;
     double maxStats = player.maxGymStats;
     double currentStats = player.currentBaseStats;
@@ -437,15 +462,9 @@ class _GymViewState extends State<GymView> {
                 if (totalAllocated > player.energy) {
                   QuickRecoveryDialog.show(context, 'energy', totalAllocated - player.energy);
                 } else {
-                  _confirmAction(context, 'تأكيد التدريب', Text('هل أنت متأكد أنك تريد استهلاك $totalAllocated طاقة للتدريب؟', style: const TextStyle(color: Colors.white, fontFamily: 'Changa')), () async {
-                    setState(() => _isLoading = true);
-                    double gained = await player.trainMultipleStats(strE, defE, skillE, spdE);
-                    if (mounted) {
-                      setState(() { _isLoading = false; strE = 0; defE = 0; skillE = 0; spdE = 0; });
-                      if (gained > 0) {
-                        _triggerFloatingAnimation(gained);
-                      }
-                    }
+                  _confirmAction(context, 'تأكيد التدريب', Text('هل أنت متأكد أنك تريد استهلاك $totalAllocated طاقة للتدريب؟', style: const TextStyle(color: Colors.white, fontFamily: 'Changa')), () {
+                    // 🟢 استدعاء التدريب من الكيوبت
+                    cubit.trainStats(player, strE, defE, skillE, spdE);
                   });
                 }
               } : null,
@@ -525,8 +544,8 @@ class _GymViewState extends State<GymView> {
     );
   }
 
-  // 🟢 2. المدربون 🟢
-  Widget _buildCoachesTab(PlayerProvider player, AudioProvider audio) {
+  // 🟢 2. المدربون
+  Widget _buildCoachesTab(PlayerProvider player, AudioProvider audio, GymCubit cubit) {
     bool hasCoach = player.activeCoach != null;
 
     return ListView(
@@ -544,14 +563,14 @@ class _GymViewState extends State<GymView> {
               ],
             ),
           ),
-        _buildCoachCard(context, player, audio, 'russian', 'المدرب الروسي 🐻', 'يزيد من مكاسب (القوة) بنسبة 50%.', 250000, Icons.fitness_center, Colors.redAccent),
-        _buildCoachCard(context, player, audio, 'tactical', 'المدرب التكتيكي 🛡️', 'يزيد من مكاسب (الدفاع) 50%، ويضاعف فرصة زيادة صحتك القصوى.', 300000, Icons.shield, Colors.blueAccent),
-        _buildCoachCard(context, player, audio, 'ninja', 'مدرب النينجا 🥷', 'يزيد من مكاسب (السرعة والمهارة) بنسبة 50%.', 200000, Icons.speed, Colors.purpleAccent),
+        _buildCoachCard(context, player, audio, cubit, 'russian', 'المدرب الروسي 🐻', 'يزيد من مكاسب (القوة) بنسبة 50%.', 250000, Icons.fitness_center, Colors.redAccent),
+        _buildCoachCard(context, player, audio, cubit, 'tactical', 'المدرب التكتيكي 🛡️', 'يزيد من مكاسب (الدفاع) 50%، ويضاعف فرصة زيادة صحتك القصوى.', 300000, Icons.shield, Colors.blueAccent),
+        _buildCoachCard(context, player, audio, cubit, 'ninja', 'مدرب النينجا 🥷', 'يزيد من مكاسب (السرعة والمهارة) بنسبة 50%.', 200000, Icons.speed, Colors.purpleAccent),
       ],
     );
   }
 
-  Widget _buildCoachCard(BuildContext context, PlayerProvider player, AudioProvider audio, String id, String name, String desc, int price, IconData icon, Color color) {
+  Widget _buildCoachCard(BuildContext context, PlayerProvider player, AudioProvider audio, GymCubit cubit, String id, String name, String desc, int price, IconData icon, Color color) {
     bool isActive = player.activeCoach == id;
     bool hasAnyCoach = player.activeCoach != null;
 
@@ -599,10 +618,9 @@ class _GymViewState extends State<GymView> {
                     Text('\$${_formatNumber(price)}', textDirection: TextDirection.ltr, style: const TextStyle(color: Colors.amber, fontFamily: 'Changa')),
                     const Text('؟\n\n', style: TextStyle(color: Colors.white, fontFamily: 'Changa')),
                     const Text('⚠️ احذر: لن تتمكن من استئجار أي مدرب آخر لمدة 6 ساعات بعد الانتهاء!', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
-                  ]), () async {
-                    setState(() => _isLoading = true);
-                    await player.hireCoach(id, price);
-                    if (mounted) setState(() => _isLoading = false);
+                  ]), () {
+                    // 🟢 استدعاء الشراء من الكيوبت
+                    cubit.hireCoach(player, id, price, name);
                   });
                 } : null,
                 child: const Text('استئجار', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
@@ -613,8 +631,8 @@ class _GymViewState extends State<GymView> {
     );
   }
 
-  // 🟢 3. المنشطات 🟢
-  Widget _buildSteroidsTab(PlayerProvider player, AudioProvider audio) {
+  // 🟢 3. المنشطات
+  Widget _buildSteroidsTab(PlayerProvider player, AudioProvider audio, GymCubit cubit) {
     bool hasSteroid = player.activeSteroidEndTime != null;
     int steroidCooldown = player.inventory['steroid_cooldown'] ?? 0;
     bool isCooldown = !hasSteroid && player.secureNow.millisecondsSinceEpoch < steroidCooldown;
@@ -683,10 +701,9 @@ class _GymViewState extends State<GymView> {
                         style: ElevatedButton.styleFrom(backgroundColor: player.cash >= 15000 ? Colors.redAccent : Colors.grey.shade700, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                         onPressed: player.cash >= 15000 ? () {
                           audio.playEffect('click.mp3');
-                          _confirmAction(context, 'شراء وحقن المنشط ⚠️', const Text('هل أنت متأكد؟ سيتضاعف تدريبك لمدة 20 دقيقة، ولن تستطيع استخدامه مجدداً لمدة 6 ساعات.', style: TextStyle(color: Colors.white, fontFamily: 'Changa')), () async {
-                            setState(() => _isLoading = true);
-                            await player.buyAndUseSteroids(15000);
-                            if (mounted) setState(() => _isLoading = false);
+                          _confirmAction(context, 'شراء وحقن المنشط ⚠️', const Text('هل أنت متأكد؟ سيتضاعف تدريبك لمدة 20 دقيقة، ولن تستطيع استخدامه مجدداً لمدة 6 ساعات.', style: TextStyle(color: Colors.white, fontFamily: 'Changa')), () {
+                            // 🟢 استدعاء المنشطات من الكيوبت
+                            cubit.buySteroids(player, 15000);
                           });
                         } : null,
                         child: const Text('شراء وحقن الآن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'Changa')),

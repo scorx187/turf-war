@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../providers/market_provider.dart';
 import '../utils/game_data.dart';
 import 'player_profile_view.dart';
+import '../controllers/real_estate_cubit.dart'; // 🟢 استدعاء الكيوبت
 
 class RealEstateView extends StatefulWidget {
   final VoidCallback onBack;
@@ -64,22 +66,25 @@ class _RealEstateViewState extends State<RealEstateView> {
   void _confirmAction(BuildContext context, String title, Widget contentWidget, VoidCallback onConfirm) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black87,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
-        title: Text(title, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-        content: contentWidget,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-            onPressed: () {
-              Navigator.pop(context);
-              onConfirm();
-            },
-            child: const Text('تأكيد', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          )
-        ],
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: Colors.black87,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
+          title: Text(title, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+          content: contentWidget,
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+              onPressed: () {
+                Navigator.pop(context);
+                onConfirm();
+              },
+              child: const Text('تأكيد', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -87,29 +92,32 @@ class _RealEstateViewState extends State<RealEstateView> {
   void _showExplanationDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black87,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
-        title: const Text('شرح سوق العقارات ℹ️', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-        content: const SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('🏠 عقارات سكنية:', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              Text('تزيد من نسبة السعادة اللي تضاعف تدريبك بالنادي. تقدر تسكن فيها أو تعرضها للإيجار.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
-              SizedBox(height: 10),
-              Text('🤝 سوق الإيجارات:', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              Text('تقدر تستأجر عقار من لاعب ثاني لفترة محددة. إذا فسخت العقد قبل وقته (قانون المافيا: الفلوس ما ترجع!).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
-              SizedBox(height: 10),
-              Text('🏢 مشاريع تجارية:', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-              Text('تدر عليك كاش تلقائي كل يوم. أسعارها تتأثر بحالة السوق العالمية (كل 6 ساعات).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
-            ],
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: Colors.black87,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
+          title: const Text('شرح سوق العقارات ℹ️', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+          content: const SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('🏠 عقارات سكنية:', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                Text('تزيد من نسبة السعادة اللي تضاعف تدريبك بالنادي. تقدر تسكن فيها أو تعرضها للإيجار.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+                SizedBox(height: 10),
+                Text('🤝 سوق الإيجارات:', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                Text('تقدر تستأجر عقار من لاعب ثاني لفترة محددة. إذا فسخت العقد قبل وقته (قانون المافيا: الفلوس ما ترجع!).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+                SizedBox(height: 10),
+                Text('🏢 مشاريع تجارية:', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                Text('تدر عليك كاش تلقائي كل يوم. أسعارها تتأثر بحالة السوق العالمية (كل 6 ساعات).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('حسناً فهمت', style: TextStyle(color: Colors.amber))),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('حسناً فهمت', style: TextStyle(color: Colors.amber))),
-        ],
       ),
     );
   }
@@ -120,128 +128,166 @@ class _RealEstateViewState extends State<RealEstateView> {
     final market = Provider.of<MarketProvider>(context);
     final audio = Provider.of<AudioProvider>(context, listen: false);
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/ui/crime_bg.jpg'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: Column(
-              children: [
-                const SizedBox(height: 5),
-                const Center(
-                  child: Text('إمبراطورية العقارات 🏙️', style: TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(height: 5),
+    // 🟢 تغليف كامل الشاشة بالكيوبت
+    return BlocProvider(
+      create: (context) => RealEstateCubit(),
+      child: BlocConsumer<RealEstateCubit, RealEstateState>(
+        listener: (context, state) {
+          if (state.errorMessage.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage, style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
+          }
+          if (state.successMessage.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.successMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
+          }
+        },
+        builder: (context, state) {
+          final cubit = context.read<RealEstateCubit>();
 
-                Expanded(
-                  child: DefaultTabController(
-                    length: 3,
-                    child: Column(
-                      children: [
-                        const TabBar(
-                          indicatorColor: Colors.amber,
-                          labelColor: Colors.amber,
-                          unselectedLabelColor: Colors.white54,
-                          tabs: [
-                            Tab(text: "عقاراتي"),
-                            Tab(text: "سوق الإيجارات"),
-                            Tab(text: "مشاريع تجارية"),
-                          ],
-                        ),
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              _buildResidentialTab(context, player, audio),
-                              _buildRentalMarketTab(context, player, audio),
-                              _buildCommercialTab(context, player, market, audio),
-                            ],
+          return Stack(
+            children: [
+              Scaffold(
+                body: Container(
+                  decoration: const BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage('assets/images/ui/crime_bg.jpg'),
+                      fit: BoxFit.cover,
+                      colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
+                    ),
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 5),
+                          const Center(
+                            child: Text('إمبراطورية العقارات 🏙️', style: TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold)),
                           ),
+                          const SizedBox(height: 5),
+
+                          Expanded(
+                            child: DefaultTabController(
+                              length: 3,
+                              child: Column(
+                                children: [
+                                  const TabBar(
+                                    indicatorColor: Colors.amber,
+                                    labelColor: Colors.amber,
+                                    unselectedLabelColor: Colors.white54,
+                                    tabs: [
+                                      Tab(text: "عقاراتي"),
+                                      Tab(text: "سوق الإيجارات"),
+                                      Tab(text: "مشاريع تجارية"),
+                                    ],
+                                  ),
+                                  Expanded(
+                                    child: TabBarView(
+                                      children: [
+                                        _buildResidentialTab(context, player, audio, cubit),
+                                        _buildRentalMarketTab(context, player, audio, cubit),
+                                        _buildCommercialTab(context, player, market, audio, cubit),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                bottomNavigationBar: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      image: const DecorationImage(
+                        image: AssetImage('assets/images/ui/bottom_navbar_bg.png'),
+                        fit: BoxFit.cover,
+                      ),
+                      border: const Border(
+                        top: BorderSide(color: Color(0xFF856024), width: 2),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.8),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
                         ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
+                    child: SafeArea(
+                      bottom: true,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              audio.playEffect('click.mp3');
+                              widget.onBack();
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24),
+                                SizedBox(height: 4),
+                                Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+
+                          GestureDetector(
+                            onTap: () {
+                              audio.playEffect('click.mp3');
+                              _showExplanationDialog(context);
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.menu_book, color: Colors.white70, size: 24),
+                                SizedBox(height: 4),
+                                Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // 🟢 شاشة التحميل تحجب الشاشة بالكامل أثناء التنفيذ
+              if (state.isLoading)
+                Container(
+                  color: Colors.black87,
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Colors.amber),
+                        SizedBox(height: 15),
+                        Text('جاري توثيق العقود... 📝', style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 18)),
                       ],
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-      ),
-
-      bottomNavigationBar: Directionality(
-        textDirection: TextDirection.rtl,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            image: const DecorationImage(
-              image: AssetImage('assets/images/ui/bottom_navbar_bg.png'),
-              fit: BoxFit.cover,
-            ),
-            border: const Border(
-              top: BorderSide(color: Color(0xFF856024), width: 2),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.8),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
-              ),
             ],
-          ),
-          padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
-          child: SafeArea(
-            bottom: true,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    audio.playEffect('click.mp3');
-                    widget.onBack();
-                  },
-                  behavior: HitTestBehavior.opaque,
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24),
-                      SizedBox(height: 4),
-                      Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-
-                GestureDetector(
-                  onTap: () {
-                    audio.playEffect('click.mp3');
-                    _showExplanationDialog(context);
-                  },
-                  behavior: HitTestBehavior.opaque,
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.menu_book, color: Colors.white70, size: 24),
-                      SizedBox(height: 4),
-                      Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildResidentialTab(BuildContext context, PlayerProvider player, AudioProvider audio) {
+  Widget _buildResidentialTab(BuildContext context, PlayerProvider player, AudioProvider audio, RealEstateCubit cubit) {
     return ListView.builder(
       itemCount: GameData.residentialProperties.length,
       padding: const EdgeInsets.all(16),
@@ -317,7 +363,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                         onPressed: () {
                           audio.playEffect('click.mp3');
                           _confirmAction(context, 'فسخ العقد ⚠️', const Text('حسب قانون المافيا: إذا فسخت العقد لن تسترد أي مبلغ دفعته! هل أنت متأكد أنك تريد الخروج من العقار؟', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')), () {
-                            player.cancelRentedProperty();
+                            cubit.executeAction(() => player.cancelRentedProperty(), 'تم فسخ العقد بنجاح (الفلوس راحت عليك!)');
                           });
                         },
                         child: const Text('فسخ العقد', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
@@ -355,7 +401,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                             onPressed: () {
                               audio.playEffect('click.mp3');
                               _confirmAction(context, 'سحب العقار', Text('هل أنت متأكد من سحب ${prop['name']} من سوق الإيجارات؟', style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')), () {
-                                player.cancelRentalListing(prop['id']);
+                                cubit.executeAction(() => player.cancelRentalListing(prop['id']), 'تم سحب العقار من السوق بنجاح!');
                               });
                             },
                             child: const Text('سحب العرض', style: TextStyle(fontSize: 10, color: Colors.white)),
@@ -370,7 +416,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                               onPressed: () {
                                 audio.playEffect('click.mp3');
                                 _confirmAction(context, 'الانتقال للعقار', Text('هل تريد السكن في ${prop['name']} والحصول على +${prop['happiness']} سعادة؟', style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')), () {
-                                  player.setActiveProperty(prop['id'], prop['happiness']);
+                                  cubit.executeAction(() => player.setActiveProperty(prop['id'], prop['happiness']), 'تم الانتقال للسكن الجديد بنجاح!');
                                 });
                               },
                               child: const Text('انتقال', style: TextStyle(fontSize: 10, color: Colors.white)),
@@ -378,7 +424,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                             const SizedBox(height: 4),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(60, 25)),
-                              onPressed: () { audio.playEffect('click.mp3'); _showRentDialog(context, player, prop); },
+                              onPressed: () { audio.playEffect('click.mp3'); _showRentDialog(context, player, prop, cubit); },
                               child: const Text('تأجير للاعبين', style: TextStyle(fontSize: 9, color: Colors.black, fontWeight: FontWeight.bold)),
                             ),
                           ],
@@ -399,7 +445,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                                 const Text(' كاش؟', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')),
                               ],
                             ), () {
-                              player.buyProperty(prop['id'], prop['price'], prop['happiness']);
+                              cubit.executeAction(() => player.buyProperty(prop['id'], prop['price'], prop['happiness']), 'مبروك! تم شراء العقار بنجاح 🏠');
                             });
                           } : null,
                           child: const Text('شراء', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black)),
@@ -412,7 +458,7 @@ class _RealEstateViewState extends State<RealEstateView> {
     );
   }
 
-  void _showRentDialog(BuildContext context, PlayerProvider player, Map<String, dynamic> prop) {
+  void _showRentDialog(BuildContext context, PlayerProvider player, Map<String, dynamic> prop, RealEstateCubit cubit) {
     int dailyPrice = 50000;
     int rentDays = 7;
 
@@ -423,60 +469,63 @@ class _RealEstateViewState extends State<RealEstateView> {
               builder: (context, setState) {
                 int totalPrice = dailyPrice * rentDays;
 
-                return AlertDialog(
-                  backgroundColor: Colors.black87,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
-                  title: Text('تأجير ${prop['name']} 🔑', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('اعرض عقارك في السوق ليراه كل اللاعبين!', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                        const SizedBox(height: 20),
-                        const Text('سعر الإيجار اليومي (كاش):', style: TextStyle(color: Colors.white, fontSize: 14)),
-                        TextField(
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.greenAccent),
-                          decoration: const InputDecoration(hintText: 'مثال: 50000', hintStyle: TextStyle(color: Colors.white24)),
-                          onChanged: (val) {
-                            setState(() { dailyPrice = int.tryParse(val) ?? 0; });
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Text('مدة الإيجار: $rentDays يوم', style: const TextStyle(color: Colors.white, fontSize: 14)),
-                        Slider(
-                          value: rentDays.toDouble(),
-                          min: 1, max: 30,
-                          activeColor: Colors.amber,
-                          onChanged: (val) { setState(() { rentDays = val.toInt(); }); },
-                        ),
-                        const Divider(color: Colors.white24),
-                        Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            const Text('إجمالي ما ستحصل عليه: ', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
-                            _moneyText(totalPrice, fontSize: 14),
-                          ],
-                        ),
-                        const Text('(سيدفعها المستأجر مقدماً لضمان حقك)', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                      ],
+                return Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: AlertDialog(
+                    backgroundColor: Colors.black87,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.amber)),
+                    title: Text('تأجير ${prop['name']} 🔑', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                    content: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('اعرض عقارك في السوق ليراه كل اللاعبين!', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                          const SizedBox(height: 20),
+                          const Text('سعر الإيجار اليومي (كاش):', style: TextStyle(color: Colors.white, fontSize: 14)),
+                          TextField(
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(color: Colors.greenAccent),
+                            decoration: const InputDecoration(hintText: 'مثال: 50000', hintStyle: TextStyle(color: Colors.white24)),
+                            onChanged: (val) {
+                              setState(() { dailyPrice = int.tryParse(val) ?? 0; });
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          Text('مدة الإيجار: $rentDays يوم', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                          Slider(
+                            value: rentDays.toDouble(),
+                            min: 1, max: 30,
+                            activeColor: Colors.amber,
+                            onChanged: (val) { setState(() { rentDays = val.toInt(); }); },
+                          ),
+                          const Divider(color: Colors.white24),
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              const Text('إجمالي ما ستحصل عليه: ', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                              _moneyText(totalPrice, fontSize: 14),
+                            ],
+                          ),
+                          const Text('(سيدفعها المستأجر مقدماً لضمان حقك)', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                        ],
+                      ),
                     ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                        onPressed: () {
+                          if (dailyPrice > 0) {
+                            Navigator.pop(context);
+                            _confirmAction(context, 'نشر الإعلان', const Text('متأكد من نشر العقار في السوق ليراه اللاعبين؟', style: TextStyle(color: Colors.white)), () {
+                              cubit.executeAction(() => player.listPropertyForRent(prop['id'], dailyPrice, rentDays), 'تم نشر العقار في سوق الإيجارات بنجاح!');
+                            });
+                          }
+                        },
+                        child: const Text('نشر في السوق', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
                   ),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-                      onPressed: () {
-                        if (dailyPrice > 0) {
-                          Navigator.pop(context);
-                          _confirmAction(context, 'نشر الإعلان', const Text('متأكد من نشر العقار في السوق ليراه اللاعبين؟', style: TextStyle(color: Colors.white)), () {
-                            player.listPropertyForRent(prop['id'], dailyPrice, rentDays);
-                          });
-                        }
-                      },
-                      child: const Text('نشر في السوق', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
                 );
               }
           );
@@ -496,7 +545,7 @@ class _RealEstateViewState extends State<RealEstateView> {
     );
   }
 
-  Widget _buildRentalMarketTab(BuildContext context, PlayerProvider player, AudioProvider audio) {
+  Widget _buildRentalMarketTab(BuildContext context, PlayerProvider player, AudioProvider audio, RealEstateCubit cubit) {
     return Column(
       children: [
         Padding(
@@ -659,7 +708,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                                           const Text(' كاش؟ (لا يمكن استرداد المبلغ إذا قمت بفسخ العقد)', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')),
                                         ]
                                     ), () {
-                                      player.rentPropertyFromMarket(listing, prop['happiness']);
+                                      cubit.executeAction(() => player.rentPropertyFromMarket(listing, prop['happiness']), 'تم توثيق عقد الإيجار بنجاح 🤝');
                                     });
                                   } : null,
                                   child: const Text('استئجار', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
@@ -679,8 +728,7 @@ class _RealEstateViewState extends State<RealEstateView> {
     );
   }
 
-  // 🟢 حماية قوية للدوال هنا عشان نتجنب الـ Type Errors 🟢
-  Widget _buildCommercialTab(BuildContext context, PlayerProvider player, MarketProvider market, AudioProvider audio) {
+  Widget _buildCommercialTab(BuildContext context, PlayerProvider player, MarketProvider market, AudioProvider audio, RealEstateCubit cubit) {
     int totalIncome = player.getTotalPassiveIncomePerDay();
 
     double marketTrend = market.realEstateMultiplier;
@@ -724,7 +772,6 @@ class _RealEstateViewState extends State<RealEstateView> {
             itemBuilder: (context, index) {
               final biz = GameData.businessData[index];
 
-              // 🟢 استخدام Safe Casting لضمان عدم تعطل الشاشة 🟢
               final String bizId = biz['id'] ?? '';
               final int currentLevel = player.ownedBusinesses[bizId] ?? 0;
               final bool isOwned = currentLevel > 0;
@@ -807,7 +854,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                                       const Text(' كاش؟', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')),
                                     ]
                                 ), () {
-                                  player.upgradeBusiness(bizId, dynamicCost);
+                                  cubit.executeAction(() => player.upgradeBusiness(bizId, dynamicCost), 'تم ترقية المشروع بنجاح! 📈');
                                 });
                               } else {
                                 _confirmAction(context, 'شراء مشروع', Wrap(
@@ -817,7 +864,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                                       const Text(' كاش؟', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Changa')),
                                     ]
                                 ), () {
-                                  player.buyBusiness(bizId, dynamicCost);
+                                  cubit.executeAction(() => player.buyBusiness(bizId, dynamicCost), 'تم شراء المشروع التجاري بنجاح! 🏢');
                                 });
                               }
                             } : null,

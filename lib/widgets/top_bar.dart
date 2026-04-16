@@ -5,51 +5,20 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 إضافة مكتبة البلوك
 import '../providers/audio_provider.dart';
 import '../views/store_view.dart';
+import '../controllers/player_stats_cubit.dart'; // 🟢 استدعاء الكيوبت
+import '../controllers/player_stats_state.dart'; // 🟢 استدعاء الحالة
 
 class TopBar extends StatelessWidget {
-  final int cash;
-  final int gold;
-  final int energy;
-  final int maxEnergy;
-  final int courage;
-  final int maxCourage;
-  final int health;
-  final int maxHealth;
-  final int prestige;
-  final int maxPrestige;
-  final String playerName;
-  final String? profilePicUrl;
-  final int level;
-  final int currentXp;
-  final int maxXp;
-  final bool isVIP;
+  // 🟢 لاحظ كيف صار الكلاس نظيف وما يطلب أي متغيرات (Parameters)
+  const TopBar({super.key});
 
-  const TopBar({
-    super.key,
-    required this.cash,
-    required this.gold,
-    required this.energy,
-    required this.maxEnergy,
-    required this.courage,
-    required this.maxCourage,
-    required this.health,
-    required this.maxHealth,
-    required this.prestige,
-    required this.maxPrestige,
-    required this.playerName,
-    this.profilePicUrl,
-    required this.level,
-    required this.currentXp,
-    required this.maxXp,
-    required this.isVIP,
-  });
-
-  Uint8List? _getDecodedImage() {
-    if (profilePicUrl == null || profilePicUrl!.isEmpty) return null;
+  Uint8List? _getDecodedImage(String? profilePicUrl) {
+    if (profilePicUrl == null || profilePicUrl.isEmpty) return null;
     try {
-      return base64Decode(profilePicUrl!);
+      return base64Decode(profilePicUrl);
     } catch (e) {
       return null;
     }
@@ -57,241 +26,245 @@ class TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double safeXpPercent = (maxXp > 0) ? (currentXp / maxXp).clamp(0.0, 1.0) : 0.0;
+    // 🟢 الواجهة كاملة مغلفة بـ BlocBuilder عشان تتحدث تلقائياً من الكيوبت
+    return BlocBuilder<PlayerStatsCubit, PlayerStatsState>(
+      builder: (context, state) {
+        double safeXpPercent = (state.maxXp > 0) ? (state.currentXp / state.maxXp).clamp(0.0, 1.0) : 0.0;
 
-    double hpProgress = (maxHealth > 0 && !health.isNaN) ? (health / maxHealth).clamp(0.0, 1.0) : 0.0;
-    double enProgress = (maxEnergy > 0 && !energy.isNaN) ? (energy / maxEnergy).clamp(0.0, 1.0) : 0.0;
-    double crProgress = (maxCourage > 0 && !courage.isNaN) ? (courage / maxCourage).clamp(0.0, 1.0) : 0.0;
-    double prProgress = (maxPrestige > 0 && !prestige.isNaN) ? (prestige / maxPrestige).clamp(0.0, 1.0) : 0.0;
+        double hpProgress = (state.maxHealth > 0 && !state.health.isNaN) ? (state.health / state.maxHealth).clamp(0.0, 1.0) : 0.0;
+        double enProgress = (state.maxEnergy > 0 && !state.energy.isNaN) ? (state.energy / state.maxEnergy).clamp(0.0, 1.0) : 0.0;
+        double crProgress = (state.maxCourage > 0 && !state.courage.isNaN) ? (state.courage / state.maxCourage).clamp(0.0, 1.0) : 0.0;
+        double prProgress = (state.maxPrestige > 0 && !state.prestige.isNaN) ? (state.prestige / state.maxPrestige).clamp(0.0, 1.0) : 0.0;
 
-    int hpSeconds = maxHealth > 0 && health < maxHealth ? ((maxHealth - health) / maxHealth * 1800).toInt() : 0;
-    int enSeconds = energy < maxEnergy ? (maxEnergy - energy) * 8 : 0;
-    int crSeconds = courage < maxCourage ? (maxCourage - courage) * 4 : 0;
-    int prSeconds = prestige < maxPrestige ? (maxPrestige - prestige) * 6 : 0;
+        int hpSeconds = state.maxHealth > 0 && state.health < state.maxHealth ? ((state.maxHealth - state.health) / state.maxHealth * 1800).toInt() : 0;
+        int enSeconds = state.energy < state.maxEnergy ? (state.maxEnergy - state.energy) * 8 : 0;
+        int crSeconds = state.courage < state.maxCourage ? (state.maxCourage - state.courage) * 4 : 0;
+        int prSeconds = state.prestige < state.maxPrestige ? (state.maxPrestige - state.prestige) * 6 : 0;
 
-    String displayName = playerName.length > 13 ? '${playerName.substring(0, 13)}..' : playerName;
-    final imageBytes = _getDecodedImage();
+        String displayName = state.playerName.length > 13 ? '${state.playerName.substring(0, 13)}..' : state.playerName;
+        final imageBytes = _getDecodedImage(state.profilePicUrl);
 
-    double topPadding = MediaQuery.of(context).padding.top;
-    double safeTop = topPadding > 10 ? topPadding - 5 : 2;
+        double topPadding = MediaQuery.of(context).padding.top;
+        double safeTop = topPadding > 10 ? topPadding - 5 : 2;
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Container(
-        padding: EdgeInsets.only(top: safeTop, bottom: 4, left: 8, right: 8),
-        decoration: BoxDecoration(
-          color: Colors.black87,
-          image: const DecorationImage(
-            image: AssetImage('assets/images/ui/header_wood_bg.png'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(Colors.black45, BlendMode.darken),
-          ),
-          border: const Border(
-            bottom: BorderSide(color: Color(0xFF856024), width: 2.0),
-          ),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.9), blurRadius: 10, offset: const Offset(0, 3)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Container(
+            padding: EdgeInsets.only(top: safeTop, bottom: 4, left: 8, right: 8),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              image: const DecorationImage(
+                image: AssetImage('assets/images/ui/header_wood_bg.png'),
+                fit: BoxFit.cover,
+                colorFilter: ColorFilter.mode(Colors.black45, BlendMode.darken),
+              ),
+              border: const Border(
+                bottom: BorderSide(color: Color(0xFF856024), width: 2.0),
+              ),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.9), blurRadius: 10, offset: const Offset(0, 3)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFE2C275), width: 2.0),
-                    gradient: const RadialGradient(
-                      colors: [Color(0xFF856024), Colors.black],
-                      center: Alignment.topLeft,
-                      radius: 1.2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.6), blurRadius: 8, spreadRadius: 1),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: imageBytes != null
-                        ? Image.memory(
-                      imageBytes,
-                      fit: BoxFit.cover,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
                       width: 40,
                       height: 40,
-                      gaplessPlayback: true,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white70, size: 24),
-                    )
-                        : const Icon(Icons.person, color: Colors.white70, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 8),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFE2C275), width: 2.0),
+                        gradient: const RadialGradient(
+                          colors: [Color(0xFF856024), Colors.black],
+                          center: Alignment.topLeft,
+                          radius: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.6), blurRadius: 8, spreadRadius: 1),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: imageBytes != null
+                            ? Image.memory(
+                          imageBytes,
+                          fit: BoxFit.cover,
+                          width: 40,
+                          height: 40,
+                          gaplessPlayback: true,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white70, size: 24),
+                        )
+                            : const Icon(Icons.person, color: Colors.white70, size: 24),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
 
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      displayName,
+                                      style: const TextStyle(
+                                        fontFamily: 'Changa',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (state.isVIP) ...[
+                                  const SizedBox(width: 3),
+                                  Image.asset(
+                                    'assets/images/icons/vip.png',
+                                    height: 14,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.stars, color: Colors.amber, size: 14),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+
+                          _buildTopUpResource(
+                              context: context,
+                              iconPath: 'assets/images/icons/cash.png',
+                              value: _formatWithCommas(state.cash),
+                              bgImagePath: 'assets/images/ui/cash_bg.png',
+                              plusImagePath: 'assets/images/icons/plus.png',
+                              onTap: () {
+                                Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreView(initialTab: 0)));
+                              }
+                          ),
+                          const SizedBox(width: 5),
+
+                          _buildTopUpResource(
+                              context: context,
+                              iconPath: 'assets/images/icons/gold.png',
+                              value: _formatWithCommas(state.gold),
+                              bgImagePath: 'assets/images/ui/gold_bg.png',
+                              plusImagePath: 'assets/images/icons/plus.png',
+                              onTap: () {
+                                Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreView(initialTab: 1)));
+                              }
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildResourceChip('الصحة', 'assets/images/icons/health.png', state.health, state.maxHealth, progress: hpProgress, barColor: Colors.redAccent, totalSeconds: hpSeconds)),
+                    const SizedBox(width: 4),
+                    Expanded(child: _buildResourceChip('الطاقة', 'assets/images/icons/energy.png', state.energy, state.maxEnergy, progress: enProgress, barColor: Colors.lightBlueAccent, totalSeconds: enSeconds)),
+                    const SizedBox(width: 4),
+                    Expanded(child: _buildResourceChip('الشجاعة', 'assets/images/icons/courage.png', state.courage, state.maxCourage, progress: crProgress, barColor: Colors.greenAccent, totalSeconds: crSeconds)),
+                    const SizedBox(width: 4),
+                    Expanded(child: _buildResourceChip('الشهامة', 'assets/images/icons/prestige.png', state.prestige, state.maxPrestige, progress: prProgress, barColor: Colors.deepOrangeAccent, totalSeconds: prSeconds)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+
+                Row(
+                  children: [
+                    Image.asset(
+                      'assets/images/icons/lv.png',
+                      width: 18,
+                      height: 18,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.star, color: Colors.amber, size: 18),
+                    ),
+                    const SizedBox(width: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2.0),
+                      child: Text(
+                        '${state.level}',
+                        style: const TextStyle(
+                          fontFamily: 'Changa',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFE2C275),
+                          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    Expanded(
+                      child: Container(
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF856024), width: 1.0),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 4, offset: const Offset(0, 2)),
+                          ],
+                        ),
+                        child: Stack(
                           children: [
-                            Flexible(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  displayName,
-                                  style: const TextStyle(
-                                    fontFamily: 'Changa',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: FractionallySizedBox(
+                                widthFactor: safeXpPercent,
+                                heightFactor: 1.0,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                    boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.8), blurRadius: 6)],
                                   ),
                                 ),
                               ),
                             ),
-                            if (isVIP) ...[
-                              const SizedBox(width: 3),
-                              Image.asset(
-                                'assets/images/icons/vip.png',
-                                height: 14,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.stars, color: Colors.amber, size: 14),
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 1.0),
+                                child: Directionality(
+                                  textDirection: TextDirection.rtl,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(_formatCompact(state.currentXp), style: const TextStyle(fontFamily: 'Changa', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1))])),
+                                      const Text(' / ', style: TextStyle(fontFamily: 'Changa', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1))])),
+                                      Text(_formatCompact(state.maxXp), style: const TextStyle(fontFamily: 'Changa', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1))])),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 6),
-
-                      _buildTopUpResource(
-                          context: context,
-                          iconPath: 'assets/images/icons/cash.png',
-                          value: _formatWithCommas(cash),
-                          bgImagePath: 'assets/images/ui/cash_bg.png',
-                          plusImagePath: 'assets/images/icons/plus.png',
-                          onTap: () {
-                            Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreView(initialTab: 0)));
-                          }
-                      ),
-                      const SizedBox(width: 5),
-
-                      _buildTopUpResource(
-                          context: context,
-                          iconPath: 'assets/images/icons/gold.png',
-                          value: _formatWithCommas(gold),
-                          bgImagePath: 'assets/images/ui/gold_bg.png',
-                          plusImagePath: 'assets/images/icons/plus.png',
-                          onTap: () {
-                            Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreView(initialTab: 1)));
-                          }
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _buildResourceChip('الصحة', 'assets/images/icons/health.png', health, maxHealth, progress: hpProgress, barColor: Colors.redAccent, totalSeconds: hpSeconds)),
-                const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('الطاقة', 'assets/images/icons/energy.png', energy, maxEnergy, progress: enProgress, barColor: Colors.lightBlueAccent, totalSeconds: enSeconds)),
-                const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('الشجاعة', 'assets/images/icons/courage.png', courage, maxCourage, progress: crProgress, barColor: Colors.greenAccent, totalSeconds: crSeconds)),
-                const SizedBox(width: 4),
-                Expanded(child: _buildResourceChip('الشهامة', 'assets/images/icons/prestige.png', prestige, maxPrestige, progress: prProgress, barColor: Colors.deepOrangeAccent, totalSeconds: prSeconds)),
-              ],
-            ),
-            const SizedBox(height: 2),
-
-            Row(
-              children: [
-                Image.asset(
-                  'assets/images/icons/lv.png',
-                  width: 18,
-                  height: 18,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.star, color: Colors.amber, size: 18),
-                ),
-                const SizedBox(width: 4),
-                Padding(
-                  padding: const EdgeInsets.only(top: 2.0),
-                  child: Text(
-                    '$level',
-                    style: const TextStyle(
-                      fontFamily: 'Changa',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFFE2C275),
-                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                Expanded(
-                  child: Container(
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF856024), width: 1.0),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 4, offset: const Offset(0, 2)),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: FractionallySizedBox(
-                            widthFactor: safeXpPercent,
-                            heightFactor: 1.0,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
-                                ),
-                                borderRadius: BorderRadius.circular(6),
-                                boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.8), blurRadius: 6)],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 1.0),
-                            child: Directionality(
-                              // 🟢 ترتيب خط الخبرة ليكون (حالي / ماكس)
-                              textDirection: TextDirection.rtl,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(_formatCompact(currentXp), style: const TextStyle(fontFamily: 'Changa', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1))])),
-                                  const Text(' / ', style: TextStyle(fontFamily: 'Changa', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1))])),
-                                  Text(_formatCompact(maxXp), style: const TextStyle(fontFamily: 'Changa', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)), Shadow(color: Colors.black, blurRadius: 2, offset: Offset(-1, -1))])),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -340,7 +313,6 @@ class TopBar extends StatelessWidget {
     );
   }
 
-// 🟢 التوب بار: توحيد لون الأرقام (اليمين واليسار) لتكون باللون الأبيض
   Widget _buildResourceChip(String title, String imagePath, int currentVal, int maxVal, {double? progress, Color? barColor, int totalSeconds = 0}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -380,10 +352,8 @@ class TopBar extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // 🟢 الرقم الحالي أبيض
                         Text(_formatCompact(currentVal), style: const TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
                         const Text('/', style: TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
-                        // 🟢 الماكس صار أبيض أيضاً
                         Text(_formatCompact(maxVal), style: const TextStyle(fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
                       ],
                     ),

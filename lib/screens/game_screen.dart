@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart'; // 🟢 مكتبة الكلاود
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../controllers/player_stats_cubit.dart';
+import '../controllers/player_stats_state.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/top_bar.dart';
@@ -180,6 +183,29 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   final TransformationController _mapTransformationController = TransformationController();
   Widget? _cachedMapWidget;
 
+  // 🟢 هذا هو "الجسر الخفي" اللي يربط الـ Provider القديم بالـ Cubit الجديد
+  void _syncListener() {
+    final player = Provider.of<PlayerProvider>(context, listen: false);
+    context.read<PlayerStatsCubit>().syncWithServerData(PlayerStatsState(
+      cash: player.cash,
+      gold: player.gold,
+      energy: player.energy,
+      maxEnergy: player.maxEnergy,
+      courage: player.courage,
+      maxCourage: player.maxCourage,
+      health: player.health,
+      maxHealth: player.maxHealth,
+      prestige: player.prestige,
+      maxPrestige: player.maxPrestige,
+      playerName: player.playerName,
+      profilePicUrl: player.profilePicUrl,
+      level: player.crimeLevel,
+      currentXp: player.crimeXP,
+      maxXp: player.xpToNextLevel,
+      isVIP: player.isVIP,
+    ));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -190,6 +216,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       final player = Provider.of<PlayerProvider>(context, listen: false);
       final audio = Provider.of<AudioProvider>(context, listen: false);
       audio.playBGM();
+
+      // 🟢 ربط التحديثات بالكيوبت
+      player.addListener(_syncListener);
+      _syncListener(); // تحديث أولي
+
       _notificationSubscription = player.notificationStream.listen((message) {
         if (mounted) _showStylishNotification(message);
       });
@@ -206,6 +237,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     _mapTransformationController.dispose();
+
+    // 🟢 إيقاف المستمع عند الخروج لحماية الذاكرة
+    final player = Provider.of<PlayerProvider>(context, listen: false);
+    player.removeListener(_syncListener);
+
     super.dispose();
   }
 
@@ -551,17 +587,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     return ListTile(leading: Icon(icon, color: Colors.amber, size: 28), title: Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 18, fontWeight: FontWeight.bold)), trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16), onTap: onTap);
   }
 
-  // 🟢 دالة الهروب المحدثة مع النوافذ (Pop-ups) والخصم الفوري
   void _attemptPrisonEscape(PlayerProvider player) async {
     Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
 
-    // إذا الشجاعة أقل من 10، تظهر نافذة القهوة المخصصة
     if (player.courage < 10) {
       QuickRecoveryDialog.show(context, 'courage', 10 - player.courage);
       return;
     }
 
-    // 🟢 خصم الشجاعة محلياً لكي ينقص التوب بار فوراً أمام اللاعب
     player.setCourage(player.courage - 10);
 
     showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.orange)));
@@ -573,14 +606,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       Navigator.pop(context); // إغلاق التحميل
 
       if (result.data['success'] == true) {
-        player.releaseFromPrison(); // 🟢 الإفراج المحلي الفوري (بدون انتظار 10 ثواني)
-        _showEscapeSuccessPopup(); // نافذة النجاح
+        player.releaseFromPrison();
+        _showEscapeSuccessPopup();
       } else {
-        _showEscapeFailurePopup(player); // نافذة الفشل
+        _showEscapeFailurePopup(player);
       }
     } catch (e) {
       Navigator.pop(context);
-      // في حال فشل الاتصال نرجع له شجاعته
       player.setCourage(player.courage + 10);
 
       String errorMsg = e.toString();
@@ -592,7 +624,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     }
   }
 
-  // 🟢 نافذة النجاح في الهروب
   void _showEscapeSuccessPopup() {
     showGeneralDialog(
       context: context,
@@ -647,7 +678,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
-  // 🟢 نافذة الفشل في الهروب
   void _showEscapeFailurePopup(PlayerProvider player) {
     showGeneralDialog(
       context: context,
@@ -690,7 +720,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           onPressed: () {
                             Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
                             Navigator.pop(context);
-                            _attemptPrisonEscape(player); // محاولة أخرى فورية
+                            _attemptPrisonEscape(player);
                           },
                           child: const Text('محاولة أخرى (-10)', style: TextStyle(fontFamily: 'Changa', fontSize: 14, color: Colors.black, fontWeight: FontWeight.bold)),
                         ),
@@ -732,9 +762,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         top: false,
         child: Column(
           children: [
-            Consumer<PlayerProvider>(builder: (context, player, child) {
-              return TopBar(cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy, courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth, prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName, profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP, maxXp: player.xpToNextLevel, isVIP: player.isVIP);
-            }),
+            // 🟢 هنا التعديل السحري: واجهة التوب بار صارت معزولة تماماً بدون بارامترات
+            const TopBar(),
             Expanded(child: Consumer<PlayerProvider>(builder: (context, player, child) { return _buildConditionalContent(player); })),
           ],
         ),

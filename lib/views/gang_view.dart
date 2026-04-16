@@ -122,13 +122,7 @@ class _GangViewState extends State<GangView> {
           child: Column(
             children: [
               // 🟢 إضافة التوب بار هنا عشان يظل ثابت وما يختفي 🟢
-              TopBar(
-                  cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy,
-                  courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth,
-                  prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName,
-                  profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP,
-                  maxXp: player.xpToNextLevel, isVIP: player.isVIP
-              ),
+              const TopBar(),
 
               // الهيدر (العنوان وزر الرجوع)
               Container(

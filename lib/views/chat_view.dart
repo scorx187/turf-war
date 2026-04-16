@@ -176,7 +176,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                   builder: (context, player, child) {
                     return Column(
                       children: [
-                        TopBar(cash: player.cash, gold: player.gold, energy: player.energy, maxEnergy: player.maxEnergy, courage: player.courage, maxCourage: player.maxCourage, health: player.health, maxHealth: player.maxHealth, prestige: player.prestige, maxPrestige: player.maxPrestige, playerName: player.playerName, profilePicUrl: player.profilePicUrl, level: player.crimeLevel, currentXp: player.crimeXP, maxXp: player.xpToNextLevel, isVIP: player.isVIP),
+                        const TopBar(),
                         Expanded(child: PlayerProfileView(targetUid: uid, previewName: name, previewPicUrl: picUrl, previewIsVIP: isVIP, onBack: () => Navigator.pop(context))),
                       ],
                     );
