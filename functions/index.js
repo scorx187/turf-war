@@ -25,7 +25,8 @@ exports.commitCrime = functions.https.onCall(async (request) => {
         // حساب الشجاعة اللي رجعت مع مرور الوقت
         let currentCourage = pData.courage !== undefined ? pData.courage : 30; // تم تعديل الأساس لـ 30 كاحتياط
         if (pData.lastCourageUpdate) {
-            let lastUpdate = pData.lastCourageUpdate.toDate();
+            // 🟢 تعديل الحماية هنا لتجنب الكراش في حال رفع التطبيق الوقت كنص
+            let lastUpdate = pData.lastCourageUpdate.toDate ? pData.lastCourageUpdate.toDate() : new Date(pData.lastCourageUpdate);
             let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
             currentCourage += Math.floor(secondsPassed / 4); // 1 شجاعة كل 4 ثواني
@@ -44,10 +45,29 @@ exports.commitCrime = functions.https.onCall(async (request) => {
 
         const isSuccess = Math.random() >= finalFailChance;
         let reward = 0, prisonMinutes = 0, bailCost = 0;
+        let droppedGold = 0;
+        let droppedEnergy = 0;
 
         if (isSuccess) {
             reward = Math.floor(Math.random() * (maxCash - minCash + 1)) + minCash;
             updates.cash = admin.firestore.FieldValue.increment(reward);
+
+            // 🟢 نظام الجوائز العشوائية (Drops)
+            // فرصة 10% للحصول على ذهب (من 1 إلى 5 ذهبات)
+            if (Math.random() < 0.10) {
+                droppedGold = Math.floor(Math.random() * 5) + 1;
+                updates.gold = admin.firestore.FieldValue.increment(droppedGold);
+            }
+
+            // فرصة 15% لاستعادة جزء من الطاقة (من 5 إلى 15 طاقة)
+            if (Math.random() < 0.15) {
+                droppedEnergy = Math.floor(Math.random() * 11) + 5;
+                let currentE = updates.energy !== undefined ? updates.energy : (pData.energy || 100);
+                let mEnergy = maxEnergy || 100;
+                if (currentE < mEnergy) {
+                    updates.energy = Math.min(currentE + droppedEnergy, mEnergy);
+                }
+            }
 
             // 🟢 ذكاء السيرفر: حساب الترقية (Level Up)
             let currentXP = (pData.crimeXP || 0) + xp;
@@ -64,11 +84,14 @@ exports.commitCrime = functions.https.onCall(async (request) => {
 
             updates.crimeXP = currentXP;
             if (leveledUp) {
-                updates.crimeLevel = currentLevel;
-                // عند الترقية نملأ الشجاعة والطاقة للحد الأقصى
-                updates.courage = maxCourage || 30;
-                updates.energy = maxEnergy || 100;
-                updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
+            updates.crimeLevel = currentLevel;
+
+            // 🟢 السر هنا: السيرفر يحسب الحد الأقصى الجديد للشجاعة بناءً على اللفل الجديد
+            let newMaxCourage = (pData.isVIP ? 60 : 29) + currentLevel;
+
+            updates.courage = newMaxCourage; // نملأ الشجاعة (الرقم اليسار) للحد الأقصى الجديد
+            updates.energy = maxEnergy || 100;
+            updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
             }
 
             const currentCount = (pData.crimeSuccessCountsMap && pData.crimeSuccessCountsMap[crimeId]) ? pData.crimeSuccessCountsMap[crimeId] : 0;
@@ -83,7 +106,16 @@ exports.commitCrime = functions.https.onCall(async (request) => {
         }
 
         transaction.update(playerRef, updates);
-        return { success: isSuccess, reward: reward, prisonMinutes: prisonMinutes, bailCost: bailCost };
+
+        // 🟢 إرجاع بيانات الجوائز للتطبيق (Flutter)
+        return {
+            success: isSuccess,
+            reward: reward,
+            prisonMinutes: prisonMinutes,
+            bailCost: bailCost,
+            droppedGold: droppedGold,     // تم إضافة الذهب المكتسب
+            droppedEnergy: droppedEnergy  // تم إضافة الطاقة المكتسبة
+        };
     });
 });
 
@@ -915,10 +947,10 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
         transaction.update(playerRef, {
             energy: currentEnergy - totalEnergyUsed,
             lastEnergyUpdate: admin.firestore.FieldValue.serverTimestamp(), // تصفير العداد بوقت السيرفر
-            baseStrength: (data.baseStrength || 0) + strGain,
-            baseDefense: (data.baseDefense || 0) + defGain,
-            baseSkill: (data.baseSkill || 0) + skillGain,
-            baseSpeed: (data.baseSpeed || 0) + spdGain,
+            strength: (data.strength || 5) + strGain,
+            defense: (data.defense || 5) + defGain,
+            skill: (data.skill || 5) + skillGain,
+            speed: (data.speed || 5) + spdGain,
         });
 
         return { success: true, gained: parseFloat(totalGained.toFixed(2)) };

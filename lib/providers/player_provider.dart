@@ -543,9 +543,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       await _firestore.collection('players').doc(_uid).set({
         'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl, 'currentCity': _currentCity,
         'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance,
-        'energy': _energy, 'courage': _courage, // نرفع الموارد الأساسية
-        'lastEnergyUpdate': _lastEnergyUpdate?.toIso8601String(), // 🟢 نرفع الوقت الأساسي
-        'lastCourageUpdate': _lastCourageUpdate?.toIso8601String(), // 🟢 نرفع الوقت الأساسي
         'prestige': _prestige, 'health': _health, 'maxHealth': _baseMaxHealth, 'happiness': _happiness, 'strength': _baseStrength, 'defense': _baseDefense, 'skill': _baseSkill, 'speed': _baseSpeed,
         'activeSteroidEndTime': _activeSteroidEndTime?.toIso8601String(), 'activeCoach': _activeCoach, 'coachEndTime': _coachEndTime?.toIso8601String(),
         'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),

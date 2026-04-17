@@ -116,9 +116,9 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
     double deltaSeconds = now.difference(_lastTick ?? now).inMilliseconds / 1000.0;
     _lastTick = now;
 
+    int crimeLevel = _serverData['crimeLevel'] ?? 1; // 🟢 جلبنا اللفل
     int maxHealth = _serverData['maxHealth'] ?? 100;
     int maxEnergy = 100;
-    int maxCourage = 30;
     int maxPrestige = 100;
 
     bool isVIP = false;
@@ -126,10 +126,12 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
       isVIP = DateTime.parse(_serverData['vipUntil']).isAfter(now);
       if (isVIP) {
         maxEnergy = 200;
-        maxCourage = 60;
         maxPrestige = 200;
       }
     }
+
+    // 🟢 حساب الحد الأقصى الديناميكي للشجاعة
+    int maxCourage = (isVIP ? 60 : 29) + crimeLevel;
 
     if (_exactHealth < maxHealth) {
       _exactHealth += (maxHealth / 1800.0) * deltaSeconds;
@@ -155,9 +157,9 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
   }
 
   void _updateState() {
+    int crimeLevel = _serverData['crimeLevel'] ?? 1; // 🟢 جلبنا اللفل
     int maxHealth = _serverData['maxHealth'] ?? 100;
     int maxEnergy = 100;
-    int maxCourage = 30;
     int maxPrestige = 100;
 
     bool isVIP = false;
@@ -165,12 +167,13 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
       isVIP = DateTime.parse(_serverData['vipUntil']).isAfter(DateTime.now());
       if (isVIP) {
         maxEnergy = 200;
-        maxCourage = 60;
         maxPrestige = 200;
       }
     }
 
-    int crimeLevel = _serverData['crimeLevel'] ?? 1;
+    // 🟢 حساب الحد الأقصى الديناميكي للشجاعة
+    int maxCourage = (isVIP ? 60 : 29) + crimeLevel;
+
     int currentXp = _serverData['crimeXP'] ?? 0;
     int maxXp = (100 * pow(1.05, crimeLevel - 1)).toInt();
 
