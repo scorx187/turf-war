@@ -10,7 +10,8 @@ import '../controllers/crime_cubit.dart';
 
 class CrimeView extends StatelessWidget {
   final int courage;
-  final Function(int reward, String crimeId, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, VoidCallback onRetry) onSuccess;
+  // 🟢 تم إضافة xpGained لتمريره للنافذة المنبثقة
+  final Function(int reward, String crimeId, int xpGained, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, VoidCallback onRetry) onSuccess;
   final Function(int minutes, String crimeName, int bailCost) onFailure;
 
   const CrimeView({
@@ -35,7 +36,7 @@ class CrimeView extends StatelessWidget {
 
 class _CrimeViewContent extends StatefulWidget {
   final int courage;
-  final Function(int reward, String crimeId, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, VoidCallback onRetry) onSuccess;
+  final Function(int reward, String crimeId, int xpGained, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, VoidCallback onRetry) onSuccess;
   final Function(int minutes, String crimeName, int bailCost) onFailure;
 
   const _CrimeViewContent({required this.courage, required this.onSuccess, required this.onFailure});
@@ -294,7 +295,8 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
 
     if (player.uid == null || player.uid!.isEmpty) return;
 
-    if (player.courage >= reqCourage) player.setCourage(player.courage - reqCourage);
+    // 🟢 تم حذف سطر خصم الشجاعة المحلي لمنع إنزال طاقة الحقنة، السيرفر سيقوم بالتحديث
+    // if (player.courage >= reqCourage) player.setCourage(player.courage - reqCourage);
 
     cubit.attemptCrime(
       uid: player.uid!,
@@ -304,10 +306,11 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
       maxEnergy: player.maxEnergy,
       onSuccessCallback: (reward, crimeId, energyUsed, droppedGold, droppedEnergy, evadedPolice) {
         player.increaseHeat(crime['heat']);
-        if (evadedPolice) player.reduceHeat(10.0); // 🟢 تطبيق الانخفاض إذا هرب من الشرطة
+        if (evadedPolice) player.reduceHeat(10.0);
         if (player.equippedCrimeToolId != null) player.reduceDurability(player.equippedCrimeToolId, 5.0);
 
-        widget.onSuccess(reward, crimeId, energyUsed, droppedGold, droppedEnergy, evadedPolice, () {
+        // 🟢 نمرر قيمة crime['xp'] الحقيقية هنا بدلاً من التجاهل
+        widget.onSuccess(reward, crimeId, crime['xp'], energyUsed, droppedGold, droppedEnergy, evadedPolice, () {
           _handleCrimeClick(context, player, cubit, crime, isUnlocked, finalFailChance);
         });
       },

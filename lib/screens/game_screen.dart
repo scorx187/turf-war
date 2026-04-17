@@ -110,7 +110,7 @@ class BottomNavBar extends StatelessWidget {
               _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
               _buildNavItem(2, 'assets/images/icons/map.png', 'الخريطة'),
               _buildNavItem(3, 'assets/images/icons/crime.png', 'الجرائم'),
-              _buildNavItem(4, 'assets/images/icons/news.png', 'الجريدة'),
+              _buildNavItem(4, 'assets/images/icons/news.png', 'الأخبار'),
               _buildNavItem(5, 'assets/images/icons/profile.png', 'الزعيم'),
             ],
           ),
@@ -384,8 +384,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildPopupRewardItem('كاش', '+\$${_formatNumber(reward)}', Colors.green, 'assets/images/icons/cash.png', isImage: true),
+                      // 🟢 تم عكس الترتيب هنا: بما أن التطبيق RTL (من اليمين لليسار)،
+                      // العنصر الأول سيكون في اليمين (الخبرة)، والثاني في اليسار (الكاش).
                       _buildPopupRewardItem('خبرة', '+$xpGained XP', Colors.blue, 'assets/images/icons/lv.png', isImage: true),
+                      _buildPopupRewardItem('كاش', '+\$${_formatNumber(reward)}', Colors.green, 'assets/images/icons/cash.png', isImage: true),
                     ],
                   ),
                   if (bonusGold > 0 || bonusEnergy > 0 || gotCar || evadedPolice) ...[
@@ -399,7 +401,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                         if (bonusGold > 0) _buildPopupRewardItem('ذهب', '+$bonusGold', Colors.amber, 'assets/images/icons/gold.png', isImage: true),
                         if (bonusEnergy > 0) _buildPopupRewardItem('طاقة', '+$bonusEnergy', Colors.orange, 'assets/images/icons/energy.png', isImage: true),
                         if (gotCar) _buildPopupRewardItem('سيارة', 'مسروقة!', Colors.redAccent, 'assets/images/icons/inventory.png', isImage: true),
-                        // 🟢 أيقونة الشرطة الخضراء تظهر هنا في حال التمويه
                         if (evadedPolice) _buildPopupRewardItem('تمويه', '-10% ملاحقة', Colors.tealAccent, Icons.local_police, isImage: false),
                       ],
                     )
@@ -802,10 +803,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_selectedIndex == 3) {
       return CrimeView(
         courage: player.courage,
-        // 🟢 استقبال قيمة الشرطة وتمريرها
-        onSuccess: (reward, crimeId, energyUsed, droppedGold, droppedEnergy, evadedPolice, onRetry) {
+        // 🟢 استقبال xpGained الحقيقي القادم من واجهة الجرائم
+        onSuccess: (reward, crimeId, xpGained, energyUsed, droppedGold, droppedEnergy, evadedPolice, onRetry) {
           final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
-          int xpGained = 15;
           bool gotCar = false;
           if (crimeId.startsWith('cat_3_') || crimeId.startsWith('cat_6_')) { if(Random().nextDouble() < 0.3) gotCar = true; }
           _showCrimeSuccessPopup(player, reward, crimeId, xpGained, gotCar, droppedGold, droppedEnergy, evadedPolice, onRetry);
