@@ -1,17 +1,16 @@
 // المسار: lib/views/crime_view.dart
 
 import 'package:flutter/material.dart';
-import 'dart:math';
 import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 إضافة Bloc
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../providers/player_provider.dart';
 import '../widgets/quick_recovery_dialog.dart';
 import '../utils/crime_data.dart';
-import '../controllers/crime_cubit.dart'; // 🟢 استدعاء الكيوبت
+import '../controllers/crime_cubit.dart';
 
 class CrimeView extends StatelessWidget {
   final int courage;
-  final Function(int reward, String crimeId, int energyUsed, VoidCallback onRetry) onSuccess;
+  final Function(int reward, String crimeId, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, VoidCallback onRetry) onSuccess;
   final Function(int minutes, String crimeName, int bailCost) onFailure;
 
   const CrimeView({
@@ -23,7 +22,6 @@ class CrimeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 نوفر الكيوبت لهذي الشاشة فقط
     return BlocProvider(
       create: (context) => CrimeCubit(),
       child: _CrimeViewContent(
@@ -37,7 +35,7 @@ class CrimeView extends StatelessWidget {
 
 class _CrimeViewContent extends StatefulWidget {
   final int courage;
-  final Function(int reward, String crimeId, int energyUsed, VoidCallback onRetry) onSuccess;
+  final Function(int reward, String crimeId, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, VoidCallback onRetry) onSuccess;
   final Function(int minutes, String crimeName, int bailCost) onFailure;
 
   const _CrimeViewContent({required this.courage, required this.onSuccess, required this.onFailure});
@@ -47,7 +45,6 @@ class _CrimeViewContent extends StatefulWidget {
 }
 
 class _CrimeViewContentState extends State<_CrimeViewContent> {
-  static final Random _random = Random();
   int? _selectedCategoryIndex;
 
   @override
@@ -60,16 +57,12 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
         if (state.errorMessage.isNotEmpty) {
           String errorMsg = state.errorMessage;
           if (errorMsg.contains('شجاعة')) {
-            QuickRecoveryDialog.show(context, 'courage', 10); // قيمة تقريبية
+            QuickRecoveryDialog.show(context, 'courage', 10);
           } else if (errorMsg.contains('السجن')) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أنت مسجون حالياً!', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.redAccent));
           } else {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $errorMsg', style: const TextStyle(fontFamily: 'Changa', fontSize: 12)), backgroundColor: Colors.redAccent, duration: const Duration(seconds: 4)));
           }
-        }
-
-        if (state.eventMessage.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.eventMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Color(state.eventColor ?? Colors.green.value), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 2)));
         }
       },
       builder: (context, state) {
@@ -210,7 +203,6 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                 isCrimeUnlocked = (player.crimeSuccessCountsMap[prevCrimeId] ?? 0) >= 10;
               }
 
-              // 🟢 استخدام الكيوبت لحساب نسبة الفشل
               double toolDurability = player.equippedCrimeToolId != null ? player.getItemDurability(player.equippedCrimeToolId!) : 0;
               double finalFailChance = cubit.calculateFailChance(crime, player.heat, successCount, catIndex, player.equippedCrimeToolId, toolDurability, player.equippedMaskId);
 
@@ -302,40 +294,28 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
 
     if (player.uid == null || player.uid!.isEmpty) return;
 
-    // 🟢 خصم الشجاعة محلياً فوراً
     if (player.courage >= reqCourage) player.setCourage(player.courage - reqCourage);
 
-    // 🟢 استدعاء الكيوبت لينفذ الجريمة בסيرفر
     cubit.attemptCrime(
-        uid: player.uid!,
-        crime: crime,
-        finalFailChance: finalFailChance,
-        maxCourage: player.maxCourage,
-        maxEnergy: player.maxEnergy,
-        onSuccessCallback: (reward, crimeId, energyUsed) {
-          player.increaseHeat(crime['heat']);
-          if (player.equippedCrimeToolId != null) player.reduceDurability(player.equippedCrimeToolId, 5.0);
+      uid: player.uid!,
+      crime: crime,
+      finalFailChance: finalFailChance,
+      maxCourage: player.maxCourage,
+      maxEnergy: player.maxEnergy,
+      onSuccessCallback: (reward, crimeId, energyUsed, droppedGold, droppedEnergy, evadedPolice) {
+        player.increaseHeat(crime['heat']);
+        if (evadedPolice) player.reduceHeat(10.0); // 🟢 تطبيق الانخفاض إذا هرب من الشرطة
+        if (player.equippedCrimeToolId != null) player.reduceDurability(player.equippedCrimeToolId, 5.0);
 
-          widget.onSuccess(reward, crimeId, energyUsed, () {
-            _handleCrimeClick(context, player, cubit, crime, isUnlocked, finalFailChance);
-          });
-        },
-        onFailureCallback: (prisonMinutes, crimeName, bailCost) {
-          player.increaseHeat(crime['heat'] * 1.5);
-          widget.onFailure(prisonMinutes, crimeName, bailCost);
-        },
-        triggerRandomEvent: () {
-          _executeRandomEvent(player, cubit);
-        }
+        widget.onSuccess(reward, crimeId, energyUsed, droppedGold, droppedEnergy, evadedPolice, () {
+          _handleCrimeClick(context, player, cubit, crime, isUnlocked, finalFailChance);
+        });
+      },
+      onFailureCallback: (prisonMinutes, crimeName, bailCost) {
+        player.increaseHeat(crime['heat'] * 1.5);
+        widget.onFailure(prisonMinutes, crimeName, bailCost);
+      },
     );
-  }
-
-  void _executeRandomEvent(PlayerProvider player, CrimeCubit cubit) {
-    int eventType = _random.nextInt(4);
-    if (eventType == 0) { player.addGold(1); cubit.triggerEventMessage("💎 وجدت قطعة ذهب أثناء الهروب!", Colors.blueAccent.value); }
-    else if (eventType == 1) { int bonus = 500 + _random.nextInt(1001); player.addCash(bonus, reason: "كاش إضافي من حدث عشوائي"); cubit.triggerEventMessage("💰 وجدت محفظة إضافية ملقاة! +$bonus كاش", Colors.green.value); }
-    else if (eventType == 2) { player.setEnergy(min(player.maxEnergy, player.energy + 10)); cubit.triggerEventMessage("⚡ جرعة أدريناين! استعدت 10 طاقة فوراً", Colors.orange.value); }
-    else { player.reduceHeat(10.0); cubit.triggerEventMessage("👮 ضيعت عيون الشرطة! انخفض مستوى الملاحقة.", Colors.teal.value); }
   }
 
   Widget _buildHeatMeter(double heatValue) {

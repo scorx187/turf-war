@@ -3,14 +3,13 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 
 // =======================================================
-// 1. دالة الجرائم (مع حساب الشجاعة التلقائي والترقية Level Up)
+// 1. دالة الجرائم (مع نظام تراكم الطاقة Overcharge ووزنية الـ XP)
 // =======================================================
 exports.commitCrime = functions.https.onCall(async (request) => {
     const payload = request.data || request;
     const uid = payload.uid;
     if (!uid) throw new functions.https.HttpsError('invalid-argument', 'رقم اللاعب مفقود');
 
-    // 🟢 استقبلنا الحد الأقصى للشجاعة والطاقة من التطبيق عشان نعبيها وقت الترقية
     const { crimeId, crimeName, reqCourage, finalFailChance, minCash, maxCash, xp, maxCourage, maxEnergy } = payload;
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
@@ -22,15 +21,13 @@ exports.commitCrime = functions.https.onCall(async (request) => {
 
         if (pData.isInPrison) throw new functions.https.HttpsError('failed-precondition', 'لا يمكنك تنفيذ جريمة وأنت في السجن!');
 
-        // حساب الشجاعة اللي رجعت مع مرور الوقت
-        let currentCourage = pData.courage !== undefined ? pData.courage : 30; // تم تعديل الأساس لـ 30 كاحتياط
+        let currentCourage = pData.courage !== undefined ? pData.courage : 30;
         if (pData.lastCourageUpdate) {
-            // 🟢 تعديل الحماية هنا لتجنب الكراش في حال رفع التطبيق الوقت كنص
             let lastUpdate = pData.lastCourageUpdate.toDate ? pData.lastCourageUpdate.toDate() : new Date(pData.lastCourageUpdate);
             let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
-            currentCourage += Math.floor(secondsPassed / 4); // 1 شجاعة كل 4 ثواني
-            let mCourage = maxCourage || 30; // الحد الأقصى الافتراضي الجديد
+            currentCourage += Math.floor(secondsPassed / 4);
+            let mCourage = maxCourage || 30;
             if (currentCourage > mCourage) currentCourage = mCourage;
         }
 
@@ -52,46 +49,61 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             reward = Math.floor(Math.random() * (maxCash - minCash + 1)) + minCash;
             updates.cash = admin.firestore.FieldValue.increment(reward);
 
-            // 🟢 نظام الجوائز العشوائية (Drops)
-            // فرصة 10% للحصول على ذهب (من 1 إلى 5 ذهبات)
+            // 🟢 حساب الطاقة الحالية بدقة (مع السماح بتجاوز الماكس Overcharge)
+            let currentEnergy = pData.energy !== undefined ? pData.energy : 100;
+            let mEnergy = maxEnergy || 100;
+            let energyChanged = false;
+
+            // لا نحسب الاسترجاع الزمني أبداً إذا كانت الطاقة أعلى من أو تساوي الماكس
+            if (pData.lastEnergyUpdate && currentEnergy < mEnergy) {
+                let lastUpdateE = pData.lastEnergyUpdate.toDate ? pData.lastEnergyUpdate.toDate() : new Date(pData.lastEnergyUpdate);
+                let nowE = new Date();
+                let secondsPassedE = Math.floor((nowE.getTime() - lastUpdateE.getTime()) / 1000);
+                let regenerated = Math.floor(secondsPassedE / 8);
+                if (regenerated > 0) {
+                    currentEnergy += regenerated;
+                    if (currentEnergy > mEnergy) currentEnergy = mEnergy;
+                    energyChanged = true;
+                }
+            }
+
             if (Math.random() < 0.10) {
                 droppedGold = Math.floor(Math.random() * 5) + 1;
                 updates.gold = admin.firestore.FieldValue.increment(droppedGold);
             }
 
-            // فرصة 15% لاستعادة جزء من الطاقة (من 5 إلى 15 طاقة)
             if (Math.random() < 0.15) {
                 droppedEnergy = Math.floor(Math.random() * 11) + 5;
-                let currentE = updates.energy !== undefined ? updates.energy : (pData.energy || 100);
-                let mEnergy = maxEnergy || 100;
-                if (currentE < mEnergy) {
-                    updates.energy = Math.min(currentE + droppedEnergy, mEnergy);
-                }
+                // 🟢 إضافة الطاقة المتساقطة مباشرة على الطاقة الحالية مهما كانت! (ستصبح 118 مثلاً)
+                updates.energy = currentEnergy + droppedEnergy;
+            } else if (energyChanged) {
+                // حفظ التجديد الزمني إذا لم يحصل على طاقة متساقطة
+                updates.energy = currentEnergy;
             }
 
-            // 🟢 ذكاء السيرفر: حساب الترقية (Level Up)
+            // 🟢 نظام الترقية الجديد (توازن البدايات والنهايات)
             let currentXP = (pData.crimeXP || 0) + xp;
             let currentLevel = pData.crimeLevel || 1;
-            let nextLevelXp = Math.floor(100 * Math.pow(1.05, currentLevel - 1));
+
+            // معادلة متوازنة جداً: البداية 250 وتزيد بنسبة 6% لكل لفل
+            let nextLevelXp = Math.floor(250 * Math.pow(1.06, currentLevel - 1));
 
             let leveledUp = false;
             while (currentXP >= nextLevelXp) {
                 currentXP -= nextLevelXp;
                 currentLevel++;
                 leveledUp = true;
-                nextLevelXp = Math.floor(100 * Math.pow(1.05, currentLevel - 1));
+                nextLevelXp = Math.floor(250 * Math.pow(1.06, currentLevel - 1));
             }
 
             updates.crimeXP = currentXP;
             if (leveledUp) {
-            updates.crimeLevel = currentLevel;
-
-            // 🟢 السر هنا: السيرفر يحسب الحد الأقصى الجديد للشجاعة بناءً على اللفل الجديد
-            let newMaxCourage = (pData.isVIP ? 60 : 29) + currentLevel;
-
-            updates.courage = newMaxCourage; // نملأ الشجاعة (الرقم اليسار) للحد الأقصى الجديد
-            updates.energy = maxEnergy || 100;
-            updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
+                updates.crimeLevel = currentLevel;
+                let newMaxCourage = (pData.isVIP ? 60 : 29) + currentLevel;
+                updates.courage = newMaxCourage;
+                // إذا ترقى نملأ طاقته، لكن إذا كانت طاقته أعلى من الماكس أساساً نحافظ عليها!
+                updates.energy = Math.max(currentEnergy + droppedEnergy, maxEnergy || 100);
+                updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
             }
 
             const currentCount = (pData.crimeSuccessCountsMap && pData.crimeSuccessCountsMap[crimeId]) ? pData.crimeSuccessCountsMap[crimeId] : 0;
@@ -107,14 +119,13 @@ exports.commitCrime = functions.https.onCall(async (request) => {
 
         transaction.update(playerRef, updates);
 
-        // 🟢 إرجاع بيانات الجوائز للتطبيق (Flutter)
         return {
             success: isSuccess,
             reward: reward,
             prisonMinutes: prisonMinutes,
             bailCost: bailCost,
-            droppedGold: droppedGold,     // تم إضافة الذهب المكتسب
-            droppedEnergy: droppedEnergy  // تم إضافة الطاقة المكتسبة
+            droppedGold: droppedGold,
+            droppedEnergy: droppedEnergy
         };
     });
 });
@@ -900,24 +911,25 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
         const doc = await transaction.get(playerRef);
         const data = doc.data();
 
-        // 🟢 1. حماية السيرفر: حساب الطاقة الحقيقية بناءً على وقت السيرفر (مستحيل تهكيرها من الجوال)
+        // 🟢 1. حساب الطاقة الحقيقية بدقة (مع دعم وحماية التراكم Overcharge)
         let currentEnergy = data.energy !== undefined ? data.energy : 100;
-        let mEnergy = maxEnergy || 100; // الحد الأقصى للطاقة
+        let mEnergy = maxEnergy || 100;
 
-        if (data.lastEnergyUpdate) {
-            let lastUpdate = data.lastEnergyUpdate.toDate();
-            let now = new Date(); // وقت السيرفر الفعلي
+        // لا نحسب الاسترجاع الزمني أبداً إذا كانت الطاقة أعلى من أو تساوي الماكس
+        if (data.lastEnergyUpdate && currentEnergy < mEnergy) {
+            // حماية الكراش (toDate)
+            let lastUpdate = data.lastEnergyUpdate.toDate ? data.lastEnergyUpdate.toDate() : new Date(data.lastEnergyUpdate);
+            let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
 
-            // زيادة 1 طاقة لكل 8 ثواني (كما هو مبرمج في تطبيقك)
             let gainedEnergy = Math.floor(secondsPassed / 8);
-            currentEnergy += gainedEnergy;
-
-            // التأكد أن الطاقة لم تتجاوز الحد الأقصى
-            if (currentEnergy > mEnergy) currentEnergy = mEnergy;
+            if (gainedEnergy > 0) {
+                currentEnergy += gainedEnergy;
+                if (currentEnergy > mEnergy) currentEnergy = mEnergy;
+            }
         }
 
-        // 🟢 2. هل الطاقة المحسوبة تكفي للتدريب الذي طلبه اللاعب؟ (سواء طلب 7 أو 20 أو 100)
+        // 🟢 2. هل الطاقة تكفي للتدريب؟
         if (currentEnergy < totalEnergyUsed) {
             throw new functions.https.HttpsError('failed-precondition', 'طاقة غير كافية للتدريب المطلوب');
         }
@@ -942,16 +954,23 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
         if (data.activeCoach === 'ninja') { skillGain *= 1.5; spdGain *= 1.5; }
 
         let totalGained = strGain + defGain + skillGain + spdGain;
+        let newEnergy = currentEnergy - totalEnergyUsed;
 
-        // 🟢 3. خصم الطاقة وتحديث وقت السيرفر للبدء من جديد
-        transaction.update(playerRef, {
-            energy: currentEnergy - totalEnergyUsed,
-            lastEnergyUpdate: admin.firestore.FieldValue.serverTimestamp(), // تصفير العداد بوقت السيرفر
+        let updates = {
+            energy: newEnergy,
             strength: (data.strength || 5) + strGain,
             defense: (data.defense || 5) + defGain,
             skill: (data.skill || 5) + skillGain,
             speed: (data.speed || 5) + spdGain,
-        });
+        };
+
+        // 🟢 3. تصفير العداد فقط إذا نزلت الطاقة عن الحد الأقصى
+        // (لكي لا نخرب التراكم لو كانت طاقته 150 واستخدم 10 فصارت 140)
+        if (newEnergy < mEnergy) {
+            updates.lastEnergyUpdate = admin.firestore.FieldValue.serverTimestamp();
+        }
+
+        transaction.update(playerRef, updates);
 
         return { success: true, gained: parseFloat(totalGained.toFixed(2)) };
     });

@@ -1,8 +1,10 @@
+// المسار: lib/controllers/crime_cubit.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../services/crime_service.dart';
 import 'dart:math';
 import 'crime_state.dart';
-export 'crime_state.dart'; // 🟢 نفس الشيء، التصدير عشان ما نلمس الواجهة (CrimeView)
+export 'crime_state.dart';
 
 class CrimeCubit extends Cubit<CrimeState> {
   final CrimeService _crimeService = CrimeService();
@@ -37,9 +39,8 @@ class CrimeCubit extends Cubit<CrimeState> {
     required double finalFailChance,
     required int maxCourage,
     required int maxEnergy,
-    required Function(int, String, int) onSuccessCallback,
+    required Function(int, String, int, int, int, bool) onSuccessCallback, // 🟢 تم إضافة boolean الشرطة
     required Function(int, String, int) onFailureCallback,
-    required Function() triggerRandomEvent,
   }) async {
 
     emit(state.copyWith(isLoading: true, errorMessage: '', eventMessage: ''));
@@ -59,27 +60,18 @@ class CrimeCubit extends Cubit<CrimeState> {
       );
 
       if (data['success'] == true) {
-        onSuccessCallback(data['reward'], crime['id'], 0);
-        _checkRandomEvent(triggerRandomEvent);
+        // 🟢 15% فرصة لتضييع الشرطة وتمريرها للواجهة
+        bool evadedPolice = _random.nextDouble() < 0.15;
+
+        onSuccessCallback(data['reward'] ?? 0, crime['id'], 0, data['droppedGold'] ?? 0, data['droppedEnergy'] ?? 0, evadedPolice);
         emit(state.copyWith(isLoading: false));
       } else {
-        onFailureCallback(data['prisonMinutes'], crime['name'], data['bailCost']);
+        onFailureCallback(data['prisonMinutes'] ?? 0, crime['name'], data['bailCost'] ?? 0);
         emit(state.copyWith(isLoading: false));
       }
     } catch (e) {
       emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
       emit(state.copyWith(errorMessage: ''));
     }
-  }
-
-  void _checkRandomEvent(Function() triggerRandomEvent) {
-    if (_random.nextDouble() < 0.15) {
-      triggerRandomEvent();
-    }
-  }
-
-  void triggerEventMessage(String msg, int colorVal) {
-    emit(state.copyWith(eventMessage: msg, eventColor: colorVal));
-    emit(state.copyWith(eventMessage: ''));
   }
 }

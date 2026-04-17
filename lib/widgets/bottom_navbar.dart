@@ -42,7 +42,7 @@ class BottomNavBar extends StatelessWidget {
             _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
             _buildNavItem(2, 'assets/images/icons/map.png', 'الخريطة'),
             _buildNavItem(3, 'assets/images/icons/crime.png', 'الجرائم'),
-            _buildNavItem(4, 'assets/images/icons/news.png', 'الأخبار'),
+            _buildNavItem(4, 'assets/images/icons/news.png', 'الجريدة'),
             _buildNavItem(5, 'assets/images/icons/profile.png', 'الزعيم'),
           ],
         ),

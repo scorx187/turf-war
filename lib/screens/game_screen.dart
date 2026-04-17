@@ -3,9 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart'; // 🟢 مكتبة الكلاود
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-// لم نعد بحاجة لاستدعاء Cubit هنا لأن TopBar يهتم بنفسه
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/top_bar.dart';
@@ -84,7 +83,6 @@ class BottomNavBar extends StatelessWidget {
                 : isInPrison
                 ? [
               _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
-              // زر الهروب الذكي
               GestureDetector(
                 onTap: onEscapeTapped,
                 behavior: HitTestBehavior.opaque,
@@ -112,7 +110,7 @@ class BottomNavBar extends StatelessWidget {
               _buildNavItem(1, 'assets/images/icons/chat.png', 'الشات'),
               _buildNavItem(2, 'assets/images/icons/map.png', 'الخريطة'),
               _buildNavItem(3, 'assets/images/icons/crime.png', 'الجرائم'),
-              _buildNavItem(4, 'assets/images/icons/news.png', 'الأخبار'),
+              _buildNavItem(4, 'assets/images/icons/news.png', 'الجريدة'),
               _buildNavItem(5, 'assets/images/icons/profile.png', 'الزعيم'),
             ],
           ),
@@ -357,7 +355,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _showCrimeSuccessPopup(PlayerProvider player, int reward, String crimeId, int xpGained, bool gotCar, int bonusGold, int bonusEnergy, VoidCallback onRetry) {
+  void _showCrimeSuccessPopup(PlayerProvider player, int reward, String crimeId, int xpGained, bool gotCar, int bonusGold, int bonusEnergy, bool evadedPolice, VoidCallback onRetry) {
     showGeneralDialog(
       context: context,
       barrierDismissible: false,
@@ -390,10 +388,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       _buildPopupRewardItem('خبرة', '+$xpGained XP', Colors.blue, 'assets/images/icons/lv.png', isImage: true),
                     ],
                   ),
-                  if (bonusGold > 0 || bonusEnergy > 0 || gotCar) ...[
+                  if (bonusGold > 0 || bonusEnergy > 0 || gotCar || evadedPolice) ...[
                     const SizedBox(height: 20),
                     const Divider(color: Colors.white24),
-                    const Text('غنائم إضافية 🎁', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.amber)),
+                    const Text('أحداث إضافية 🎁', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.amber)),
                     const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -401,6 +399,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                         if (bonusGold > 0) _buildPopupRewardItem('ذهب', '+$bonusGold', Colors.amber, 'assets/images/icons/gold.png', isImage: true),
                         if (bonusEnergy > 0) _buildPopupRewardItem('طاقة', '+$bonusEnergy', Colors.orange, 'assets/images/icons/energy.png', isImage: true),
                         if (gotCar) _buildPopupRewardItem('سيارة', 'مسروقة!', Colors.redAccent, 'assets/images/icons/inventory.png', isImage: true),
+                        // 🟢 أيقونة الشرطة الخضراء تظهر هنا في حال التمويه
+                        if (evadedPolice) _buildPopupRewardItem('تمويه', '-10% ملاحقة', Colors.tealAccent, Icons.local_police, isImage: false),
                       ],
                     )
                   ],
@@ -570,7 +570,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('attemptEscape');
       final result = await callable.call({'uid': player.uid});
 
-      Navigator.pop(context); // إغلاق التحميل
+      Navigator.pop(context);
 
       if (result.data['success'] == true) {
         player.releaseFromPrison();
@@ -729,7 +729,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         top: false,
         child: Column(
           children: [
-            // 🟢 التوب بار النظيف المستقل
             const TopBar(),
             Expanded(child: Consumer<PlayerProvider>(builder: (context, player, child) { return _buildConditionalContent(player); })),
           ],
@@ -803,14 +802,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_selectedIndex == 3) {
       return CrimeView(
         courage: player.courage,
-        onSuccess: (reward, crimeId, energyUsed, onRetry) {
+        // 🟢 استقبال قيمة الشرطة وتمريرها
+        onSuccess: (reward, crimeId, energyUsed, droppedGold, droppedEnergy, evadedPolice, onRetry) {
           final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
           int xpGained = 15;
-          int bonusGold = (Random().nextDouble() < 0.1) ? Random().nextInt(2) + 1 : 0;
-          int bonusEnergy = (Random().nextDouble() < 0.15) ? Random().nextInt(10) + 5 : 0;
           bool gotCar = false;
           if (crimeId.startsWith('cat_3_') || crimeId.startsWith('cat_6_')) { if(Random().nextDouble() < 0.3) gotCar = true; }
-          _showCrimeSuccessPopup(player, reward, crimeId, xpGained, gotCar, bonusGold, bonusEnergy, onRetry);
+          _showCrimeSuccessPopup(player, reward, crimeId, xpGained, gotCar, droppedGold, droppedEnergy, evadedPolice, onRetry);
         },
         onFailure: (minutes, crimeName, bailCost) {
           final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
