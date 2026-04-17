@@ -14,7 +14,7 @@ class GymCubit extends Cubit<GymState> {
   Future<void> trainStats(PlayerProvider player, int strE, int defE, int skillE, int spdE) async {
     emit(state.copyWith(isLoading: true, errorMessage: '', successMessage: ''));
     try {
-      double gained = await _gymService.trainStats(uid: player.uid!, strE: strE, defE: defE, skillE: skillE, spdE: spdE);
+      double gained = await _gymService.trainStats(uid: player.uid!, strE: strE, defE: defE, skillE: skillE, spdE: spdE, maxEnergy: player.maxEnergy);
 
       if (gained > 0) {
         // 🟢 السيرفر يخصم الطاقة تلقائياً، فلا داعي لاستدعاء setEnergy أو رفع أي شيء محلياً

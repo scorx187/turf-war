@@ -856,7 +856,8 @@ exports.startLockedInvestment = functions.https.onCall(async (request) => {
 // 14. 🟢 دوال صالة التدريب (Gym)
 // =======================================================
 exports.trainMultipleStats = functions.https.onCall(async (request) => {
-    const { uid, strE, defE, skillE, spdE } = request.data || request;
+    // 🟢 السيرفر يستقبل الماكس إنرجي من التطبيق ليعرف هل هو VIP (200) أو عادي (100)
+    const { uid, strE, defE, skillE, spdE, maxEnergy } = request.data || request;
     const totalEnergyUsed = strE + defE + skillE + spdE;
     if (totalEnergyUsed <= 0) throw new functions.https.HttpsError('invalid-argument', 'يجب تحديد طاقة للتدريب');
 
@@ -867,7 +868,27 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
         const doc = await transaction.get(playerRef);
         const data = doc.data();
 
-        if ((data.energy || 0) < totalEnergyUsed) throw new functions.https.HttpsError('failed-precondition', 'طاقة غير كافية');
+        // 🟢 1. حماية السيرفر: حساب الطاقة الحقيقية بناءً على وقت السيرفر (مستحيل تهكيرها من الجوال)
+        let currentEnergy = data.energy !== undefined ? data.energy : 100;
+        let mEnergy = maxEnergy || 100; // الحد الأقصى للطاقة
+
+        if (data.lastEnergyUpdate) {
+            let lastUpdate = data.lastEnergyUpdate.toDate();
+            let now = new Date(); // وقت السيرفر الفعلي
+            let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
+
+            // زيادة 1 طاقة لكل 8 ثواني (كما هو مبرمج في تطبيقك)
+            let gainedEnergy = Math.floor(secondsPassed / 8);
+            currentEnergy += gainedEnergy;
+
+            // التأكد أن الطاقة لم تتجاوز الحد الأقصى
+            if (currentEnergy > mEnergy) currentEnergy = mEnergy;
+        }
+
+        // 🟢 2. هل الطاقة المحسوبة تكفي للتدريب الذي طلبه اللاعب؟ (سواء طلب 7 أو 20 أو 100)
+        if (currentEnergy < totalEnergyUsed) {
+            throw new functions.https.HttpsError('failed-precondition', 'طاقة غير كافية للتدريب المطلوب');
+        }
 
         let baseMultiplier = 0.1;
         let happiness = data.happiness || 0;
@@ -890,8 +911,10 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
 
         let totalGained = strGain + defGain + skillGain + spdGain;
 
+        // 🟢 3. خصم الطاقة وتحديث وقت السيرفر للبدء من جديد
         transaction.update(playerRef, {
-            energy: data.energy - totalEnergyUsed,
+            energy: currentEnergy - totalEnergyUsed,
+            lastEnergyUpdate: admin.firestore.FieldValue.serverTimestamp(), // تصفير العداد بوقت السيرفر
             baseStrength: (data.baseStrength || 0) + strGain,
             baseDefense: (data.baseDefense || 0) + defGain,
             baseSkill: (data.baseSkill || 0) + skillGain,

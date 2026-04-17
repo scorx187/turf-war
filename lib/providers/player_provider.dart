@@ -54,8 +54,13 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _cash = 100;
   int _gold = 0;
   int _bankBalance = 0;
+
+  // 🟢 المتغيرات الأساسية للموارد (القيمة وقت التحديث فقط)
   int _energy = 100;
   int _courage = 30;
+  DateTime? _lastEnergyUpdate;
+  DateTime? _lastCourageUpdate;
+
   int _health = 100;
   int _baseMaxHealth = 100;
   int _prestige = 100;
@@ -182,8 +187,32 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return _lastServerTime!.add(_sessionTimer.elapsed);
   }
 
-  int get secondsToNextCourage => _courage >= maxCourage ? 0 : 4 - (_sessionTimer.elapsed.inSeconds % 4);
-  int get secondsToNextEnergy => _energy >= maxEnergy ? 0 : 8 - (_sessionTimer.elapsed.inSeconds % 8);
+  // 🟢 الدوال الاحترافية للطاقة والشجاعة (حساب رياضي دقيق يمنع الأخطاء)
+  int get energy {
+    if (_lastEnergyUpdate == null) return _energy;
+    int secondsPassed = DateTime.now().difference(_lastEnergyUpdate!).inSeconds;
+    return min(maxEnergy, _energy + (secondsPassed ~/ 8));
+  }
+
+  int get courage {
+    if (_lastCourageUpdate == null) return _courage;
+    int secondsPassed = DateTime.now().difference(_lastCourageUpdate!).inSeconds;
+    return min(maxCourage, _courage + (secondsPassed ~/ 4));
+  }
+
+  int get secondsToNextEnergy {
+    if (energy >= maxEnergy) return 0;
+    if (_lastEnergyUpdate == null) return 8;
+    int secondsPassed = DateTime.now().difference(_lastEnergyUpdate!).inSeconds;
+    return 8 - (secondsPassed % 8);
+  }
+
+  int get secondsToNextCourage {
+    if (courage >= maxCourage) return 0;
+    if (_lastCourageUpdate == null) return 4;
+    int secondsPassed = DateTime.now().difference(_lastCourageUpdate!).inSeconds;
+    return 4 - (secondsPassed % 4);
+  }
 
   double get baseStrength => _baseStrength;
   double get baseDefense => _baseDefense;
@@ -196,7 +225,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
   String? get uid => _uid;
 
-  // 🟢 الموارد القابلة للتعديل محلياً بدون إرسال للسيرفر (مثل عجلة الحظ)
   int get cash => _cash;
   set cash(int value) => _cash = value;
 
@@ -207,8 +235,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   set bonusPerkPoints(int value) => _bonusPerkPoints = value;
 
   int get bankBalance => _bankBalance;
-  int get energy => _energy;
-  int get courage => _courage;
   int get health => _health;
   String get playerName => _playerName;
   bool get isInPrison => _isInPrison;
@@ -343,6 +369,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
         _playerName = name; _inventory['name_change_card'] = 1;
         _gameId = (100000 + Random().nextInt(900000)).toString();
         _lastPassiveIncomeTime = secureNow;
+        _lastEnergyUpdate = DateTime.now();
+        _lastCourageUpdate = DateTime.now();
         _isLoading = false; await _syncWithFirestore();
       }
     } catch (e) {} finally { _isLoading = false; notifyListeners(); }
@@ -370,13 +398,35 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _baseStrength = (data['strength'] ?? 5.0).toDouble(); _baseDefense = (data['defense'] ?? 5.0).toDouble(); _baseSkill = (data['skill'] ?? 5.0).toDouble(); _baseSpeed = (data['speed'] ?? 5.0).toDouble();
     _bonusPerkPoints = data['bonusPerkPoints'] ?? 0;
 
+    // 🟢 السحب المباشر الدقيق (لا حاجة للشروط القديمة)
+    _energy = data['energy'] ?? _energy;
+    if (data['lastEnergyUpdate'] != null) {
+      _lastEnergyUpdate = (data['lastEnergyUpdate'] is Timestamp) ? (data['lastEnergyUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastEnergyUpdate'].toString());
+    } else {
+      _lastEnergyUpdate ??= DateTime.now();
+    }
+
+    _courage = data['courage'] ?? _courage;
+    if (data['lastCourageUpdate'] != null) {
+      _lastCourageUpdate = (data['lastCourageUpdate'] is Timestamp) ? (data['lastCourageUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastCourageUpdate'].toString());
+    } else {
+      _lastCourageUpdate ??= DateTime.now();
+    }
+
     if (!_isInitialDataLoaded) {
-      _energy = data['energy'] ?? _energy;
-      _courage = data['courage'] ?? _courage;
       _prestige = data['prestige'] ?? 100;
       _health = data['health'] ?? _health;
-    } else if (data['health'] != null && data['health'] < _health) {
-      _health = data['health'];
+    } else {
+      if (data['health'] != null) {
+        if (data['health'] < (_health - 2) || (data['health'] - _health) > 2) {
+          _health = data['health'];
+        }
+      }
+      if (data['prestige'] != null) {
+        if (data['prestige'] < (_prestige - 2) || (data['prestige'] - _prestige) > 2) {
+          _prestige = data['prestige'];
+        }
+      }
     }
 
     if (data['activeSteroidEndTime'] != null) _activeSteroidEndTime = DateTime.parse(data['activeSteroidEndTime']);
@@ -452,18 +502,13 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     if (data['lastUpdate'] != null) {
       DateTime serverTime = (data['lastUpdate'] is Timestamp) ? (data['lastUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastUpdate'].toString());
 
-      // 🟢 الحساب المعالج: نحسب الفرق الزمني قبل أن نقوم بتصفير العداد
       int secondsPassed = DateTime.now().difference(serverTime).inSeconds;
 
       if (!_isInitialDataLoaded && secondsPassed > 0) {
-        int gainedCourage = secondsPassed ~/ 4; _courage = min(maxCourage, _courage + gainedCourage);
         int gainedPrestige = secondsPassed ~/ 6; _prestige = min(maxPrestige, _prestige + gainedPrestige);
-        int gainedEnergy = secondsPassed ~/ 8; _energy = min(maxEnergy, _energy + gainedEnergy);
         double regenPerSecond = maxHealth / 1800.0; int gainedHealth = (secondsPassed * regenPerSecond).toInt();
         _health = min(maxHealth, _health + gainedHealth);
         double lostHeat = secondsPassed * 0.0278; _heat = max(0, _heat - lostHeat);
-
-        // 🟢 حفظ تلقائي للموارد التي كسبتها وأنت بالخارج
         Future.microtask(() => _syncWithFirestore());
       }
 
@@ -497,7 +542,11 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     try {
       await _firestore.collection('players').doc(_uid).set({
         'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl, 'currentCity': _currentCity,
-        'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance, 'energy': _energy, 'courage': _courage, 'prestige': _prestige, 'health': _health, 'maxHealth': _baseMaxHealth, 'happiness': _happiness, 'strength': _baseStrength, 'defense': _baseDefense, 'skill': _baseSkill, 'speed': _baseSpeed,
+        'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance,
+        'energy': _energy, 'courage': _courage, // نرفع الموارد الأساسية
+        'lastEnergyUpdate': _lastEnergyUpdate?.toIso8601String(), // 🟢 نرفع الوقت الأساسي
+        'lastCourageUpdate': _lastCourageUpdate?.toIso8601String(), // 🟢 نرفع الوقت الأساسي
+        'prestige': _prestige, 'health': _health, 'maxHealth': _baseMaxHealth, 'happiness': _happiness, 'strength': _baseStrength, 'defense': _baseDefense, 'skill': _baseSkill, 'speed': _baseSpeed,
         'activeSteroidEndTime': _activeSteroidEndTime?.toIso8601String(), 'activeCoach': _activeCoach, 'coachEndTime': _coachEndTime?.toIso8601String(),
         'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),
         'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'totalVipDays': _totalVipDays, 'totalLabCrafts': _totalLabCrafts, 'luckyWheelSpins': _luckyWheelSpins, 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability,
@@ -523,8 +572,9 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   bool attemptEscape() {
-    if (_courage < 10 || !_isInPrison) return false;
-    _courage -= 10;
+    if (courage < 10 || !_isInPrison) return false;
+    _courage = courage - 10;
+    _lastCourageUpdate = DateTime.now(); // 🟢 نحدث وقت الخصم ليتماشى مع المعادلة
     bool success = Random().nextDouble() < 0.3;
     if (success) {
       _isInPrison = false;
@@ -537,7 +587,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   void addEnergy(int amount) {
-    _energy = min(maxEnergy, _energy + amount);
+    _energy = min(maxEnergy, energy + amount);
+    _lastEnergyUpdate = DateTime.now(); // 🟢 نحدث وقت الزيادة
     _syncWithFirestore();
     notifyListeners();
   }
@@ -623,9 +674,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       }
 
       if (_heat > 0) { _heat = max(0, _heat - 0.0278); localChanged = true; }
-      if (timer.tick % 4 == 0 && _courage < maxCourage) { _courage++; localChanged = true; }
+
+      // الهيبة لا تزال بالعداد الكلاسيكي
       if (timer.tick % 6 == 0 && _prestige < maxPrestige) { _prestige++; localChanged = true; }
-      if (timer.tick % 8 == 0 && _energy < maxEnergy) { _energy++; localChanged = true; }
+
+      // 🟢 إجبار الواجهة على التحديث لسحب الموارد من المعادلة الرياضية بثبات تام
+      if (energy < maxEnergy || courage < maxCourage) { localChanged = true; }
 
       if (_health < maxHealth) {
         double regenPerSecond = maxHealth / 1800.0; _fractionalHealth += regenPerSecond;
@@ -753,6 +807,10 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ';
     _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null; _lastPassiveIncomeTime = secureNow;
     _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _pvpWins = 0; _totalStolenCash = 0; _perks = {}; _selectedTitle = null; _baseMaxHealth = 100; _bonusPerkPoints = 0;
+
+    _lastEnergyUpdate = DateTime.now();
+    _lastCourageUpdate = DateTime.now();
+
     await _syncWithFirestore(); notifyListeners();
   }
 
@@ -781,6 +839,9 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _loanAmount = 0; _creditScore = 0; _loanTime = null;
     _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
     _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _contractEndTime = null; _activeContractName = null;
+
+    _lastEnergyUpdate = null;
+    _lastCourageUpdate = null;
 
     notifyListeners();
   }
