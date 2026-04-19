@@ -14,7 +14,6 @@ extension PlayerCombatLogic on PlayerProvider {
       _inventory['steroid_cooldown'] = secureNow.add(const Duration(hours: 6, minutes: 20)).millisecondsSinceEpoch;
 
       _addTransaction("شراء منشطات", price, false);
-      // 🟢 تم إلغاء الإشعار عند الشراء بناءً على طلبك
       await _syncWithFirestore();
       notifyListeners();
     }
@@ -31,25 +30,42 @@ extension PlayerCombatLogic on PlayerProvider {
       _inventory['coach_cooldown'] = secureNow.add(const Duration(hours: 6, minutes: 30)).millisecondsSinceEpoch;
 
       _addTransaction("استئجار مدرب خاص", price, false);
-      // 🟢 تم إلغاء الإشعار عند الاستئجار بناءً على طلبك
       await _syncWithFirestore();
       notifyListeners();
     }
   }
 
   void addCrimeXP(int amount) {
-    if (_crimeLevel >= 400) return;
+    if (_crimeLevel >= 500) return; // 🟢 الحد الأقصى 500
     _crimeXP += amount;
     bool leveledUp = false;
-    while (_crimeXP >= xpToNextLevel && _crimeLevel < 400) {
+
+    while (_crimeXP >= xpToNextLevel && _crimeLevel < 500) {
       _crimeXP -= xpToNextLevel;
-      int oldBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
+
+      // 🟢 تم حل مشكلة num إلى double بإضافة .toDouble()
+      double oldBase = _crimeLevel <= 100
+          ? (100 * pow(1.06, _crimeLevel - 1)).toDouble()
+          : ((100 * pow(1.06, 99)) * pow(1.0194488, _crimeLevel - 100)).toDouble();
+
       _crimeLevel++;
-      int newBase = (100 * pow(1.029665, _crimeLevel - 1)).toInt();
-      _baseMaxHealth += (newBase - oldBase);
-      if (_baseMaxHealth > 50000000) _baseMaxHealth = 50000000;
+
+      // 🟢 تم حل المشكلة هنا أيضاً
+      double newBase = _crimeLevel <= 100
+          ? (100 * pow(1.06, _crimeLevel - 1)).toDouble()
+          : ((100 * pow(1.06, 99)) * pow(1.0194488, _crimeLevel - 100)).toDouble();
+
+      // 🟢 نضيف الفرق فقط لكي نحافظ على صحة النادي
+      _baseMaxHealth += (newBase - oldBase).toInt();
+      // 🌟 السطر السحري: تصحيح أخطاء اللاعبين القدامى
+      if (_baseMaxHealth < newBase.toInt()) {
+        _baseMaxHealth = newBase.toInt();
+      }
+      if (_baseMaxHealth > 100000000) _baseMaxHealth = 100000000; // 🟢 سقف 100 مليون
+
       leveledUp = true;
     }
+
     if (leveledUp) _showNotification("🎉 لفل إجرامي جديد: $_crimeLevel");
     _syncWithFirestore();
     notifyListeners();
@@ -77,7 +93,6 @@ extension PlayerCombatLogic on PlayerProvider {
   double get maxGymStats => 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0);
   double get currentBaseStats => _baseStrength + _baseDefense + _baseSkill + _baseSpeed;
 
-  // 🟢 ترجع مجموع الإحصائيات المكتسبة عشان نعرضها في الواجهة كرسالة طائرة
   Future<double> trainMultipleStats(int strE, int defE, int skillE, int spdE) async {
     int totalEnergy = strE + defE + skillE + spdE;
     if (_energy < totalEnergy || totalEnergy <= 0) return 0.0;
@@ -102,7 +117,7 @@ extension PlayerCombatLogic on PlayerProvider {
     if (totalGain > availableRoom) {
       double scale = availableRoom / totalGain;
       strGain *= scale; defGain *= scale; skillGain *= scale; spdGain *= scale;
-      totalGain = availableRoom; // المجموع الفعلي بعد التعديل
+      totalGain = availableRoom;
     }
 
     _energy -= totalEnergy;
@@ -113,14 +128,13 @@ extension PlayerCombatLogic on PlayerProvider {
       double randomMultiplier = hpBoostChance + Random().nextDouble() * 7.0;
       int hpBoost = (defGain * randomMultiplier).toInt();
       if (hpBoost > 0) {
-        _baseMaxHealth = min(50000000, _baseMaxHealth + hpBoost);
-        // 🟢 تم إلغاء الإشعار المزعج للمستشفى/الصحة عند التدريب
+        _baseMaxHealth = min(100000000, _baseMaxHealth + hpBoost); // 🟢 سقف 100 مليون
       }
     }
 
     await _syncWithFirestore();
     notifyListeners();
-    return totalGain; // نرسل القيمة للواجهة
+    return totalGain;
   }
 
   void incrementArenaLevel() { _arenaLevel++; _syncWithFirestore(); notifyListeners(); }

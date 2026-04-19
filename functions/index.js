@@ -2,8 +2,36 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 admin.initializeApp();
 
+// 🟢 1. دالة حساب الصحة الأساسية (تدرج من 1 إلى 100 بطيء ثم تسارع للوصول لـ 73 مليون في 500)
+function getBaseHealthForLevel(level) {
+    if (level <= 100) {
+        return 100 * Math.pow(1.06, level - 1);
+    } else {
+        let hpAt100 = 100 * Math.pow(1.06, 99);
+        return hpAt100 * Math.pow(1.0194488, level - 100);
+    }
+}
+
+// 🟢 2. دالة حساب الصحة النهائية (تدمج الصحة الأساسية مع تدريب النادي والمعدات والبيركس)
+function getFinalMaxHealth(pData, currentBaseMaxHealth) {
+    let baseHp = currentBaseMaxHealth || pData.maxHealth || 100;
+    let hp = baseHp;
+
+    let perks = pData.perks || {};
+    if (perks['max_hp_boost']) {
+        hp += hp * (perks['max_hp_boost'] * 0.02);
+    }
+    if (pData.equippedSpecialId === 't_golden_apple') {
+        hp += baseHp * 0.10;
+    }
+    if (pData.equippedSpecialId === 't_phoenix_feather') {
+        hp += baseHp * 0.05;
+    }
+    return Math.floor(hp);
+}
+
 // =======================================================
-// 1. دالة الجرائم (مع حماية التراكم ونظام الألقاب عند الختم)
+// 1. دالة الجرائم
 // =======================================================
 exports.commitCrime = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -52,7 +80,7 @@ exports.commitCrime = functions.https.onCall(async (request) => {
         let reward = 0, prisonMinutes = 0, bailCost = 0;
         let droppedGold = 0;
         let droppedEnergy = 0;
-        let earnedTitle = null; // 🟢 متغير اللقب الجديد
+        let earnedTitle = null;
 
         if (isSuccess) {
             reward = Math.floor(Math.random() * (maxCash - minCash + 1)) + minCash;
@@ -74,12 +102,33 @@ exports.commitCrime = functions.https.onCall(async (request) => {
                 }
             }
 
-            if (Math.random() < 0.10) {
-                droppedGold = Math.floor(Math.random() * 5) + 1;
+            // 🟢 حساب نسبة الغنائم
+            let goldDropChance = Math.min(reqCourage * 0.002, 0.10);
+            let energyDropChance = Math.min(reqCourage * 0.0025, 0.12);
+
+            // 🟢 استخراج رقم الفئة من الـ crimeId (مثال: cat_0_crime_20 -> النتيجة 0)
+            let catMatch = crimeId.match(/cat_(\d+)/);
+            let catIndex = catMatch ? parseInt(catMatch[1]) : 0;
+
+            // 🟢 عقوبة المستوى الجديدة (كل فئة لها 35 لفل كحد أقصى)
+            // الفئة الأولى: 35، الفئة الثانية: 70، الثالثة: 105... إلخ
+            let maxLevelForLoot = (catIndex + 1) * 35;
+
+            let currentLevelForPenalty = pData.crimeLevel || 1;
+            let isOverleveled = currentLevelForPenalty > maxLevelForLoot;
+
+            // إذا تعديت الحد الأقصى للفئة، ينقطع عنك الذهب والطاقة لتنجبر تروح للفئة اللي بعدها!
+            let finalGoldChance = isOverleveled ? 0 : goldDropChance;
+            let finalEnergyChance = isOverleveled ? 0 : energyDropChance;
+
+            if (finalGoldChance > 0 && Math.random() < finalGoldChance) {
+                let maxGoldDrop = Math.floor(reqCourage / 15) + 1;
+                droppedGold = Math.floor(Math.random() * maxGoldDrop) + 1;
                 updates.gold = admin.firestore.FieldValue.increment(droppedGold);
             }
 
-            if (Math.random() < 0.15) {
+            if (finalEnergyChance > 0 && Math.random() < finalEnergyChance) {
+                // 🟢 إزالة استرجاع نصف الشجاعة، السقوط أصبح من 5 إلى 15 طاقة فقط!
                 droppedEnergy = Math.floor(Math.random() * 11) + 5;
                 updates.energy = currentEnergy + droppedEnergy;
             } else if (energyChanged) {
@@ -91,7 +140,7 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             let nextLevelXp = Math.floor(250 * Math.pow(1.06, currentLevel - 1));
 
             let leveledUp = false;
-            while (currentXP >= nextLevelXp) {
+            while (currentXP >= nextLevelXp && currentLevel < 500) {
                 currentXP -= nextLevelXp;
                 currentLevel++;
                 leveledUp = true;
@@ -100,14 +149,31 @@ exports.commitCrime = functions.https.onCall(async (request) => {
 
             updates.crimeXP = currentXP;
             if (leveledUp) {
+                let oldBase = getBaseHealthForLevel(pData.crimeLevel || 1);
+                let newBase = getBaseHealthForLevel(currentLevel);
+                let healthDifference = Math.floor(newBase - oldBase);
+
+                let currentMaxHealth = pData.maxHealth || 100;
+                let newMaxHealth = currentMaxHealth + healthDifference;
+
+                if (newMaxHealth < Math.floor(newBase)) {
+                    newMaxHealth = Math.floor(newBase);
+                }
+
+                if (newMaxHealth > 100000000) newMaxHealth = 100000000;
+
                 updates.crimeLevel = currentLevel;
-                let newMaxCourage = (pData.isVIP ? 60 : 29) + currentLevel;
+                let isVip = (pData.vipUntil && new Date(pData.vipUntil) > new Date());
+                let newMaxCourage = 29 + currentLevel + (isVip ? 50 : 0);
+
                 updates.courage = Math.max(newCourage, newMaxCourage);
                 updates.energy = Math.max(currentEnergy + droppedEnergy, maxEnergy || 100);
                 updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
+
+                updates.maxHealth = newMaxHealth;
+                updates.health = getFinalMaxHealth(pData, newMaxHealth);
             }
 
-            // 🟢 نظام الختم (الـ 3 نجوم) والألقاب
             const currentCount = (pData.crimeSuccessCountsMap && pData.crimeSuccessCountsMap[crimeId]) ? pData.crimeSuccessCountsMap[crimeId] : 0;
             const newCount = currentCount + 1;
             updates[`crimeSuccessCountsMap.${crimeId}`] = newCount;
@@ -135,13 +201,13 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             bailCost: bailCost,
             droppedGold: droppedGold,
             droppedEnergy: droppedEnergy,
-            earnedTitle: earnedTitle // 🟢 نرسل اللقب لواجهة الجوال
+            earnedTitle: earnedTitle
         };
     });
 });
 
 // =======================================================
-// 2. دالة الهروب من السجن (نسبة 50%)
+// 2. دالة الهروب من السجن
 // =======================================================
 exports.attemptEscape = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -158,7 +224,6 @@ exports.attemptEscape = functions.https.onCall(async (request) => {
 
         if (!pData.isInPrison) throw new functions.https.HttpsError('failed-precondition', 'أنت لست في السجن!');
 
-        // 🟢 تم التعديل إلى 30 هنا
         let currentCourage = pData.courage !== undefined ? pData.courage : 30;
         let lastUpdate = pData.lastCourageUpdate ? pData.lastCourageUpdate.toDate() : new Date();
         let now = new Date();
@@ -166,9 +231,9 @@ exports.attemptEscape = functions.https.onCall(async (request) => {
         let gainedCourage = Math.floor(secondsPassed / 4);
         currentCourage += gainedCourage;
 
-        // 🟢 تم إضافة الحد الأقصى الديناميكي للشجاعة
         let pLevel = pData.crimeLevel || 1;
-        let mCourage = (pData.isVIP ? 60 : 29) + pLevel;
+        let isVip = (pData.vipUntil && new Date(pData.vipUntil) > new Date());
+        let mCourage = 29 + pLevel + (isVip ? 50 : 0);
         if (currentCourage > mCourage) currentCourage = mCourage;
 
         if (currentCourage < 10) throw new functions.https.HttpsError('failed-precondition', 'تحتاج 10 شجاعة للهروب');
@@ -178,7 +243,6 @@ exports.attemptEscape = functions.https.onCall(async (request) => {
             lastCourageUpdate: admin.firestore.FieldValue.serverTimestamp()
         };
 
-        // 🟢 تم التعديل إلى 0.5 (نسبة النجاح 50%)
         const isSuccess = Math.random() < 0.5;
         if (isSuccess) {
             updates.isInPrison = false;
@@ -191,11 +255,10 @@ exports.attemptEscape = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 3. استعادة الموارد (استخدام القهوة أو المنشط)
+// 3. استعادة الموارد
 // =======================================================
 exports.recoverResource = functions.https.onCall(async (request) => {
     const payload = request.data || request;
-    // 🟢 السيرفر يستقبل الماكس من اللاعب
     const { uid, type, maxCourage, maxEnergy } = payload;
 
     if (!uid) throw new functions.https.HttpsError('invalid-argument', 'رقم اللاعب مفقود');
@@ -210,7 +273,7 @@ exports.recoverResource = functions.https.onCall(async (request) => {
 
         const isEnergy = type === 'energy';
         const itemId = isEnergy ? 'steroids' : 'coffee';
-        const cost = 50; // سعر الذهب
+        const cost = 50;
 
         let updates = {};
         const ownedCount = (pData.inventory && pData.inventory[itemId]) ? pData.inventory[itemId] : 0;
@@ -225,11 +288,9 @@ exports.recoverResource = functions.https.onCall(async (request) => {
         }
 
         if (isEnergy) {
-            // 🟢 تعبئة للطاقة القصوى
             updates.energy = maxEnergy || 100;
         } else {
-            // 🟢 تعبئة للشجاعة القصوى
-            updates.courage = maxCourage || 30; // الاحتياط في حالة لم يرسل التطبيق الماكس
+            updates.courage = maxCourage || 30;
             updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
         }
 
@@ -239,7 +300,7 @@ exports.recoverResource = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 4. 🟢 الدالة الشاملة للمشتريات (المتجر الأسود، متجر العصابة، وغيرها)
+// 4. الدالة الشاملة للمشتريات
 // =======================================================
 exports.buyItem = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -257,22 +318,17 @@ exports.buyItem = functions.https.onCall(async (request) => {
         if (!pDoc.exists) throw new functions.https.HttpsError('not-found', 'حساب اللاعب غير موجود');
         const pData = pDoc.data();
 
-        // 1. السيرفر يتحقق من رصيد اللاعب الفعلي
         const currentBalance = pData[currencyType] || 0;
         if (currentBalance < cost) {
             throw new functions.https.HttpsError('failed-precondition', `لا تملك ${currencyType === 'gold' ? 'ذهب' : 'كاش'} كافي!`);
         }
 
         let updates = {};
-
-        // 2. خصم المبلغ بشكل آمن
         updates[currencyType] = currentBalance - cost;
 
-        // 3. إضافة العنصر إلى المخزن (Inventory)
         const currentItemCount = (pData.inventory && pData.inventory[itemId]) ? pData.inventory[itemId] : 0;
         updates[`inventory.${itemId}`] = currentItemCount + (amount || 1);
 
-        // 4. حفظ العملية
         transaction.update(playerRef, updates);
 
         return { success: true, newBalance: updates[currencyType], message: 'تمت عملية الشراء بنجاح' };
@@ -280,7 +336,7 @@ exports.buyItem = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 5. 🟢 دالة عجلة الحظ (تحديد الجائزة وخصم التكلفة فقط للحفاظ على المتعة)
+// 5. دالة عجلة الحظ
 // =======================================================
 exports.spinLuckyWheel = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -331,7 +387,6 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
             wonPrizes.push(selected);
         }
 
-        // 🟢 خصم التكلفة فوراً ليرى اللاعب أن رصيده نقص، لكن نخزن الجوائز كـ "معلقة"
         let currentPending = pData.pendingWheelPrizes || [];
         transaction.update(playerRef, {
             gold: pData.gold - cost,
@@ -343,7 +398,7 @@ exports.spinLuckyWheel = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 6. 🟢 دالة استلام جوائز العجلة (تُستدعى بعد وقوف العجلة)
+// 6. دالة استلام جوائز العجلة
 // =======================================================
 exports.claimLuckyWheel = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -365,7 +420,6 @@ exports.claimLuckyWheel = functions.https.onCall(async (request) => {
         let spinsCount = (pData.luckyWheelSpins || 0) + wonPrizes.length;
         updates.luckyWheelSpins = spinsCount;
 
-        // 🟢 تطبيق وإضافة الجوائز الآن
         for (let selected of wonPrizes) {
             if (selected.id === 'cash_10m') updates.cash = admin.firestore.FieldValue.increment(10000000);
             else if (selected.id === 'cash_50m') updates.cash = admin.firestore.FieldValue.increment(50000000);
@@ -377,11 +431,9 @@ exports.claimLuckyWheel = functions.https.onCall(async (request) => {
             }
         }
 
-        // إزالة الجوائز من قائمة "المعلقة" بعد استلامها
         updates.pendingWheelPrizes = admin.firestore.FieldValue.delete();
         transaction.update(playerRef, updates);
 
-        // 🟢 نشر الأسماء في شريط الفائزين الآن فقط لتظهر في اللحظة المناسبة
         const safePlayerName = pData.playerName || "الزعيم";
         const isVip = pData.isVIP || false;
         const profilePicUrl = pData.profilePicUrl || '';
@@ -404,7 +456,7 @@ exports.claimLuckyWheel = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 7. 🟢 دالة العلاج في المستشفى
+// 7. دالة العلاج في المستشفى
 // =======================================================
 exports.healPlayer = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -420,7 +472,7 @@ exports.healPlayer = functions.https.onCall(async (request) => {
         if (!pDoc.exists) throw new functions.https.HttpsError('not-found', 'اللاعب غير موجود');
         const pData = pDoc.data();
 
-        let maxHealth = pData.maxHealth || 100;
+        let maxHealth = getFinalMaxHealth(pData, pData.maxHealth);
         let currentHealth = pData.health || 0;
         if (currentHealth >= maxHealth) throw new functions.https.HttpsError('failed-precondition', 'أنت بصحة كاملة بالفعل!');
 
@@ -456,14 +508,12 @@ exports.healPlayer = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 8. 🟢 دالة الشحن الآمنة (شحن الكاش والذهب)
+// 8. دالة الشحن الآمنة
 // =======================================================
 exports.topUpBalance = functions.https.onCall(async (request) => {
-    // الطريقة الآمنة لاستخراج البيانات مهما كان إصدار Firebase
     const payload = request.data || request;
     const { uid, currencyType, amount } = payload;
 
-    // أضفنا المتغيرات في رسالة الخطأ لكي تظهر لك في التطبيق ونعرف من هو المفقود!
     if (!uid || !currencyType || !amount) {
         throw new functions.https.HttpsError(
             'invalid-argument',
@@ -479,7 +529,6 @@ exports.topUpBalance = functions.https.onCall(async (request) => {
         if (!pDoc.exists) throw new functions.https.HttpsError('not-found', 'اللاعب غير موجود');
 
         let updates = {};
-        // 🟢 إضافة المبلغ بشكل آمن ومحمي
         updates[currencyType] = admin.firestore.FieldValue.increment(amount);
 
         transaction.update(playerRef, updates);
@@ -488,7 +537,7 @@ exports.topUpBalance = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 9. 🟢 دالة الحذف الشامل للحساب (بصلاحيات السيرفر لتخطي الحماية)
+// 9. دالة الحذف الشامل للحساب
 // =======================================================
 exports.deletePlayerAccount = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -500,23 +549,18 @@ exports.deletePlayerAccount = functions.https.onCall(async (request) => {
     const batch = db.batch();
 
     try {
-        // 1. مسح الإشعارات
         const notifications = await db.collection('notifications').where('uid', '==', uid).get();
         notifications.forEach(doc => batch.delete(doc.ref));
 
-        // 2. مسح الشات العام
         const publicChats = await db.collection('chat').where('uid', '==', uid).get();
         publicChats.forEach(doc => batch.delete(doc.ref));
 
-        // 3. مسح الشات الخاص
         const privateChats = await db.collection('private_chats').where('participants', 'array-contains', uid).get();
         privateChats.forEach(doc => batch.delete(doc.ref));
 
-        // 4. مسح العقارات المعروضة للإيجار ولم تؤجر
         const rentedProps = await db.collection('property_rentals').where('ownerId', '==', uid).get();
         rentedProps.forEach(doc => batch.delete(doc.ref));
 
-        // 5. مسح اللاعب من قوائم أصدقاء اللاعبين الآخرين
         const friendsArrays = await db.collection('players').where('friends', 'array-contains', uid).get();
         friendsArrays.forEach(doc => batch.update(doc.ref, { friends: admin.firestore.FieldValue.arrayRemove(uid) }));
 
@@ -526,7 +570,6 @@ exports.deletePlayerAccount = functions.https.onCall(async (request) => {
         const sentArrays = await db.collection('players').where('sentRequests', 'array-contains', uid).get();
         sentArrays.forEach(doc => batch.update(doc.ref, { sentRequests: admin.firestore.FieldValue.arrayRemove(uid) }));
 
-        // 6. مصادرة العقارات المؤجرة للبنك المركزي حمايةً للمستأجرين
         const renters = await db.collection('players').where('activeRentedProperty.ownerId', '==', uid).get();
         renters.forEach(doc => {
             batch.update(doc.ref, {
@@ -535,13 +578,10 @@ exports.deletePlayerAccount = functions.https.onCall(async (request) => {
             });
         });
 
-        // 7. حذف بيانات اللاعب الأساسية
         batch.delete(db.collection('players').doc(uid));
 
-        // تنفيذ الحذف الشامل في قاعدة البيانات
         await batch.commit();
 
-        // 8. حذف حساب المصادقة (Auth) نهائياً
         try {
             await admin.auth().deleteUser(uid);
         } catch (authError) {
@@ -556,7 +596,7 @@ exports.deletePlayerAccount = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 10. 🟢 دالة شراء العقارات (آمنة عبر السيرفر)
+// 10. دالة شراء العقارات
 // =======================================================
 exports.buyRealEstate = functions.https.onCall(async (request) => {
     const { uid, propertyId, price, happinessGain } = request.data || request;
@@ -578,13 +618,11 @@ exports.buyRealEstate = functions.https.onCall(async (request) => {
             ownedProperties: admin.firestore.FieldValue.arrayUnion(propertyId)
         };
 
-        // تفعيل السكن تلقائياً إذا لم يكن لديه سكن
         if (!pData.activePropertyId && !pData.activeRentedProperty) {
             updates.activePropertyId = propertyId;
             updates.happiness = happinessGain || 0;
         }
 
-        // تسجيل العملية في كشف الحساب
         let newTx = { title: "شراء عقار", amount: price, date: new Date().toISOString(), isPositive: false };
         let currentTxs = pData.transactions || [];
         currentTxs.unshift(newTx);
@@ -597,7 +635,7 @@ exports.buyRealEstate = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 11. 🟢 دالة إدارة المشاريع التجارية (شراء وترقية)
+// 11. دالة إدارة المشاريع التجارية
 // =======================================================
 exports.manageBusiness = functions.https.onCall(async (request) => {
     const { uid, businessId, cost, actionType } = request.data || request;
@@ -635,7 +673,7 @@ exports.manageBusiness = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 12. 🟢 دوال سوق الإيجارات (عرض، استئجار، إلغاء)
+// 12. دوال سوق الإيجارات
 // =======================================================
 exports.listPropertyForRent = functions.https.onCall(async (request) => {
     const { uid, propertyId, dailyPrice, days, playerName } = request.data || request;
@@ -699,7 +737,6 @@ exports.rentPropertyFromMarket = functions.https.onCall(async (request) => {
         let expireDate = new Date();
         expireDate.setDate(expireDate.getDate() + listingData.days);
 
-        // تحديث المستأجر (خصم الفلوس وإضافة السكن)
         let meUpdates = {
             cash: meData.cash - totalPrice,
             activeRentedProperty: { id: listingData.propertyId, expire: expireDate.toISOString(), ownerId: listingData.ownerId, ownerName: listingData.ownerName },
@@ -715,7 +752,6 @@ exports.rentPropertyFromMarket = functions.https.onCall(async (request) => {
 
         transaction.update(meRef, meUpdates);
 
-        // تحديث المالك (إعطاؤه الفلوس)
         const ownerSnap = await transaction.get(ownerRef);
         if (ownerSnap.exists) {
             const ownerData = ownerSnap.data();
@@ -758,7 +794,7 @@ exports.cancelRentedProperty = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 13. 🟢 دوال البنك (Bank)
+// 13. دوال البنك (Bank)
 // =======================================================
 exports.depositToBank = functions.https.onCall(async (request) => {
     const { uid, amount } = request.data || request;
@@ -836,7 +872,7 @@ exports.sellGold = functions.https.onCall(async (request) => {
 
 exports.takeLoan = functions.https.onCall(async (request) => {
     const { uid, amount } = request.data || request;
-    const netReceive = amount - Math.floor(amount * 0.05); // خصم 5% رسوم إدارية
+    const netReceive = amount - Math.floor(amount * 0.05);
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
 
@@ -874,7 +910,7 @@ exports.repayLoan = functions.https.onCall(async (request) => {
         transaction.update(playerRef, {
             cash: data.cash - amount,
             loanAmount: newLoan,
-            creditScore: (data.creditScore || 0) + 10 // مكافأة السداد
+            creditScore: (data.creditScore || 0) + 10
         });
         return { success: true };
     });
@@ -906,10 +942,9 @@ exports.startLockedInvestment = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 14. 🟢 دوال صالة التدريب (Gym)
+// 14. دوال صالة التدريب (Gym)
 // =======================================================
 exports.trainMultipleStats = functions.https.onCall(async (request) => {
-    // 🟢 السيرفر يستقبل الماكس إنرجي من التطبيق ليعرف هل هو VIP (200) أو عادي (100)
     const { uid, strE, defE, skillE, spdE, maxEnergy } = request.data || request;
     const totalEnergyUsed = strE + defE + skillE + spdE;
     if (totalEnergyUsed <= 0) throw new functions.https.HttpsError('invalid-argument', 'يجب تحديد طاقة للتدريب');
@@ -921,13 +956,10 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
         const doc = await transaction.get(playerRef);
         const data = doc.data();
 
-        // 🟢 1. حساب الطاقة الحقيقية بدقة (مع دعم وحماية التراكم Overcharge)
         let currentEnergy = data.energy !== undefined ? data.energy : 100;
         let mEnergy = maxEnergy || 100;
 
-        // لا نحسب الاسترجاع الزمني أبداً إذا كانت الطاقة أعلى من أو تساوي الماكس
         if (data.lastEnergyUpdate && currentEnergy < mEnergy) {
-            // حماية الكراش (toDate)
             let lastUpdate = data.lastEnergyUpdate.toDate ? data.lastEnergyUpdate.toDate() : new Date(data.lastEnergyUpdate);
             let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
@@ -939,18 +971,16 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
             }
         }
 
-        // 🟢 2. هل الطاقة تكفي للتدريب؟
         if (currentEnergy < totalEnergyUsed) {
             throw new functions.https.HttpsError('failed-precondition', 'طاقة غير كافية للتدريب المطلوب');
         }
 
         let baseMultiplier = 0.1;
         let happiness = data.happiness || 0;
-        let gainFactor = baseMultiplier * (1 + (happiness / 100)); // مكافأة السعادة
+        let gainFactor = baseMultiplier * (1 + (happiness / 100));
 
-        // هل المنشط شغال؟
         if (data.activeSteroidEndTime && new Date(data.activeSteroidEndTime) > new Date()) {
-            gainFactor *= 2; // يضاعف النتائج
+            gainFactor *= 2;
         }
 
         let strGain = strE * gainFactor;
@@ -958,7 +988,6 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
         let skillGain = skillE * gainFactor;
         let spdGain = spdE * gainFactor;
 
-        // هل المدرب شغال؟
         if (data.activeCoach === 'russian') strGain *= 1.5;
         if (data.activeCoach === 'tactical') defGain *= 1.5;
         if (data.activeCoach === 'ninja') { skillGain *= 1.5; spdGain *= 1.5; }
@@ -974,8 +1003,6 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
             speed: (data.speed || 5) + spdGain,
         };
 
-        // 🟢 3. تصفير العداد فقط إذا نزلت الطاقة عن الحد الأقصى
-        // (لكي لا نخرب التراكم لو كانت طاقته 150 واستخدم 10 فصارت 140)
         if (newEnergy < mEnergy) {
             updates.lastEnergyUpdate = admin.firestore.FieldValue.serverTimestamp();
         }
@@ -998,8 +1025,8 @@ exports.hireCoach = functions.https.onCall(async (request) => {
         if ((data.cash || 0) < price) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي');
         if (data.activeCoach) throw new functions.https.HttpsError('failed-precondition', 'لديك مدرب حالي');
 
-        let endTime = new Date(Date.now() + 30 * 60000); // 30 دقيقة
-        let cooldownTime = new Date(Date.now() + 6 * 3600000); // 6 ساعات راحة
+        let endTime = new Date(Date.now() + 30 * 60000);
+        let cooldownTime = new Date(Date.now() + 6 * 3600000);
 
         transaction.update(playerRef, {
             cash: data.cash - price,
@@ -1025,8 +1052,8 @@ exports.buyAndUseSteroids = functions.https.onCall(async (request) => {
             throw new functions.https.HttpsError('failed-precondition', 'مفعول المنشط لا زال سارياً!');
         }
 
-        let endTime = new Date(Date.now() + 20 * 60000); // 20 دقيقة
-        let cooldownTime = new Date(Date.now() + 6 * 3600000); // 6 ساعات راحة
+        let endTime = new Date(Date.now() + 20 * 60000);
+        let cooldownTime = new Date(Date.now() + 6 * 3600000);
 
         transaction.update(playerRef, {
             cash: data.cash - price,
@@ -1038,7 +1065,7 @@ exports.buyAndUseSteroids = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 15. 🟢 دوال السجن (Prison) - دفع الكفالة
+// 15. دوال السجن (Prison) - دفع الكفالة
 // =======================================================
 exports.bailOutPlayer = functions.https.onCall(async (request) => {
     const { uid, targetUid, bailCost } = request.data || request;
@@ -1056,12 +1083,10 @@ exports.bailOutPlayer = functions.https.onCall(async (request) => {
 
         if ((payerData.cash || 0) < bailCost) throw new functions.https.HttpsError('failed-precondition', 'لا تملك كاش كافي لدفع الكفالة!');
 
-        // خصم الفلوس من الدافع
         transaction.update(payerRef, {
             cash: payerData.cash - bailCost
         });
 
-        // إخراج المستهدف من السجن
         transaction.update(targetRef, {
             isInPrison: false,
             prisonReleaseTime: null
@@ -1072,7 +1097,7 @@ exports.bailOutPlayer = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 16. 🟢 دوال التشليح والورشة (Chop Shop)
+// 16. دوال التشليح والورشة (Chop Shop)
 // =======================================================
 exports.startChoppingCar = functions.https.onCall(async (request) => {
     const { uid } = request.data || request;
@@ -1087,7 +1112,7 @@ exports.startChoppingCar = functions.https.onCall(async (request) => {
         if (stolenCars <= 0) throw new functions.https.HttpsError('failed-precondition', 'لا يوجد سيارات في المخزن');
         if (data.isChopping) throw new functions.https.HttpsError('failed-precondition', 'هناك سيارة قيد التفكيك بالفعل');
 
-        let endTime = new Date(Date.now() + 30 * 60000); // 30 دقيقة
+        let endTime = new Date(Date.now() + 30 * 60000);
 
         transaction.update(playerRef, {
             'inventory.stolen_car': stolenCars - 1,
@@ -1113,14 +1138,14 @@ exports.collectChoppedCar = functions.https.onCall(async (request) => {
         transaction.update(playerRef, {
             isChopping: false,
             chopShopEndTime: null,
-            cash: (data.cash || 0) + 15000 // 15 ألف كاش كأرباح ثابتة
+            cash: (data.cash || 0) + 15000
         });
         return { success: true };
     });
 });
 
 // =======================================================
-// 17. 🟢 دوال المخزن (استخدام الأدوات)
+// 17. المخزن (استخدام الأدوات وقراءة الصحة المحدثة)
 // =======================================================
 exports.consumeItem = functions.https.onCall(async (request) => {
     const { uid, itemId } = request.data || request;
@@ -1137,17 +1162,15 @@ exports.consumeItem = functions.https.onCall(async (request) => {
         }
 
         let updates = {};
-        // 1. خصم العنصر من المخزن
         updates[`inventory.${itemId}`] = inventory[itemId] - 1;
 
-        // 2. 🟢 حساب القيم القصوى بشكل دقيق للـ VIP والمستوى
         let isVip = (data.vipUntil && new Date(data.vipUntil) > new Date());
         let maxEnergy = isVip ? 200 : 100;
         let currentLevel = data.crimeLevel || 1;
-        let maxCourage = (isVip ? 60 : 29) + currentLevel; // تم حل مشكلة الـ 200 هنا
-        let maxHealth = data.maxHealth || 100;
+        let maxCourage = 29 + currentLevel + (isVip ? 50 : 0);
 
-        // 3. تطبيق تأثير العنصر
+        let maxHealth = getFinalMaxHealth(data, data.maxHealth);
+
         if (itemId === 'steroids') updates.energy = maxEnergy;
         else if (itemId === 'coffee') updates.courage = maxCourage;
         else if (itemId === 'medkit') updates.health = maxHealth;
@@ -1168,7 +1191,6 @@ exports.consumeItem = functions.https.onCall(async (request) => {
             throw new functions.https.HttpsError('invalid-argument', 'هذا العنصر غير قابل للاستهلاك المباشر.');
         }
 
-        // 4. حفظ التحديثات في السيرفر
         transaction.update(playerRef, updates);
         return { success: true };
     });

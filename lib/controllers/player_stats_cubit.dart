@@ -16,13 +16,11 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
   DateTime? _lastTick;
   bool _isInitialized = false;
 
-  // 🟢 القيم الكسرية الدقيقة للتجديد المحلي
   double _exactHealth = 100;
   double _exactEnergy = 100;
   double _exactCourage = 30;
   double _exactPrestige = 100;
 
-  // 🟢 السر هنا: نحفظ "آخر رقم رأيناه من السيرفر" لكي لا نمسح التجديد المحلي بالخطأ
   int _lastSeenServerHealth = -1;
   int _lastSeenServerEnergy = -1;
   int _lastSeenServerCourage = -1;
@@ -49,13 +47,11 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
         _serverData = snapshot.data() as Map<String, dynamic>;
 
         if (!_isInitialized) {
-          // أول مرة يفتح اللاعب اللعبة، نأخذ الأرقام كأساس
           _exactHealth = (_serverData['health'] ?? 100).toDouble();
           _exactEnergy = (_serverData['energy'] ?? 100).toDouble();
           _exactCourage = (_serverData['courage'] ?? 30).toDouble();
           _exactPrestige = (_serverData['prestige'] ?? 100).toDouble();
 
-          // نسجل الأرقام الأساسية
           _lastSeenServerHealth = _exactHealth.toInt();
           _lastSeenServerEnergy = _exactEnergy.toInt();
           _lastSeenServerCourage = _exactCourage.toInt();
@@ -64,13 +60,10 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
           _lastTick = DateTime.now();
           _isInitialized = true;
         } else {
-          // 🟢 التحديث الذكي: لن نعدل الرقم المحلي إلا إذا السيرفر "غيره" فعلياً!
-          // هذا يمنع الجرائم من تصفير أو تفويل الطاقة بالخطأ
-
           int srvEnergy = (_serverData['energy'] ?? 100).toInt();
           if (srvEnergy != _lastSeenServerEnergy) {
-            _exactEnergy = srvEnergy.toDouble(); // نعتمد تحديث السيرفر
-            _lastSeenServerEnergy = srvEnergy;   // نحفظ الرقم الجديد
+            _exactEnergy = srvEnergy.toDouble();
+            _lastSeenServerEnergy = srvEnergy;
           }
 
           int srvCourage = (_serverData['courage'] ?? 30).toInt();
@@ -116,8 +109,25 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
     double deltaSeconds = now.difference(_lastTick ?? now).inMilliseconds / 1000.0;
     _lastTick = now;
 
-    int crimeLevel = _serverData['crimeLevel'] ?? 1; // 🟢 جلبنا اللفل
-    int maxHealth = 100 + (crimeLevel * 10);
+    int crimeLevel = _serverData['crimeLevel'] ?? 1;
+
+    // 🟢 السيرفر يحفظ لنا (اللفل + تدريب النادي) في maxHealth، نحن نضيف البيركس والمعدات للواجهة
+    int baseMaxHealth = _serverData['maxHealth'] ?? 100;
+    double finalHp = baseMaxHealth.toDouble();
+    Map<dynamic, dynamic> perks = _serverData['perks'] ?? {};
+    String? equippedSpecial = _serverData['equippedSpecialId'];
+
+    if (perks['max_hp_boost'] != null) {
+      finalHp += finalHp * ((perks['max_hp_boost'] as num).toInt() * 0.02);
+    }
+    if (equippedSpecial == 't_golden_apple') {
+      finalHp += baseMaxHealth * 0.10;
+    }
+    if (equippedSpecial == 't_phoenix_feather') {
+      finalHp += baseMaxHealth * 0.05;
+    }
+    int maxHealth = finalHp.toInt();
+
     int maxEnergy = 100;
     int maxPrestige = 100;
 
@@ -130,8 +140,7 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
       }
     }
 
-    // 🟢 حساب الحد الأقصى الديناميكي للشجاعة
-    int maxCourage = (isVIP ? 60 : 29) + crimeLevel;
+    int maxCourage = (isVIP ? 50 : 0) + crimeLevel;
 
     if (_exactHealth < maxHealth) {
       _exactHealth += (maxHealth / 1800.0) * deltaSeconds;
@@ -144,7 +153,7 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
     }
 
     if (_exactCourage < maxCourage) {
-      _exactCourage += (1.0 / 4.0) * deltaSeconds; // يمكن جعلها 1.0/1.0 لتزيد كل ثانية
+      _exactCourage += (1.0 / 4.0) * deltaSeconds;
       if (_exactCourage > maxCourage) _exactCourage = maxCourage.toDouble();
     }
 
@@ -157,8 +166,25 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
   }
 
   void _updateState() {
-    int crimeLevel = _serverData['crimeLevel'] ?? 1; // 🟢 جلبنا اللفل
-    int maxHealth = _serverData['maxHealth'] ?? 100;
+    int crimeLevel = _serverData['crimeLevel'] ?? 1;
+
+    // 🟢 تطبيق نفس معادلة الإضافات هنا
+    int baseMaxHealth = _serverData['maxHealth'] ?? 100;
+    double finalHp = baseMaxHealth.toDouble();
+    Map<dynamic, dynamic> perks = _serverData['perks'] ?? {};
+    String? equippedSpecial = _serverData['equippedSpecialId'];
+
+    if (perks['max_hp_boost'] != null) {
+      finalHp += finalHp * ((perks['max_hp_boost'] as num).toInt() * 0.02);
+    }
+    if (equippedSpecial == 't_golden_apple') {
+      finalHp += baseMaxHealth * 0.10;
+    }
+    if (equippedSpecial == 't_phoenix_feather') {
+      finalHp += baseMaxHealth * 0.05;
+    }
+    int maxHealth = finalHp.toInt();
+
     int maxEnergy = 100;
     int maxPrestige = 100;
 
@@ -171,7 +197,6 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
       }
     }
 
-    // 🟢 حساب الحد الأقصى الديناميكي للشجاعة
     int maxCourage = (isVIP ? 60 : 29) + crimeLevel;
 
     int currentXp = _serverData['crimeXP'] ?? 0;
