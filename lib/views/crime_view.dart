@@ -10,13 +10,14 @@ import '../controllers/crime_cubit.dart';
 
 class CrimeView extends StatelessWidget {
   final int courage;
-  // 🟢 تم إضافة xpGained لتمريره للنافذة المنبثقة
-  final Function(int reward, String crimeId, int xpGained, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, VoidCallback onRetry) onSuccess;
+  final VoidCallback onBack;
+  final Function(int reward, String crimeId, int xpGained, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, String? earnedTitle, VoidCallback onRetry) onSuccess;
   final Function(int minutes, String crimeName, int bailCost) onFailure;
 
   const CrimeView({
     super.key,
     required this.courage,
+    required this.onBack,
     required this.onSuccess,
     required this.onFailure,
   });
@@ -27,6 +28,7 @@ class CrimeView extends StatelessWidget {
       create: (context) => CrimeCubit(),
       child: _CrimeViewContent(
         courage: courage,
+        onBack: onBack,
         onSuccess: onSuccess,
         onFailure: onFailure,
       ),
@@ -36,10 +38,16 @@ class CrimeView extends StatelessWidget {
 
 class _CrimeViewContent extends StatefulWidget {
   final int courage;
-  final Function(int reward, String crimeId, int xpGained, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, VoidCallback onRetry) onSuccess;
+  final VoidCallback onBack;
+  final Function(int reward, String crimeId, int xpGained, int energyUsed, int droppedGold, int droppedEnergy, bool evadedPolice, String? earnedTitle, VoidCallback onRetry) onSuccess;
   final Function(int minutes, String crimeName, int bailCost) onFailure;
 
-  const _CrimeViewContent({required this.courage, required this.onSuccess, required this.onFailure});
+  const _CrimeViewContent({
+    required this.courage,
+    required this.onBack,
+    required this.onSuccess,
+    required this.onFailure
+  });
 
   @override
   State<_CrimeViewContent> createState() => _CrimeViewContentState();
@@ -119,7 +127,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
     return Column(
       key: const ValueKey('CategoriesList'),
       children: [
-        _buildHeader('العالم السفلي 🎭', 'اختر فئة إجرامية للبدء بعملياتك', null),
+        _buildHeader('العالم السفلي 🎭', 'اختر فئة إجرامية للبدء بعملياتك', widget.onBack),
         Expanded(
           child: ListView.builder(
             itemCount: CrimeData.categories.length,
@@ -132,6 +140,31 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                 int prevCatLastCrimeCount = player.crimeSuccessCountsMap[prevCatLastCrimeId] ?? 0;
                 isCategoryUnlocked = prevCatLastCrimeCount >= 10;
               }
+
+              // 🟢 حساب الجرائم المفتوحة واستثناء المكتملة 3 نجوم (500)
+              int activeCrimesCount = 0;
+              if (isCategoryUnlocked) {
+                List<Map<String, dynamic>> catCrimes = CrimeData.getCrimesForCategory(catIndex);
+                for (int i = 0; i < catCrimes.length; i++) {
+                  String cId = catCrimes[i]['id'];
+                  int cSuccess = player.crimeSuccessCountsMap[cId] ?? 0;
+
+                  bool unlocked = true;
+                  if (i > 0) {
+                    String prevId = catCrimes[i - 1]['id'];
+                    if ((player.crimeSuccessCountsMap[prevId] ?? 0) < 10) {
+                      unlocked = false;
+                    }
+                  }
+
+                  if (unlocked) {
+                    if (cSuccess < 500) activeCrimesCount++;
+                  } else {
+                    break;
+                  }
+                }
+              }
+
               return Card(
                 color: Colors.black87,
                 margin: const EdgeInsets.only(bottom: 12),
@@ -163,7 +196,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(category['name'], style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.white : Colors.white30, fontWeight: FontWeight.bold, fontSize: 18)),
-                              Text(isCategoryUnlocked ? '20 مهمة متاحة للعب' : 'مغلق 🔒', style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.greenAccent : Colors.redAccent, fontSize: 12)),
+                              Text(isCategoryUnlocked ? (activeCrimesCount > 0 ? '$activeCrimesCount أهداف بانتظارك.. خلّص عليهم' : 'نظفت المنطقة بالكامل 👑') : 'مو مستواك للحين 🔒', style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.greenAccent : Colors.redAccent, fontSize: 12)),
                             ],
                           ),
                         ),
@@ -196,8 +229,18 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
             itemBuilder: (context, crimeIndex) {
               Map<String, dynamic> crime = crimes[crimeIndex];
               String crimeId = crime['id'];
+
+              // 🟢 حساب النجوم والنسبة الجديد
               int successCount = player.crimeSuccessCountsMap[crimeId] ?? 0;
-              int stars = successCount >= 50 ? 3 : successCount >= 25 ? 2 : successCount >= 10 ? 1 : 0;
+              int stars = successCount >= 500 ? 3 : successCount >= 50 ? 2 : successCount >= 10 ? 1 : 0;
+
+              double progressValue = 0.0;
+              if (stars == 3) progressValue = 1.0;
+              else if (stars == 2) progressValue = (successCount - 50) / 450;
+              else if (stars == 1) progressValue = (successCount - 10) / 40;
+              else progressValue = successCount / 10;
+              progressValue = progressValue.clamp(0.0, 1.0);
+
               bool isCrimeUnlocked = true;
               if (crimeIndex > 0) {
                 String prevCrimeId = crimes[crimeIndex - 1]['id'];
@@ -224,7 +267,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                   leading: Stack(
                     alignment: Alignment.center,
                     children: [
-                      CircularProgressIndicator(value: stars == 3 ? 1.0 : (stars == 2 ? (successCount - 25) / 25 : stars == 1 ? (successCount - 10) / 15 : successCount / 10), color: mainColor, backgroundColor: Colors.white10),
+                      CircularProgressIndicator(value: progressValue, color: mainColor, backgroundColor: Colors.white10),
                       Icon(category['icon'], color: isCrimeUnlocked ? Colors.white : Colors.white24, size: 20),
                     ],
                   ),
@@ -295,22 +338,18 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
 
     if (player.uid == null || player.uid!.isEmpty) return;
 
-    // 🟢 تم حذف سطر خصم الشجاعة المحلي لمنع إنزال طاقة الحقنة، السيرفر سيقوم بالتحديث
-    // if (player.courage >= reqCourage) player.setCourage(player.courage - reqCourage);
-
     cubit.attemptCrime(
       uid: player.uid!,
       crime: crime,
       finalFailChance: finalFailChance,
       maxCourage: player.maxCourage,
       maxEnergy: player.maxEnergy,
-      onSuccessCallback: (reward, crimeId, energyUsed, droppedGold, droppedEnergy, evadedPolice) {
+      onSuccessCallback: (reward, crimeId, xpGained, energyUsed, droppedGold, droppedEnergy, evadedPolice, earnedTitle) {
         player.increaseHeat(crime['heat']);
         if (evadedPolice) player.reduceHeat(10.0);
         if (player.equippedCrimeToolId != null) player.reduceDurability(player.equippedCrimeToolId, 5.0);
 
-        // 🟢 نمرر قيمة crime['xp'] الحقيقية هنا بدلاً من التجاهل
-        widget.onSuccess(reward, crimeId, crime['xp'], energyUsed, droppedGold, droppedEnergy, evadedPolice, () {
+        widget.onSuccess(reward, crimeId, crime['xp'], energyUsed, droppedGold, droppedEnergy, evadedPolice, earnedTitle, () {
           _handleCrimeClick(context, player, cubit, crime, isUnlocked, finalFailChance);
         });
       },

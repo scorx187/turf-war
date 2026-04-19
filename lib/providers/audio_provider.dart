@@ -1,3 +1,5 @@
+// المسار: lib/providers/audio_provider.dart
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
@@ -21,11 +23,9 @@ class AudioProvider with ChangeNotifier {
   void _initAudio() {
     _bgPlayer.setReleaseMode(ReleaseMode.loop);
 
-    // 💡 التعديل الوحيد: خلينا مشغلات المؤثرات "سريعة الاستجابة" عشان ما توقف الموسيقى
     _clickPlayer.setPlayerMode(PlayerMode.lowLatency);
     _combatPlayer.setPlayerMode(PlayerMode.lowLatency);
 
-    // كودك الأصلي مثل ما هو (بدون كلمة const اللي خربت الدنيا)
     AudioPlayer.global.setAudioContext(AudioContext(
       android: const AudioContextAndroid(
         isSpeakerphoneOn: false,
@@ -43,10 +43,11 @@ class AudioProvider with ChangeNotifier {
     ));
   }
 
-  Future<void> playBGM() async {
+  // 🟢 التعديل هنا: الدالة تقبل اسم الملف الصوتي وتستخدم الموسيقى الأساسية كافتراضي
+  Future<void> playBGM([String track = 'bg_music.mp3']) async {
     if (_isMuted) return;
     try {
-      await _bgPlayer.setSource(AssetSource('audio/bg_music.mp3'));
+      await _bgPlayer.setSource(AssetSource('audio/$track'));
       await _bgPlayer.setVolume(_bgNormalVolume);
       await _bgPlayer.resume();
       _bgStarted = true;
@@ -88,12 +89,10 @@ class AudioProvider with ChangeNotifier {
     }
   }
 
-  // --- [إضافة جديدة] دالة إيقاف الموسيقى عند الخروج من التطبيق ---
   Future<void> pauseBGM() async {
     await _bgPlayer.pause();
   }
 
-  // --- [إضافة جديدة] دالة استئناف الموسيقى عند العودة للتطبيق ---
   Future<void> resumeBGM() async {
     if (!_isMuted) {
       await _bgPlayer.resume();

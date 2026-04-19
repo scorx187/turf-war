@@ -13,7 +13,7 @@ class CrimeCubit extends Cubit<CrimeState> {
   CrimeCubit() : super(CrimeState());
 
   double calculateFailChance(Map<String, dynamic> crime, double heat, int successCount, int catIndex, String? equippedToolId, double toolDurability, String? equippedMaskId) {
-    int stars = successCount >= 50 ? 3 : successCount >= 25 ? 2 : successCount >= 10 ? 1 : 0;
+    int stars = successCount >= 500 ? 3 : successCount >= 50 ? 2 : successCount >= 10 ? 1 : 0;
     double heatPenalty = (heat / 100) * 0.3;
     double finalFailChance = (crime['failChance'] as double) + heatPenalty - (stars * 0.05);
 
@@ -39,7 +39,7 @@ class CrimeCubit extends Cubit<CrimeState> {
     required double finalFailChance,
     required int maxCourage,
     required int maxEnergy,
-    required Function(int, String, int, int, int, bool) onSuccessCallback, // 🟢 تم إضافة boolean الشرطة
+    required Function(int, String, int, int, int, int, bool, String?) onSuccessCallback, // 🟢 تم إضافة اللقب
     required Function(int, String, int) onFailureCallback,
   }) async {
 
@@ -60,10 +60,9 @@ class CrimeCubit extends Cubit<CrimeState> {
       );
 
       if (data['success'] == true) {
-        // 🟢 15% فرصة لتضييع الشرطة وتمريرها للواجهة
         bool evadedPolice = _random.nextDouble() < 0.15;
-
-        onSuccessCallback(data['reward'] ?? 0, crime['id'], 0, data['droppedGold'] ?? 0, data['droppedEnergy'] ?? 0, evadedPolice);
+        // 🟢 تمرير اللقب (إن وجد)
+        onSuccessCallback(data['reward'] ?? 0, crime['id'], crime['xp'], 0, data['droppedGold'] ?? 0, data['droppedEnergy'] ?? 0, evadedPolice, data['earnedTitle']);
         emit(state.copyWith(isLoading: false));
       } else {
         onFailureCallback(data['prisonMinutes'] ?? 0, crime['name'], data['bailCost'] ?? 0);

@@ -3,7 +3,7 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 
 // =======================================================
-// 1. دالة الجرائم (مع نظام تراكم الطاقة Overcharge ووزنية الـ XP)
+// 1. دالة الجرائم (مع حماية التراكم ونظام الألقاب عند الختم)
 // =======================================================
 exports.commitCrime = functions.https.onCall(async (request) => {
     const payload = request.data || request;
@@ -22,39 +22,46 @@ exports.commitCrime = functions.https.onCall(async (request) => {
         if (pData.isInPrison) throw new functions.https.HttpsError('failed-precondition', 'لا يمكنك تنفيذ جريمة وأنت في السجن!');
 
         let currentCourage = pData.courage !== undefined ? pData.courage : 30;
-        if (pData.lastCourageUpdate) {
+        let mCourage = maxCourage || 30;
+
+        if (pData.lastCourageUpdate && currentCourage < mCourage) {
             let lastUpdate = pData.lastCourageUpdate.toDate ? pData.lastCourageUpdate.toDate() : new Date(pData.lastCourageUpdate);
             let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
-            currentCourage += Math.floor(secondsPassed / 4);
-            let mCourage = maxCourage || 30;
-            if (currentCourage > mCourage) currentCourage = mCourage;
+            let regenerated = Math.floor(secondsPassed / 4);
+            if (regenerated > 0) {
+                currentCourage += regenerated;
+                if (currentCourage > mCourage) currentCourage = mCourage;
+            }
         }
 
         if (currentCourage < reqCourage) {
             throw new functions.https.HttpsError('failed-precondition', 'شجاعة غير كافية!');
         }
 
+        let newCourage = currentCourage - reqCourage;
         let updates = {
-            courage: currentCourage - reqCourage,
-            lastCourageUpdate: admin.firestore.FieldValue.serverTimestamp()
+            courage: newCourage
         };
+
+        if (newCourage < mCourage) {
+            updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
+        }
 
         const isSuccess = Math.random() >= finalFailChance;
         let reward = 0, prisonMinutes = 0, bailCost = 0;
         let droppedGold = 0;
         let droppedEnergy = 0;
+        let earnedTitle = null; // 🟢 متغير اللقب الجديد
 
         if (isSuccess) {
             reward = Math.floor(Math.random() * (maxCash - minCash + 1)) + minCash;
             updates.cash = admin.firestore.FieldValue.increment(reward);
 
-            // 🟢 حساب الطاقة الحالية بدقة (مع السماح بتجاوز الماكس Overcharge)
             let currentEnergy = pData.energy !== undefined ? pData.energy : 100;
             let mEnergy = maxEnergy || 100;
             let energyChanged = false;
 
-            // لا نحسب الاسترجاع الزمني أبداً إذا كانت الطاقة أعلى من أو تساوي الماكس
             if (pData.lastEnergyUpdate && currentEnergy < mEnergy) {
                 let lastUpdateE = pData.lastEnergyUpdate.toDate ? pData.lastEnergyUpdate.toDate() : new Date(pData.lastEnergyUpdate);
                 let nowE = new Date();
@@ -74,18 +81,13 @@ exports.commitCrime = functions.https.onCall(async (request) => {
 
             if (Math.random() < 0.15) {
                 droppedEnergy = Math.floor(Math.random() * 11) + 5;
-                // 🟢 إضافة الطاقة المتساقطة مباشرة على الطاقة الحالية مهما كانت! (ستصبح 118 مثلاً)
                 updates.energy = currentEnergy + droppedEnergy;
             } else if (energyChanged) {
-                // حفظ التجديد الزمني إذا لم يحصل على طاقة متساقطة
                 updates.energy = currentEnergy;
             }
 
-            // 🟢 نظام الترقية الجديد (توازن البدايات والنهايات)
             let currentXP = (pData.crimeXP || 0) + xp;
             let currentLevel = pData.crimeLevel || 1;
-
-            // معادلة متوازنة جداً: البداية 250 وتزيد بنسبة 6% لكل لفل
             let nextLevelXp = Math.floor(250 * Math.pow(1.06, currentLevel - 1));
 
             let leveledUp = false;
@@ -100,14 +102,21 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             if (leveledUp) {
                 updates.crimeLevel = currentLevel;
                 let newMaxCourage = (pData.isVIP ? 60 : 29) + currentLevel;
-                updates.courage = newMaxCourage;
-                // إذا ترقى نملأ طاقته، لكن إذا كانت طاقته أعلى من الماكس أساساً نحافظ عليها!
+                updates.courage = Math.max(newCourage, newMaxCourage);
                 updates.energy = Math.max(currentEnergy + droppedEnergy, maxEnergy || 100);
                 updates.lastCourageUpdate = admin.firestore.FieldValue.serverTimestamp();
             }
 
+            // 🟢 نظام الختم (الـ 3 نجوم) والألقاب
             const currentCount = (pData.crimeSuccessCountsMap && pData.crimeSuccessCountsMap[crimeId]) ? pData.crimeSuccessCountsMap[crimeId] : 0;
-            updates[`crimeSuccessCountsMap.${crimeId}`] = currentCount + 1;
+            const newCount = currentCount + 1;
+            updates[`crimeSuccessCountsMap.${crimeId}`] = newCount;
+
+            if (newCount === 500) {
+                earnedTitle = `أسطورة ${crimeName}`;
+                updates.titles = admin.firestore.FieldValue.arrayUnion(earnedTitle);
+            }
+
         } else {
             updates.isInPrison = true;
             prisonMinutes = 2 + (reqCourage * 2);
@@ -125,7 +134,8 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             prisonMinutes: prisonMinutes,
             bailCost: bailCost,
             droppedGold: droppedGold,
-            droppedEnergy: droppedEnergy
+            droppedEnergy: droppedEnergy,
+            earnedTitle: earnedTitle // 🟢 نرسل اللقب لواجهة الجوال
         };
     });
 });
@@ -1130,9 +1140,11 @@ exports.consumeItem = functions.https.onCall(async (request) => {
         // 1. خصم العنصر من المخزن
         updates[`inventory.${itemId}`] = inventory[itemId] - 1;
 
-        // 2. حساب القيم القصوى
-        let maxEnergy = (data.vipUntil && new Date(data.vipUntil) > new Date()) ? 200 : 100;
-        let maxCourage = (data.vipUntil && new Date(data.vipUntil) > new Date()) ? 200 : 100;
+        // 2. 🟢 حساب القيم القصوى بشكل دقيق للـ VIP والمستوى
+        let isVip = (data.vipUntil && new Date(data.vipUntil) > new Date());
+        let maxEnergy = isVip ? 200 : 100;
+        let currentLevel = data.crimeLevel || 1;
+        let maxCourage = (isVip ? 60 : 29) + currentLevel; // تم حل مشكلة الـ 200 هنا
         let maxHealth = data.maxHealth || 100;
 
         // 3. تطبيق تأثير العنصر

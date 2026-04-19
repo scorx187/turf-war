@@ -355,7 +355,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _showCrimeSuccessPopup(PlayerProvider player, int reward, String crimeId, int xpGained, bool gotCar, int bonusGold, int bonusEnergy, bool evadedPolice, VoidCallback onRetry) {
+  void _showCrimeSuccessPopup(PlayerProvider player, int reward, String crimeId, int xpGained, bool gotCar, int bonusGold, int bonusEnergy, bool evadedPolice, String? earnedTitle, VoidCallback onRetry) {
     showGeneralDialog(
       context: context,
       barrierDismissible: false,
@@ -384,24 +384,26 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      // 🟢 تم عكس الترتيب هنا: بما أن التطبيق RTL (من اليمين لليسار)،
-                      // العنصر الأول سيكون في اليمين (الخبرة)، والثاني في اليسار (الكاش).
                       _buildPopupRewardItem('خبرة', '+$xpGained XP', Colors.blue, 'assets/images/icons/lv.png', isImage: true),
                       _buildPopupRewardItem('كاش', '+\$${_formatNumber(reward)}', Colors.green, 'assets/images/icons/cash.png', isImage: true),
                     ],
                   ),
-                  if (bonusGold > 0 || bonusEnergy > 0 || gotCar || evadedPolice) ...[
+                  if (bonusGold > 0 || bonusEnergy > 0 || gotCar || evadedPolice || earnedTitle != null) ...[
                     const SizedBox(height: 20),
                     const Divider(color: Colors.white24),
                     const Text('أحداث إضافية 🎁', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.amber)),
                     const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    // 🟢 استخدام Wrap بدلاً من Row لضمان عدم خروج العناصر عن الشاشة
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 15,
+                      runSpacing: 15,
                       children: [
                         if (bonusGold > 0) _buildPopupRewardItem('ذهب', '+$bonusGold', Colors.amber, 'assets/images/icons/gold.png', isImage: true),
                         if (bonusEnergy > 0) _buildPopupRewardItem('طاقة', '+$bonusEnergy', Colors.orange, 'assets/images/icons/energy.png', isImage: true),
                         if (gotCar) _buildPopupRewardItem('سيارة', 'مسروقة!', Colors.redAccent, 'assets/images/icons/inventory.png', isImage: true),
                         if (evadedPolice) _buildPopupRewardItem('تمويه', '-10% ملاحقة', Colors.tealAccent, Icons.local_police, isImage: false),
+                        if (earnedTitle != null) _buildPopupRewardItem('لقب جديد!', earnedTitle, Colors.purpleAccent, Icons.military_tech, isImage: false), // 🟢 إضافة اللقب هنا
                       ],
                     )
                   ],
@@ -496,6 +498,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     onPressed: () {
                       Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
                       Navigator.pop(context);
+                      Provider.of<AudioProvider>(context, listen: false).playBGM("bg_music.mp3");
                       setState(() { _selectedIndex = 2; _activeArea = 'السجن'; });
                     },
                     child: const Text('الذهاب للسجن', style: TextStyle(fontFamily: 'Changa', fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
@@ -737,7 +740,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       ),
       bottomNavigationBar: Consumer<PlayerProvider>(
           builder: (context, player, child) {
-            if ((_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5) return const SizedBox.shrink();
+            if (_selectedIndex == 3 || (_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5) return const SizedBox.shrink();
             if (player.isInPrison) {
               return BottomNavBar(
                 selectedIndex: _selectedIndex, isInPrison: true, onEscapeTapped: () => _attemptPrisonEscape(player),
@@ -752,7 +755,16 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             }
             return BottomNavBar(
               selectedIndex: _selectedIndex, isHospitalized: false, isInPrison: false,
-              onItemTapped: (index) { Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); setState(() { _selectedIndex = index; if (index == 2) _activeArea = 'الخريطة'; }); },
+              onItemTapped: (index) {
+                final audio = Provider.of<AudioProvider>(context, listen: false);
+                audio.playEffect('click.mp3');
+                if (index == 3) {
+                  audio.playBGM("The ledger's wight.mp3");
+                } else {
+                  audio.playBGM("bg_music.mp3");
+                }
+                setState(() { _selectedIndex = index; if (index == 2) _activeArea = 'الخريطة'; });
+              },
             );
           }
       ),
@@ -803,12 +815,17 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (_selectedIndex == 3) {
       return CrimeView(
         courage: player.courage,
-        // 🟢 استقبال xpGained الحقيقي القادم من واجهة الجرائم
-        onSuccess: (reward, crimeId, xpGained, energyUsed, droppedGold, droppedEnergy, evadedPolice, onRetry) {
+        onBack: () {
+          final audio = Provider.of<AudioProvider>(context, listen: false);
+          audio.playEffect('click.mp3');
+          audio.playBGM("bg_music.mp3");
+          setState(() => _selectedIndex = 2);
+        },
+        onSuccess: (reward, crimeId, xpGained, energyUsed, droppedGold, droppedEnergy, evadedPolice, earnedTitle, onRetry) {
           final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
           bool gotCar = false;
           if (crimeId.startsWith('cat_3_') || crimeId.startsWith('cat_6_')) { if(Random().nextDouble() < 0.3) gotCar = true; }
-          _showCrimeSuccessPopup(player, reward, crimeId, xpGained, gotCar, droppedGold, droppedEnergy, evadedPolice, onRetry);
+          _showCrimeSuccessPopup(player, reward, crimeId, xpGained, gotCar, droppedGold, droppedEnergy, evadedPolice, earnedTitle, onRetry);
         },
         onFailure: (minutes, crimeName, bailCost) {
           final audio = Provider.of<AudioProvider>(context, listen: false); audio.playEffect('click.mp3');
