@@ -117,7 +117,7 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
     _lastTick = now;
 
     int crimeLevel = _serverData['crimeLevel'] ?? 1; // 🟢 جلبنا اللفل
-    int maxHealth = _serverData['maxHealth'] ?? 100;
+    int maxHealth = 100 + (crimeLevel * 10);
     int maxEnergy = 100;
     int maxPrestige = 100;
 
