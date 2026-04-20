@@ -55,7 +55,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _gold = 0;
   int _bankBalance = 0;
 
-  // 🟢 المتغيرات الأساسية للموارد (القيمة وقت التحديث فقط)
   int _energy = 100;
   int _courage = 30;
   DateTime? _lastEnergyUpdate;
@@ -187,31 +186,33 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return _lastServerTime!.add(_sessionTimer.elapsed);
   }
 
-  // 🟢 الدوال الاحترافية للطاقة والشجاعة (حساب رياضي دقيق يمنع الأخطاء)
+  // 🟢 الدوال الاحترافية للطاقة والشجاعة بالتوقيت الجديد
   int get energy {
     if (_lastEnergyUpdate == null) return _energy;
     int secondsPassed = DateTime.now().difference(_lastEnergyUpdate!).inSeconds;
-    return min(maxEnergy, _energy + (secondsPassed ~/ 8));
+    int interval = isVIP ? 9 : 18;
+    return min(maxEnergy, _energy + (secondsPassed ~/ interval));
   }
 
   int get courage {
     if (_lastCourageUpdate == null) return _courage;
     int secondsPassed = DateTime.now().difference(_lastCourageUpdate!).inSeconds;
-    return min(maxCourage, _courage + (secondsPassed ~/ 4));
+    return min(maxCourage, _courage + (secondsPassed ~/ 36));
   }
 
   int get secondsToNextEnergy {
     if (energy >= maxEnergy) return 0;
-    if (_lastEnergyUpdate == null) return 8;
+    int interval = isVIP ? 9 : 18;
+    if (_lastEnergyUpdate == null) return interval;
     int secondsPassed = DateTime.now().difference(_lastEnergyUpdate!).inSeconds;
-    return 8 - (secondsPassed % 8);
+    return interval - (secondsPassed % interval);
   }
 
   int get secondsToNextCourage {
     if (courage >= maxCourage) return 0;
-    if (_lastCourageUpdate == null) return 4;
+    if (_lastCourageUpdate == null) return 36;
     int secondsPassed = DateTime.now().difference(_lastCourageUpdate!).inSeconds;
-    return 4 - (secondsPassed % 4);
+    return 36 - (secondsPassed % 36);
   }
 
   double get baseStrength => _baseStrength;
@@ -398,7 +399,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _baseStrength = (data['strength'] ?? 5.0).toDouble(); _baseDefense = (data['defense'] ?? 5.0).toDouble(); _baseSkill = (data['skill'] ?? 5.0).toDouble(); _baseSpeed = (data['speed'] ?? 5.0).toDouble();
     _bonusPerkPoints = data['bonusPerkPoints'] ?? 0;
 
-    // 🟢 السحب المباشر الدقيق (لا حاجة للشروط القديمة)
     _energy = data['energy'] ?? _energy;
     if (data['lastEnergyUpdate'] != null) {
       _lastEnergyUpdate = (data['lastEnergyUpdate'] is Timestamp) ? (data['lastEnergyUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastEnergyUpdate'].toString());
@@ -501,13 +501,21 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
     if (data['lastUpdate'] != null) {
       DateTime serverTime = (data['lastUpdate'] is Timestamp) ? (data['lastUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastUpdate'].toString());
-
       int secondsPassed = DateTime.now().difference(serverTime).inSeconds;
 
       if (!_isInitialDataLoaded && secondsPassed > 0) {
-        int gainedPrestige = secondsPassed ~/ 6; _prestige = min(maxPrestige, _prestige + gainedPrestige);
-        double regenPerSecond = maxHealth / 1800.0; int gainedHealth = (secondsPassed * regenPerSecond).toInt();
+        bool isVipNow = _vipUntil != null && secureNow.isBefore(_vipUntil!);
+
+        // 🟢 تعويض الشهامة/الهيبة
+        int gainedPrestige = secondsPassed ~/ (isVipNow ? 36 : 72);
+        _prestige = min(maxPrestige, _prestige + gainedPrestige);
+
+        // 🟢 تعويض الصحة بناءً على المعادلة الجديدة
+        double healthRegenTime = 1800.0 + (maxHealth * 0.0005);
+        double regenPerSecond = maxHealth / healthRegenTime;
+        int gainedHealth = (secondsPassed * regenPerSecond).toInt();
         _health = min(maxHealth, _health + gainedHealth);
+
         double lostHeat = secondsPassed * 0.0278; _heat = max(0, _heat - lostHeat);
         Future.microtask(() => _syncWithFirestore());
       }
@@ -571,7 +579,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   bool attemptEscape() {
     if (courage < 10 || !_isInPrison) return false;
     _courage = courage - 10;
-    _lastCourageUpdate = DateTime.now(); // 🟢 نحدث وقت الخصم ليتماشى مع المعادلة
+    _lastCourageUpdate = DateTime.now();
     bool success = Random().nextDouble() < 0.3;
     if (success) {
       _isInPrison = false;
@@ -585,7 +593,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
   void addEnergy(int amount) {
     _energy = min(maxEnergy, energy + amount);
-    _lastEnergyUpdate = DateTime.now(); // 🟢 نحدث وقت الزيادة
+    _lastEnergyUpdate = DateTime.now();
     _syncWithFirestore();
     notifyListeners();
   }
@@ -672,16 +680,22 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
       if (_heat > 0) { _heat = max(0, _heat - 0.0278); localChanged = true; }
 
-      // الهيبة لا تزال بالعداد الكلاسيكي
-      if (timer.tick % 6 == 0 && _prestige < maxPrestige) { _prestige++; localChanged = true; }
+      // 🟢 تعبئة الهيبة/الشهامة في الـ Timer
+      if (timer.tick % (isVIP ? 36 : 72) == 0 && _prestige < maxPrestige) {
+        _prestige++; localChanged = true;
+      }
 
-      // 🟢 إجبار الواجهة على التحديث لسحب الموارد من المعادلة الرياضية بثبات تام
       if (energy < maxEnergy || courage < maxCourage) { localChanged = true; }
 
+      // 🟢 تعبئة الصحة المتغيرة (كل ما كبر الدم زاد الوقت)
       if (_health < maxHealth) {
-        double regenPerSecond = maxHealth / 1800.0; _fractionalHealth += regenPerSecond;
+        double healthRegenTime = 1800.0 + (maxHealth * 0.0005);
+        double regenPerSecond = maxHealth / healthRegenTime;
+        _fractionalHealth += regenPerSecond;
         if (_fractionalHealth >= 1.0) {
-          int healAmount = _fractionalHealth.toInt(); _health = min(maxHealth, _health + healAmount); _fractionalHealth -= healAmount; localChanged = true;
+          int healAmount = _fractionalHealth.toInt();
+          _health = min(maxHealth, _health + healAmount);
+          _fractionalHealth -= healAmount; localChanged = true;
           if (_health >= maxHealth && _isHospitalized) {
             _isHospitalized = false; _hospitalReleaseTime = null;
             _sendSystemNotification("المستشفى 🏥", "تعافيت بالكامل وخرجت من المستشفى!", "hospital");

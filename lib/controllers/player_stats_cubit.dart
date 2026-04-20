@@ -40,35 +40,82 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
     _listenToPlayer(uid);
   }
 
+  double getBaseHealthForLevel(int level) {
+    if (level <= 100) {
+      return (100 * pow(1.06, level - 1)).toDouble();
+    } else {
+      double hpAt100 = (100 * pow(1.06, 99)).toDouble();
+      return (hpAt100 * pow(1.0194488, level - 100)).toDouble();
+    }
+  }
+
   void _listenToPlayer(String uid) {
     _playerSubscription?.cancel();
     _playerSubscription = FirebaseFirestore.instance.collection('players').doc(uid).snapshots().listen((snapshot) {
       if (snapshot.exists) {
         _serverData = snapshot.data() as Map<String, dynamic>;
+        DateTime now = DateTime.now();
+
+        // 🟢 1. حساب الحد الأقصى للموارد أولاً لضمان عدم تجاوزه
+        int crimeLevel = _serverData['crimeLevel'] ?? 1;
+        int maxEnergy = 100;
+        int maxPrestige = 100;
+        bool isVIP = false;
+        if (_serverData['vipUntil'] != null) {
+          isVIP = DateTime.parse(_serverData['vipUntil']).isAfter(now);
+          if (isVIP) {
+            maxEnergy = 200;
+            maxPrestige = 200;
+          }
+        }
+        int maxCourage = 29 + crimeLevel + (isVIP ? 50 : 0);
+
+        // 🟢 2. الحسبة السحرية: تعويض الموارد بناءً على فترة الغياب (Offline Progress)
+        double realEnergy = (_serverData['energy'] ?? 100).toDouble();
+        if (_serverData['lastEnergyUpdate'] != null) {
+          DateTime lastE = (_serverData['lastEnergyUpdate'] is Timestamp)
+              ? (_serverData['lastEnergyUpdate'] as Timestamp).toDate()
+              : DateTime.parse(_serverData['lastEnergyUpdate'].toString());
+          int sec = now.difference(lastE).inSeconds;
+          if (sec > 0) realEnergy += (sec / (isVIP ? 9.0 : 18.0)); // 30 دقيقة فل
+        }
+        realEnergy = min(realEnergy, maxEnergy.toDouble());
+
+        double realCourage = (_serverData['courage'] ?? 30).toDouble();
+        if (_serverData['lastCourageUpdate'] != null) {
+          DateTime lastC = (_serverData['lastCourageUpdate'] is Timestamp)
+              ? (_serverData['lastCourageUpdate'] as Timestamp).toDate()
+              : DateTime.parse(_serverData['lastCourageUpdate'].toString());
+          int secC = now.difference(lastC).inSeconds;
+          if (secC > 0) realCourage += (secC / 36.0); // 50 نقطة كل نص ساعة
+        }
+        realCourage = min(realCourage, maxCourage.toDouble());
 
         if (!_isInitialized) {
           _exactHealth = (_serverData['health'] ?? 100).toDouble();
-          _exactEnergy = (_serverData['energy'] ?? 100).toDouble();
-          _exactCourage = (_serverData['courage'] ?? 30).toDouble();
+
+          // 🟢 نمرر الموارد الحقيقية اللي حسبناها بعد الغياب
+          _exactEnergy = realEnergy;
+          _exactCourage = realCourage;
           _exactPrestige = (_serverData['prestige'] ?? 100).toDouble();
 
           _lastSeenServerHealth = _exactHealth.toInt();
-          _lastSeenServerEnergy = _exactEnergy.toInt();
-          _lastSeenServerCourage = _exactCourage.toInt();
+          _lastSeenServerEnergy = (_serverData['energy'] ?? 100).toInt();
+          _lastSeenServerCourage = (_serverData['courage'] ?? 30).toInt();
           _lastSeenServerPrestige = _exactPrestige.toInt();
 
-          _lastTick = DateTime.now();
+          _lastTick = now;
           _isInitialized = true;
         } else {
           int srvEnergy = (_serverData['energy'] ?? 100).toInt();
           if (srvEnergy != _lastSeenServerEnergy) {
-            _exactEnergy = srvEnergy.toDouble();
+            _exactEnergy = realEnergy; // تحديث دقيق
             _lastSeenServerEnergy = srvEnergy;
           }
 
           int srvCourage = (_serverData['courage'] ?? 30).toInt();
           if (srvCourage != _lastSeenServerCourage) {
-            _exactCourage = srvCourage.toDouble();
+            _exactCourage = realCourage; // تحديث دقيق
             _lastSeenServerCourage = srvCourage;
           }
 
@@ -111,7 +158,6 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
 
     int crimeLevel = _serverData['crimeLevel'] ?? 1;
 
-    // 🟢 السيرفر يحفظ لنا (اللفل + تدريب النادي) في maxHealth، نحن نضيف البيركس والمعدات للواجهة
     int baseMaxHealth = _serverData['maxHealth'] ?? 100;
     double finalHp = baseMaxHealth.toDouble();
     Map<dynamic, dynamic> perks = _serverData['perks'] ?? {};
@@ -140,25 +186,27 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
       }
     }
 
-    int maxCourage = (isVIP ? 50 : 0) + crimeLevel;
+    int maxCourage = 29 + crimeLevel + (isVIP ? 50 : 0);
 
+    // 🟢 تطبيق المعادلات الرياضية الجديدة للوقت
     if (_exactHealth < maxHealth) {
-      _exactHealth += (maxHealth / 1800.0) * deltaSeconds;
+      double healthRegenTime = 1800.0 + (maxHealth * 0.0005); // كلما زاد الدم طال الوقت
+      _exactHealth += (maxHealth / healthRegenTime) * deltaSeconds;
       if (_exactHealth > maxHealth) _exactHealth = maxHealth.toDouble();
     }
 
     if (_exactEnergy < maxEnergy) {
-      _exactEnergy += (1.0 / 8.0) * deltaSeconds;
+      _exactEnergy += (1.0 / (isVIP ? 9.0 : 18.0)) * deltaSeconds;
       if (_exactEnergy > maxEnergy) _exactEnergy = maxEnergy.toDouble();
     }
 
     if (_exactCourage < maxCourage) {
-      _exactCourage += (1.0 / 4.0) * deltaSeconds;
+      _exactCourage += (1.0 / 36.0) * deltaSeconds;
       if (_exactCourage > maxCourage) _exactCourage = maxCourage.toDouble();
     }
 
     if (_exactPrestige < maxPrestige) {
-      _exactPrestige += (1.0 / 6.0) * deltaSeconds;
+      _exactPrestige += (1.0 / (isVIP ? 36.0 : 72.0)) * deltaSeconds;
       if (_exactPrestige > maxPrestige) _exactPrestige = maxPrestige.toDouble();
     }
 
@@ -168,7 +216,6 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
   void _updateState() {
     int crimeLevel = _serverData['crimeLevel'] ?? 1;
 
-    // 🟢 تطبيق نفس معادلة الإضافات هنا
     int baseMaxHealth = _serverData['maxHealth'] ?? 100;
     double finalHp = baseMaxHealth.toDouble();
     Map<dynamic, dynamic> perks = _serverData['perks'] ?? {};
@@ -197,7 +244,7 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
       }
     }
 
-    int maxCourage = (isVIP ? 60 : 29) + crimeLevel;
+    int maxCourage = 29 + crimeLevel + (isVIP ? 50 : 0);
 
     int currentXp = _serverData['crimeXP'] ?? 0;
     int maxXp = (250 * pow(1.06, crimeLevel - 1)).toInt();

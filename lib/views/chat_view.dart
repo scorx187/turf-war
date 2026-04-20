@@ -29,7 +29,6 @@ class ChatView extends StatelessWidget {
       views.add(const _ChatListWidget(collectionPath: 'hospital_chat', isGlobal: false, isHospital: true));
     }
 
-    // 🟢 التعديل هنا: إضافة تبويب شات السجن 🟢
     if (player.isInPrison) {
       tabs.add(const Tab(text: "السجن 🚷"));
       views.add(const _ChatListWidget(collectionPath: 'prison_chat', isGlobal: false, isPrison: true));
@@ -72,7 +71,7 @@ class _ChatListWidget extends StatefulWidget {
   final String collectionPath;
   final bool isGlobal;
   final bool isHospital;
-  final bool isPrison; // 🟢 متغير للسجن
+  final bool isPrison;
 
   const _ChatListWidget({
     required this.collectionPath,
@@ -92,7 +91,6 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
   late Stream<QuerySnapshot> _chatStream;
   final ScrollController _scrollController = ScrollController();
 
-  static final Map<String, List<QueryDocumentSnapshot>> _instantCaches = {};
   static Map<String, dynamic>? _cachedAdminMsg;
 
   int _messageLimit = 30;
@@ -155,6 +153,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
       'profilePicUrl': player.profilePicUrl,
       'timestamp': FieldValue.serverTimestamp(),
     });
+
     _controller.clear();
 
     if (_scrollController.hasClients) {
@@ -270,33 +269,32 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
             child: Directionality(textDirection: TextDirection.rtl, child: Row(children: [const Icon(Icons.campaign, color: Colors.amber, size: 20), const SizedBox(width: 8), Expanded(child: Text(_cachedAdminMsg!['message'] ?? '', style: const TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold)))])),
           ),
 
+        // 🟢 التعديل الجوهري هنا: الاعتماد المباشر على بيانات الـ Stream 🟢
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _chatStream,
             builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                _instantCaches[widget.collectionPath] = snapshot.data!.docs;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    // 🟢 إضافة setState لإجبار الشاشة على إعادة الرسم ورؤية الرسائل الأقدم
-                    if (_isFetchingMore || _hasMore != (_instantCaches[widget.collectionPath]!.length >= _messageLimit)) {
-                      setState(() {
-                        _isFetchingMore = false;
-                        _hasMore = _instantCaches[widget.collectionPath]!.length >= _messageLimit;
-                      });
-                    }
-                  }
-                });
-              }
-
-              if (!_instantCaches.containsKey(widget.collectionPath) && snapshot.connectionState == ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator(color: Colors.amber));
               }
 
-              final messages = _instantCaches[widget.collectionPath] ?? [];
+              if (snapshot.hasError) {
+                return const Center(child: Text('خطأ في تحميل المحادثات', style: TextStyle(color: Colors.red, fontFamily: 'Changa')));
+              }
+
+              final messages = snapshot.data?.docs ?? [];
+
               if (messages.isEmpty) {
                 return const Center(child: Text('لا توجد رسائل...', style: TextStyle(color: Colors.white54, fontFamily: 'Changa')));
               }
+
+              // تحديث حالة التحميل (بدون setState تسبب مشاكل أثناء البناء)
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && _isFetchingMore) {
+                  _isFetchingMore = false;
+                  _hasMore = messages.length >= _messageLimit;
+                }
+              });
 
               final currentUserUid = Provider.of<PlayerProvider>(context, listen: false).uid ?? '';
 
@@ -333,7 +331,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (!isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
+                          if (!isMe) _buildAvatar(context, senderUid, isVIP, isMe, picUrl, senderName),
                           if (!isMe) const SizedBox(width: 8),
                           Flexible(
                             child: Directionality(
@@ -359,7 +357,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                             ),
                           ),
                           if (isMe) const SizedBox(width: 8),
-                          if (isMe) _buildAvatar(senderUid, isVIP, isMe, picUrl, senderName),
+                          if (isMe) _buildAvatar(context, senderUid, isVIP, isMe, picUrl, senderName),
                         ],
                       ),
                     ),
@@ -370,6 +368,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
           ),
         ),
 
+        // 🟢 مربع إدخال النص وزر الإرسال 🟢
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: const BoxDecoration(color: Color(0xFF121212), border: Border(top: BorderSide(color: Colors.white10))),
@@ -405,7 +404,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
     );
   }
 
-  Widget _buildAvatar(String uid, bool isVIP, bool isMe, String? picUrl, String name) {
+  Widget _buildAvatar(BuildContext context, String uid, bool isVIP, bool isMe, String? picUrl, String name) {
     final playerProv = Provider.of<PlayerProvider>(context, listen: false);
     final imageBytes = playerProv.getDecodedImage(picUrl);
 

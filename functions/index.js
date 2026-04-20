@@ -49,6 +49,9 @@ exports.commitCrime = functions.https.onCall(async (request) => {
 
         if (pData.isInPrison) throw new functions.https.HttpsError('failed-precondition', 'لا يمكنك تنفيذ جريمة وأنت في السجن!');
 
+        // 🟢 تعريف VIP هنا عشان نستخدمه في الطاقة والشجاعة
+        let isVip = (pData.vipUntil && new Date(pData.vipUntil) > new Date());
+
         let currentCourage = pData.courage !== undefined ? pData.courage : 30;
         let mCourage = maxCourage || 30;
 
@@ -56,7 +59,9 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             let lastUpdate = pData.lastCourageUpdate.toDate ? pData.lastCourageUpdate.toDate() : new Date(pData.lastCourageUpdate);
             let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
-            let regenerated = Math.floor(secondsPassed / 4);
+
+            // 🟢 تعديل الشجاعة: نقطة كل 36 ثانية
+            let regenerated = Math.floor(secondsPassed / 36);
             if (regenerated > 0) {
                 currentCourage += regenerated;
                 if (currentCourage > mCourage) currentCourage = mCourage;
@@ -90,11 +95,15 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             let mEnergy = maxEnergy || 100;
             let energyChanged = false;
 
+            // 🟢 تعديل الطاقة: 9 ثواني للـ VIP و 18 للعادي
+            let energyInterval = isVip ? 9 : 18;
+
             if (pData.lastEnergyUpdate && currentEnergy < mEnergy) {
                 let lastUpdateE = pData.lastEnergyUpdate.toDate ? pData.lastEnergyUpdate.toDate() : new Date(pData.lastEnergyUpdate);
                 let nowE = new Date();
                 let secondsPassedE = Math.floor((nowE.getTime() - lastUpdateE.getTime()) / 1000);
-                let regenerated = Math.floor(secondsPassedE / 8);
+
+                let regenerated = Math.floor(secondsPassedE / energyInterval);
                 if (regenerated > 0) {
                     currentEnergy += regenerated;
                     if (currentEnergy > mEnergy) currentEnergy = mEnergy;
@@ -106,18 +115,13 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             let goldDropChance = Math.min(reqCourage * 0.002, 0.10);
             let energyDropChance = Math.min(reqCourage * 0.0025, 0.12);
 
-            // 🟢 استخراج رقم الفئة من الـ crimeId (مثال: cat_0_crime_20 -> النتيجة 0)
             let catMatch = crimeId.match(/cat_(\d+)/);
             let catIndex = catMatch ? parseInt(catMatch[1]) : 0;
-
-            // 🟢 عقوبة المستوى الجديدة (كل فئة لها 35 لفل كحد أقصى)
-            // الفئة الأولى: 35، الفئة الثانية: 70، الثالثة: 105... إلخ
             let maxLevelForLoot = (catIndex + 1) * 35;
 
             let currentLevelForPenalty = pData.crimeLevel || 1;
             let isOverleveled = currentLevelForPenalty > maxLevelForLoot;
 
-            // إذا تعديت الحد الأقصى للفئة، ينقطع عنك الذهب والطاقة لتنجبر تروح للفئة اللي بعدها!
             let finalGoldChance = isOverleveled ? 0 : goldDropChance;
             let finalEnergyChance = isOverleveled ? 0 : energyDropChance;
 
@@ -128,7 +132,6 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             }
 
             if (finalEnergyChance > 0 && Math.random() < finalEnergyChance) {
-                // 🟢 إزالة استرجاع نصف الشجاعة، السقوط أصبح من 5 إلى 15 طاقة فقط!
                 droppedEnergy = Math.floor(Math.random() * 11) + 5;
                 updates.energy = currentEnergy + droppedEnergy;
             } else if (energyChanged) {
@@ -163,7 +166,6 @@ exports.commitCrime = functions.https.onCall(async (request) => {
                 if (newMaxHealth > 100000000) newMaxHealth = 100000000;
 
                 updates.crimeLevel = currentLevel;
-                let isVip = (pData.vipUntil && new Date(pData.vipUntil) > new Date());
                 let newMaxCourage = 29 + currentLevel + (isVip ? 50 : 0);
 
                 updates.courage = Math.max(newCourage, newMaxCourage);
@@ -228,7 +230,9 @@ exports.attemptEscape = functions.https.onCall(async (request) => {
         let lastUpdate = pData.lastCourageUpdate ? pData.lastCourageUpdate.toDate() : new Date();
         let now = new Date();
         let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
-        let gainedCourage = Math.floor(secondsPassed / 4);
+
+        // 🟢 تعديل الشجاعة: نقطة كل 36 ثانية
+        let gainedCourage = Math.floor(secondsPassed / 36);
         currentCourage += gainedCourage;
 
         let pLevel = pData.crimeLevel || 1;
@@ -959,12 +963,17 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
         let currentEnergy = data.energy !== undefined ? data.energy : 100;
         let mEnergy = maxEnergy || 100;
 
+        // 🟢 تعريف VIP هنا عشان نستخدمه في الطاقة
+        let isVip = (data.vipUntil && new Date(data.vipUntil) > new Date());
+        let energyInterval = isVip ? 9 : 18;
+
         if (data.lastEnergyUpdate && currentEnergy < mEnergy) {
             let lastUpdate = data.lastEnergyUpdate.toDate ? data.lastEnergyUpdate.toDate() : new Date(data.lastEnergyUpdate);
             let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
 
-            let gainedEnergy = Math.floor(secondsPassed / 8);
+            // 🟢 تعديل الطاقة
+            let gainedEnergy = Math.floor(secondsPassed / energyInterval);
             if (gainedEnergy > 0) {
                 currentEnergy += gainedEnergy;
                 if (currentEnergy > mEnergy) currentEnergy = mEnergy;
@@ -1002,6 +1011,22 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
             skill: (data.skill || 5) + skillGain,
             speed: (data.speed || 5) + spdGain,
         };
+
+        if (defGain > 0) {
+            let hpBoostChance = (data.activeCoach === 'tactical') ? 15.0 : 8.0;
+            let randomMultiplier = hpBoostChance + (Math.random() * 7.0);
+            let hpBoost = Math.floor(defGain * randomMultiplier);
+
+            if (hpBoost > 0) {
+                let currentMaxHealth = data.maxHealth || 100;
+                let newMaxHealth = currentMaxHealth + hpBoost;
+
+                if (newMaxHealth > 100000000) newMaxHealth = 100000000;
+
+                updates.maxHealth = newMaxHealth;
+                updates.health = getFinalMaxHealth(data, newMaxHealth);
+            }
+        }
 
         if (newEnergy < mEnergy) {
             updates.lastEnergyUpdate = admin.firestore.FieldValue.serverTimestamp();
