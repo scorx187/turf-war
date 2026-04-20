@@ -236,25 +236,50 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     ];
   }
 
+  // 🟢 رفع الصورة كـ (Bytes) وعرض دائرة تحميل صغيرة 🟢
   Future<void> _pickImage(PlayerProvider player) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 25);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
-      final base64Str = base64Encode(bytes);
-      setState(() => playerData!['profilePicUrl'] = base64Str);
-      player.updateProfilePic(base64Str);
+
+      // إظهار دائرة التحميل
+      showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.amber)));
+
+      // رفع الصورة وجلب الرابط
+      String? newUrl = await player.uploadAndSetProfilePic(bytes);
+
+      if (mounted) {
+        Navigator.pop(context); // إغلاق دائرة التحميل
+        if (newUrl != null) {
+          setState(() {
+            playerData!['profilePicUrl'] = newUrl; // تحديث الصورة فوراً في الواجهة
+          });
+        }
+      }
     }
   }
 
+  // 🟢 رفع الغلاف وعرض دائرة تحميل 🟢
   Future<void> _pickBackgroundImage(PlayerProvider player) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 40);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 60);
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
-      final base64Str = base64Encode(bytes);
-      player.updateBackgroundPic(base64Str);
-      setState(() => playerData!['backgroundPicUrl'] = base64Str);
+
+      // إظهار دائرة التحميل
+      showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.amber)));
+
+      String? newUrl = await player.uploadAndSetBackgroundPic(bytes);
+
+      if (mounted) {
+        Navigator.pop(context); // إغلاق دائرة التحميل
+        if (newUrl != null) {
+          setState(() {
+            playerData!['backgroundPicUrl'] = newUrl; // تحديث الغلاف فوراً
+          });
+        }
+      }
     }
   }
 
@@ -499,8 +524,16 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     bool isMe = widget.targetUid == player.uid;
     bool isVIP = playerData!['isVIP'] == true;
 
-    Uint8List? profilePicData = player.getDecodedImage(isMe ? player.profilePicUrl : playerData!['profilePicUrl']);
-    Uint8List? backgroundPicData = player.getDecodedImage(isMe ? player.backgroundPicUrl : playerData!['backgroundPicUrl']);
+    // 🟢 نظام ذكي لقراءة الصورة: إذا كانت رابط يحملها من النت، وإذا كانت Base64 يفك تشفيرها
+    ImageProvider? getProfileImageProvider(String? url) {
+      if (url == null || url.isEmpty) return null;
+      if (url.startsWith('http')) return NetworkImage(url);
+      final bytes = player.getDecodedImage(url);
+      return bytes != null ? MemoryImage(bytes) : null;
+    }
+
+    ImageProvider? profileImage = getProfileImageProvider(isMe ? player.profilePicUrl : playerData!['profilePicUrl']);
+    ImageProvider? backgroundImage = getProfileImageProvider(isMe ? player.backgroundPicUrl : playerData!['backgroundPicUrl']);
 
     bool isOnline = false;
     if (isMe) {
@@ -569,7 +602,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 15),
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-                          decoration: BoxDecoration(color: const Color(0xFF1E1E1E).withOpacity(0.8), borderRadius: BorderRadius.circular(20), border: Border.all(color: isVIP ? Colors.amber.withOpacity(0.4) : Colors.white10), image: backgroundPicData != null ? DecorationImage(image: MemoryImage(backgroundPicData), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.darken)) : null),
+                          decoration: BoxDecoration(color: const Color(0xFF1E1E1E).withOpacity(0.8), borderRadius: BorderRadius.circular(20), border: Border.all(color: isVIP ? Colors.amber.withOpacity(0.4) : Colors.white10), image: backgroundImage != null ? DecorationImage(image: backgroundImage, fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.darken)) : null),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -578,7 +611,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                                 child: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
-                                    Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF212121), shape: BoxShape.circle, border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null, boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)]), child: CircleAvatar(radius: 40, backgroundColor: Colors.grey[800], backgroundImage: profilePicData != null ? MemoryImage(profilePicData) : null, child: profilePicData == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54) : null)),
+                                    Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF212121), shape: BoxShape.circle, border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null, boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)]), child: CircleAvatar(radius: 40, backgroundColor: Colors.grey[800], backgroundImage: profileImage, child: profileImage == null ? Icon(isVIP ? Icons.workspace_premium : Icons.person, size: 45, color: isVIP ? Colors.amber : Colors.white54) : null)),
                                     Positioned(bottom: 0, right: 0, child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Color(0xFF1A1A1D), shape: BoxShape.circle), child: CircleAvatar(radius: 7, backgroundColor: isOnline ? Colors.greenAccent : Colors.redAccent))),
                                     if (isMe) const Positioned(top: 0, left: 0, child: CircleAvatar(radius: 12, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 14, color: Colors.black)))
                                   ],
@@ -798,7 +831,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                     ),
                   ),
 
-                // 🟢 الزر الجديد: التسليح 🟢
+                // 🟢 زر التسليح 🟢
                 if (isMe)
                   GestureDetector(
                     onTap: () {

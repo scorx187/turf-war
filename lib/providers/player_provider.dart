@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // 🟢 مكتبة الستورج
 import '../utils/game_data.dart';
 import '../utils/local_notification_service.dart';
 
@@ -186,7 +187,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return _lastServerTime!.add(_sessionTimer.elapsed);
   }
 
-  // 🟢 الدوال الاحترافية للطاقة والشجاعة بالتوقيت الجديد
   int get energy {
     if (_lastEnergyUpdate == null) return _energy;
     int secondsPassed = DateTime.now().difference(_lastEnergyUpdate!).inSeconds;
@@ -345,6 +345,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
   }
 
+  // 🟢 لا زالت موجودة للصور القديمة للرجعية
   Uint8List? getDecodedImage(String? base64Str) {
     if (base64Str == null || base64Str.isEmpty) return null;
     if (_decodedImagesCache.containsKey(base64Str)) return _decodedImagesCache[base64Str]!;
@@ -506,11 +507,9 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       if (!_isInitialDataLoaded && secondsPassed > 0) {
         bool isVipNow = _vipUntil != null && secureNow.isBefore(_vipUntil!);
 
-        // 🟢 تعويض الشهامة/الهيبة
         int gainedPrestige = secondsPassed ~/ (isVipNow ? 36 : 72);
         _prestige = min(maxPrestige, _prestige + gainedPrestige);
 
-        // 🟢 تعويض الصحة بناءً على المعادلة الجديدة
         double healthRegenTime = 1800.0 + (maxHealth * 0.0005);
         double regenPerSecond = maxHealth / healthRegenTime;
         int gainedHealth = (secondsPassed * regenPerSecond).toInt();
@@ -680,14 +679,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
       if (_heat > 0) { _heat = max(0, _heat - 0.0278); localChanged = true; }
 
-      // 🟢 تعبئة الهيبة/الشهامة في الـ Timer
       if (timer.tick % (isVIP ? 36 : 72) == 0 && _prestige < maxPrestige) {
         _prestige++; localChanged = true;
       }
 
       if (energy < maxEnergy || courage < maxCourage) { localChanged = true; }
 
-      // 🟢 تعبئة الصحة المتغيرة (كل ما كبر الدم زاد الوقت)
       if (_health < maxHealth) {
         double healthRegenTime = 1800.0 + (maxHealth * 0.0005);
         double regenPerSecond = maxHealth / healthRegenTime;
@@ -747,8 +744,61 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
   void travelToCity(String city, int price) { if (_cash >= price) { _cash -= price; _currentCity = city; _syncWithFirestore(); notifyListeners(); _sendSystemNotification("السفر ✈️", "هبطت طائرتك بسلام في $city!", "info"); } }
   void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
-  void updateProfilePic(String base64Image) { _profilePicUrl = base64Image; notifyListeners(); _syncWithFirestore(); _firestore.collection('chat').where('uid', isEqualTo: _uid).get().then((snapshot) { WriteBatch batch = _firestore.batch(); for (var doc in snapshot.docs) { batch.update(doc.reference, {'profilePicUrl': base64Image}); } batch.commit(); }); }
-  void updateBackgroundPic(String base64Image) { _backgroundPicUrl = base64Image; _syncWithFirestore(); notifyListeners(); }
+
+// 🟢 دوال رفع الصور للـ Storage (معدلة لتتطابق مع حماية فايربيس) 🟢
+  Future<String?> uploadAndSetProfilePic(Uint8List imageBytes) async {
+    if (_uid == null) return null;
+
+    try {
+      // 🟢 حذفنا .jpg من هنا
+      Reference ref = FirebaseStorage.instance.ref().child('profile_pics/$_uid');
+      UploadTask uploadTask = ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
+      TaskSnapshot snapshot = await uploadTask;
+      String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      _profilePicUrl = downloadUrl;
+      await _syncWithFirestore();
+
+      WriteBatch batch = _firestore.batch();
+      var chatQuery = await _firestore.collection('chat').where('uid', isEqualTo: _uid).get();
+      for (var doc in chatQuery.docs) {
+        batch.update(doc.reference, {'profilePicUrl': downloadUrl});
+      }
+      await batch.commit();
+
+      _sendSystemNotification("تحديث الحساب 📸", "تم رفع وتحديث صورتك الشخصية بنجاح!", "info");
+      notifyListeners();
+      return downloadUrl;
+    } catch (e) {
+      debugPrint("خطأ في رفع الصورة: $e");
+      _sendSystemNotification("خطأ ⚠️", "فشل رفع الصورة، تأكد من اتصالك بالإنترنت.", "error");
+      return null;
+    }
+  }
+
+  Future<String?> uploadAndSetBackgroundPic(Uint8List imageBytes) async {
+    if (_uid == null) return null;
+
+    try {
+      // 🟢 وحذفنا .jpg من هنا
+      Reference ref = FirebaseStorage.instance.ref().child('background_pics/$_uid');
+      UploadTask uploadTask = ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
+      TaskSnapshot snapshot = await uploadTask;
+      String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      _backgroundPicUrl = downloadUrl;
+      await _syncWithFirestore();
+
+      _sendSystemNotification("تحديث الحساب 📸", "تم رفع وتحديث صورة الغلاف بنجاح!", "info");
+      notifyListeners();
+      return downloadUrl;
+    } catch (e) {
+      debugPrint("خطأ في رفع صورة الغلاف: $e");
+      _sendSystemNotification("خطأ ⚠️", "فشل رفع صورة الغلاف.", "error");
+      return null;
+    }
+  }
+
   void increaseHeat(double amount) { _heat = min(100, _heat + amount); notifyListeners(); }
   void reduceHeat(double amount) { _heat = max(0, _heat - amount); notifyListeners(); }
   void addCash(int amount, {String reason = "مكافأة", String? senderUid}) { _cash += amount; _addTransaction(reason, amount, true, senderUid: senderUid); _syncWithFirestore(); notifyListeners(); }

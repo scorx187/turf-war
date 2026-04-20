@@ -15,7 +15,6 @@ class ChatView extends StatelessWidget {
   Widget build(BuildContext context) {
     final player = Provider.of<PlayerProvider>(context);
 
-    // 🟢 توليد التبويبات بذكاء بناءً على حالة اللاعب 🟢
     List<Widget> tabs = [const Tab(text: "الشات العام 🌐")];
     List<Widget> views = [const _ChatListWidget(collectionPath: 'chat', isGlobal: true)];
 
@@ -34,12 +33,10 @@ class ChatView extends StatelessWidget {
       views.add(const _ChatListWidget(collectionPath: 'prison_chat', isGlobal: false, isPrison: true));
     }
 
-    // إذا ما عنده إلا الشات العام نعرضه مباشرة بدون تبويبات
     if (tabs.length == 1) {
       return views.first;
     }
 
-    // عرض التبويبات
     return Directionality(
       textDirection: TextDirection.rtl,
       child: DefaultTabController(
@@ -190,7 +187,20 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
 
   Widget _buildBountyCard(BuildContext context, Map<String, dynamic> msg, String currentUserUid) {
     final playerProv = Provider.of<PlayerProvider>(context, listen: false);
-    final imageBytes = playerProv.getDecodedImage(msg['targetPicUrl']);
+
+    // 🟢 قراءة صورة الهدف من الستورج أو النظام القديم
+    ImageProvider? imageProvider;
+    final String? picUrl = msg['targetPicUrl'];
+    if (picUrl != null && picUrl.isNotEmpty) {
+      if (picUrl.startsWith('http')) {
+        imageProvider = NetworkImage(picUrl);
+      } else {
+        final imageBytes = playerProv.getDecodedImage(picUrl);
+        if (imageBytes != null) {
+          imageProvider = MemoryImage(imageBytes);
+        }
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
@@ -204,7 +214,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
             const Divider(color: Colors.white10, height: 10),
             Row(
               children: [
-                CircleAvatar(radius: 20, backgroundColor: Colors.grey[800], backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null, child: imageBytes == null ? const Icon(Icons.person, color: Colors.white54, size: 20) : null),
+                CircleAvatar(radius: 20, backgroundColor: Colors.grey[800], backgroundImage: imageProvider, child: imageProvider == null ? const Icon(Icons.person, color: Colors.white54, size: 20) : null),
                 const SizedBox(width: 10),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('الهدف: ${msg['targetName'] ?? 'مجهول'}', style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 14, fontWeight: FontWeight.bold)), Text('المكافأة: \$${msg['amount']}', textDirection: TextDirection.ltr, style: const TextStyle(color: Colors.greenAccent, fontFamily: 'Changa', fontSize: 13, fontWeight: FontWeight.bold))])),
                 ElevatedButton(
@@ -269,7 +279,6 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
             child: Directionality(textDirection: TextDirection.rtl, child: Row(children: [const Icon(Icons.campaign, color: Colors.amber, size: 20), const SizedBox(width: 8), Expanded(child: Text(_cachedAdminMsg!['message'] ?? '', style: const TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold)))])),
           ),
 
-        // 🟢 التعديل الجوهري هنا: الاعتماد المباشر على بيانات الـ Stream 🟢
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _chatStream,
@@ -288,7 +297,6 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                 return const Center(child: Text('لا توجد رسائل...', style: TextStyle(color: Colors.white54, fontFamily: 'Changa')));
               }
 
-              // تحديث حالة التحميل (بدون setState تسبب مشاكل أثناء البناء)
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && _isFetchingMore) {
                   _isFetchingMore = false;
@@ -368,7 +376,6 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
           ),
         ),
 
-        // 🟢 مربع إدخال النص وزر الإرسال 🟢
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: const BoxDecoration(color: Color(0xFF121212), border: Border(top: BorderSide(color: Colors.white10))),
@@ -404,11 +411,23 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
     );
   }
 
+  // 🟢 قراءة الصور من الستورج بشكل سليم
   Widget _buildAvatar(BuildContext context, String uid, bool isVIP, bool isMe, String? picUrl, String name) {
     final playerProv = Provider.of<PlayerProvider>(context, listen: false);
-    final imageBytes = playerProv.getDecodedImage(picUrl);
 
-    Widget avatarChild = imageBytes == null
+    ImageProvider? imageProvider;
+    if (picUrl != null && picUrl.isNotEmpty) {
+      if (picUrl.startsWith('http')) {
+        imageProvider = NetworkImage(picUrl);
+      } else {
+        final imageBytes = playerProv.getDecodedImage(picUrl);
+        if (imageBytes != null) {
+          imageProvider = MemoryImage(imageBytes);
+        }
+      }
+    }
+
+    Widget avatarChild = imageProvider == null
         ? Icon(widget.isHospital ? Icons.sick : (widget.isPrison ? Icons.lock : (isVIP ? Icons.workspace_premium : Icons.person)), color: widget.isHospital ? Colors.redAccent : (widget.isPrison ? Colors.grey : (isVIP ? Colors.amber : Colors.white54)), size: 18)
         : const SizedBox.shrink();
 
@@ -424,7 +443,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
       child: Container(
           width: 35, height: 35,
           decoration: BoxDecoration(color: Colors.grey[800], shape: BoxShape.circle, border: isVIP ? Border.all(color: Colors.amberAccent, width: 1.5) : null),
-          child: CircleAvatar(backgroundColor: Colors.transparent, backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null, child: avatarChild)
+          child: CircleAvatar(backgroundColor: Colors.transparent, backgroundImage: imageProvider, child: avatarChild)
       ),
     );
   }
