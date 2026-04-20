@@ -745,16 +745,18 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   void travelToCity(String city, int price) { if (_cash >= price) { _cash -= price; _currentCity = city; _syncWithFirestore(); notifyListeners(); _sendSystemNotification("السفر ✈️", "هبطت طائرتك بسلام في $city!", "info"); } }
   void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
 
-// 🟢 دوال رفع الصور للـ Storage (معدلة لتتطابق مع حماية فايربيس) 🟢
+// 🟢 دالة رفع الصورة الشخصية (مُعدّلة) 🟢
   Future<String?> uploadAndSetProfilePic(Uint8List imageBytes) async {
     if (_uid == null) return null;
 
     try {
-      // 🟢 حذفنا .jpg من هنا
       Reference ref = FirebaseStorage.instance.ref().child('profile_pics/$_uid');
       UploadTask uploadTask = ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // التعديل السحري هنا: إضافة ختم زمني لكسر الكاش وإجبار الواجهة على التحديث الفوري
+      downloadUrl = "$downloadUrl&v=${DateTime.now().millisecondsSinceEpoch}";
 
       _profilePicUrl = downloadUrl;
       await _syncWithFirestore();
@@ -776,15 +778,18 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
+  // 🟢 دالة رفع صورة الغلاف (مُعدّلة) 🟢
   Future<String?> uploadAndSetBackgroundPic(Uint8List imageBytes) async {
     if (_uid == null) return null;
 
     try {
-      // 🟢 وحذفنا .jpg من هنا
       Reference ref = FirebaseStorage.instance.ref().child('background_pics/$_uid');
       UploadTask uploadTask = ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // التعديل السحري هنا: إضافة ختم زمني لكسر الكاش وإجبار الواجهة على التحديث الفوري
+      downloadUrl = "$downloadUrl&v=${DateTime.now().millisecondsSinceEpoch}";
 
       _backgroundPicUrl = downloadUrl;
       await _syncWithFirestore();

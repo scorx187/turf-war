@@ -84,18 +84,26 @@ class TopBar extends StatelessWidget {
                           BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.6), blurRadius: 8, spreadRadius: 1),
                         ],
                       ),
-                      child: ClipOval(
-                        child: imageBytes != null
-                            ? Image.memory(
-                          imageBytes,
-                          fit: BoxFit.cover,
-                          width: 40,
-                          height: 40,
-                          gaplessPlayback: true,
-                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white70, size: 24),
-                        )
-                            : const Icon(Icons.person, color: Colors.white70, size: 24),
-                      ),
+                        child: ClipOval(
+                          child: state.profilePicUrl != null && state.profilePicUrl!.startsWith('http')
+                              ? Image.network(
+                            state.profilePicUrl!,
+                            fit: BoxFit.cover,
+                            width: 40,
+                            height: 40,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white70, size: 24),
+                          )
+                              : (_getDecodedImage(state.profilePicUrl) != null
+                              ? Image.memory(
+                            _getDecodedImage(state.profilePicUrl)!,
+                            fit: BoxFit.cover,
+                            width: 40,
+                            height: 40,
+                            gaplessPlayback: true,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white70, size: 24),
+                          )
+                              : const Icon(Icons.person, color: Colors.white70, size: 24)),
+                        ),
                     ),
                     const SizedBox(width: 8),
 
