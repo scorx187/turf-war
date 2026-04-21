@@ -7,7 +7,7 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_storage/firebase_storage.dart'; // 🟢 مكتبة الستورج
+import 'package:firebase_storage/firebase_storage.dart';
 import '../utils/game_data.dart';
 import '../utils/local_notification_service.dart';
 
@@ -47,6 +47,10 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _playerBailCost = 1500;
   int get playerBailCost => _playerBailCost;
 
+  // 🟢 متغير مضاعف الجرائم (الأساسي 1.0 يعني طبيعي، 2.0 يعني دبل)
+  double _crimeEventMultiplier = 1.0;
+  double get crimeEventMultiplier => _crimeEventMultiplier;
+
   String? _gameId;
   String? get gameId => _gameId;
   String _lastCrimeName = "تسكع في الشوارع";
@@ -55,10 +59,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _cash = 100;
   int _gold = 0;
   int _bankBalance = 0;
-
-  // 🟢 متغير مضاعف الجرائم (الأساسي 1.0 يعني طبيعي، 2.0 يعني دبل)
-  double _crimeEventMultiplier = 1.0;
-  double get crimeEventMultiplier => _crimeEventMultiplier;
 
   int _energy = 100;
   int _courage = 30;
@@ -176,7 +176,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
   final Map<String, Uint8List> _decodedImagesCache = {};
 
-  // 🟢 مصفوفة الذاكرة المؤقتة لتسريع اللعبة وتوفير القراءات من الفايربيس 🟢
   final Map<String, Map<String, dynamic>> _profilesCache = {};
 
   int _pvpWins = 0;
@@ -352,7 +351,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
   }
 
-  // 🟢 لا زالت موجودة للصور القديمة للرجعية
   Uint8List? getDecodedImage(String? base64Str) {
     if (base64Str == null || base64Str.isEmpty) return null;
     if (_decodedImagesCache.containsKey(base64Str)) return _decodedImagesCache[base64Str]!;
@@ -396,10 +394,19 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
           _bailPrice = data['bailPrice'];
           notifyListeners();
         }
-        // 🟢 الاستماع لفعاليات الجرائم من الفايربيس مباشرة
-        if (data.containsKey('crimeMultiplier')) {
-          _crimeEventMultiplier = double.tryParse(data['crimeMultiplier'].toString()) ?? 1.0;
+
+        // 🟢 الحل الذكي: يقرأ المُضاعف بغض النظر عن طريقة كتابتك له في الفايربيس!
+        if (data.containsKey('crimeMultiplier') || data.containsKey('crime_multiplier')) {
+          var val = data['crimeMultiplier'] ?? data['crime_multiplier'];
+          _crimeEventMultiplier = double.tryParse(val.toString()) ?? 1.0;
+          debugPrint("🎯 تم تحديث مضاعف الجرائم إلى: $_crimeEventMultiplier"); // للطباعة في شاشة المطورين
           notifyListeners();
+        } else {
+          // إذا حذفت الحقل من الفايربيس يرجع الوضع طبيعي
+          if (_crimeEventMultiplier != 1.0) {
+            _crimeEventMultiplier = 1.0;
+            notifyListeners();
+          }
         }
       }
     });
@@ -760,7 +767,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   void travelToCity(String city, int price) { if (_cash >= price) { _cash -= price; _currentCity = city; _syncWithFirestore(); notifyListeners(); _sendSystemNotification("السفر ✈️", "هبطت طائرتك بسلام في $city!", "info"); } }
   void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
 
-// 🟢 دالة رفع الصورة الشخصية (مُعدّلة مع تفريغ الكاش) 🟢
   Future<String?> uploadAndSetProfilePic(Uint8List imageBytes) async {
     if (_uid == null) return null;
 
@@ -770,12 +776,10 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // مسح الصورة القديمة من كاش فلاتر لتجنب تعليق الصورة
       if (_profilePicUrl != null && _profilePicUrl!.startsWith('http')) {
         await NetworkImage(_profilePicUrl!).evict();
       }
 
-      // إضافة الختم الزمني
       downloadUrl = "$downloadUrl&v=${DateTime.now().millisecondsSinceEpoch}";
 
       _profilePicUrl = downloadUrl;
@@ -798,7 +802,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // 🟢 دالة رفع صورة الغلاف (مُعدّلة مع تفريغ الكاش) 🟢
   Future<String?> uploadAndSetBackgroundPic(Uint8List imageBytes) async {
     if (_uid == null) return null;
 
@@ -808,7 +811,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // مسح الغلاف القديم من الكاش
       if (_backgroundPicUrl != null && _backgroundPicUrl!.startsWith('http')) {
         await NetworkImage(_backgroundPicUrl!).evict();
       }
@@ -879,11 +881,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // 🟢 دالة جلب بيانات اللاعبين (معدلة ومربوطة بنظام الكاش السريع) 🟢
   Future<Map<String, dynamic>?> getPlayerById(String targetUid) async {
-    // 1. إذا كانت البيانات موجودة في الكاش مسبقاً، أرجعها فوراً للسرعة! (0 ثانية)
     if (_profilesCache.containsKey(targetUid)) {
-      // تحديث الكاش في الخلفية بصمت للبيانات القادمة لتبقى حية
       _firestore.collection('players').doc(targetUid).get(const GetOptions(source: Source.server)).then((doc) {
         if (doc.exists) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
@@ -894,13 +893,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       return _profilesCache[targetUid];
     }
 
-    // 2. إذا كانت هذه أول مرة نطلب فيها هذا اللاعب، ننتظر السيرفر
     try {
       DocumentSnapshot serverDoc = await _firestore.collection('players').doc(targetUid).get(const GetOptions(source: Source.server));
       if (serverDoc.exists) {
         Map<String, dynamic> data = serverDoc.data() as Map<String, dynamic>;
         data['uid'] = serverDoc.id;
-        _profilesCache[targetUid] = data; // 🟢 الحفظ في الكاش للمرات القادمة
+        _profilesCache[targetUid] = data;
         return data;
       }
     } catch (e) {
@@ -930,7 +928,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _uid = null;
     _playerDataSubscription?.cancel();
 
-    _profilesCache.clear(); // 🟢 تفريغ الكاش عند تسجيل الخروج لتجنب تداخل الحسابات
+    _profilesCache.clear();
 
     _cash = 100; _gold = 0; _bankBalance = 0;
     _energy = 100; _courage = 100; _health = 100; _prestige = 100; _baseMaxHealth = 100; _bonusPerkPoints = 0;
