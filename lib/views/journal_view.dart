@@ -57,7 +57,6 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
     }
   }
 
-  // 🟢 الخوارزمية الفلكية الدقيقة (Kuwaiti Algorithm) لحساب التاريخ الهجري
   String _getApproximateHijriDate(DateTime date) {
     int jd = date.difference(DateTime.utc(1970, 1, 1)).inDays + 2440588;
     int l = jd - 1948440 + 10632;
@@ -90,23 +89,19 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // التوب بار الثابت
+            // 🟢 التوب بار المصغر جداً والمعدل
             _buildStickyHeader(audio),
 
             const SliverToBoxAdapter(child: SizedBox(height: 15)),
 
-            // قسم الفعاليات
             _buildEventsSection(audio),
 
             const SliverToBoxAdapter(child: SizedBox(height: 10)),
 
-            // المطلوبين للعدالة
             _buildCompactBountiesSection(),
 
-            // أخبار الشوارع
             _buildNewsSection(),
 
-            // أزرار التصنيفات
             _buildLeaderboardsSection(audio),
 
             const SliverToBoxAdapter(child: SizedBox(height: 40)),
@@ -117,80 +112,71 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
     );
   }
 
-  // ==========================================
-  // 📰 الترويسة (Header)
+// ==========================================
+  // 📰 الترويسة (Header) - ملمومة وبدون فراغات (مثل الجرائم)
   // ==========================================
   Widget _buildStickyHeader(AudioProvider audio) {
     return SliverAppBar(
-      backgroundColor: const Color(0xFF1A1A1D),
+      backgroundColor: const Color(0xFF111111), // أسود مطفي فخم
       pinned: true,
       floating: false,
       automaticallyImplyLeading: false,
-      // 🟢 تصغير ارتفاع الخلفية فقط مع الحفاظ على الحجم
-      expandedHeight: 70.0,
-      collapsedHeight: 70.0,
-      toolbarHeight: 70.0,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/ui/header_wood_bg.png'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(Colors.black54, BlendMode.darken),
-          ),
-          border: Border(bottom: BorderSide(color: Color(0xFF856024), width: 2)),
-          boxShadow: [BoxShadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 3))],
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 5.0),
-            child: Column(
+      centerTitle: true,
+      titleSpacing: 0.0,
+      toolbarHeight: 65.0, // 🟢 مقاس صغير جداً وملموم
+      shape: const Border(bottom: BorderSide(color: Color(0xFF856024), width: 1.5)), // الخط الذهبي السفلي
+      title: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 1. التواريخ (مرفوعة لأقصى نقطة فوق)
+            Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(_getApproximateHijriDate(_currentTime), style: const TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 10)),
+                    Text(_getGregorianDate(_currentTime), style: const TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 10)),
+                  ],
+                ),
+              ),
+            ),
+
+            // 2. العنوان والساعة (في الوسط تماماً بدون فراغات)
+            Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                const SizedBox(height: 12), // مسافة بسيطة جداً لإبعادها عن التاريخ
                 const Text(
-                  'صَـوْتُ المَــلاذ',
+                  'الجريدة',
                   style: TextStyle(
                     fontFamily: 'Changa',
-                    fontSize: 24, // الحجم ثابت
+                    fontSize: 20,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFFE2C275),
-                    letterSpacing: 1.5,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
                     height: 1.0,
                   ),
                 ),
-                const SizedBox(height: 2), // مسافة ضئيلة للتناسق
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // التاريخ الهجري المحدث والمضبوط
-                      Text(_getApproximateHijriDate(_currentTime), style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 11)),
-
-                      // 🟢 الساعة الحية (نفس لون التاريخ وبدون خلفية مزعجة)
-                      GestureDetector(
-                        onTap: () {
-                          audio.playEffect('click.mp3');
-                          setState(() {
-                            _is24HourFormat = !_is24HourFormat;
-                          });
-                        },
-                        child: Text(
-                          _getFormattedTime(),
-                          style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                        ),
-                      ),
-
-                      // التاريخ الميلادي المحدث
-                      Text(_getGregorianDate(_currentTime), style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 11)),
-                    ],
+                GestureDetector(
+                  onTap: () {
+                    audio.playEffect('click.mp3');
+                    setState(() {
+                      _is24HourFormat = !_is24HourFormat;
+                    });
+                  },
+                  child: Text(
+                    _getFormattedTime(),
+                    style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
