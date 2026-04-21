@@ -56,6 +56,10 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _gold = 0;
   int _bankBalance = 0;
 
+  // 🟢 متغير مضاعف الجرائم (الأساسي 1.0 يعني طبيعي، 2.0 يعني دبل)
+  double _crimeEventMultiplier = 1.0;
+  double get crimeEventMultiplier => _crimeEventMultiplier;
+
   int _energy = 100;
   int _courage = 30;
   DateTime? _lastEnergyUpdate;
@@ -388,7 +392,15 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _firestore.collection('config').doc('game_settings').snapshots().listen((doc) {
       if (doc.exists) {
         final data = doc.data()!;
-        if (data.containsKey('bailPrice')) { _bailPrice = data['bailPrice']; notifyListeners(); }
+        if (data.containsKey('bailPrice')) {
+          _bailPrice = data['bailPrice'];
+          notifyListeners();
+        }
+        // 🟢 الاستماع لفعاليات الجرائم من الفايربيس مباشرة
+        if (data.containsKey('crimeMultiplier')) {
+          _crimeEventMultiplier = double.tryParse(data['crimeMultiplier'].toString()) ?? 1.0;
+          notifyListeners();
+        }
       }
     });
   }

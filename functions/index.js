@@ -38,7 +38,8 @@ exports.commitCrime = functions.https.onCall(async (request) => {
     const uid = payload.uid;
     if (!uid) throw new functions.https.HttpsError('invalid-argument', 'رقم اللاعب مفقود');
 
-    const { crimeId, crimeName, reqCourage, finalFailChance, minCash, maxCash, xp, maxCourage, maxEnergy } = payload;
+    // 🟢 استقبلنا minXp و maxXp بدلاً من xp الثابت
+    const { crimeId, crimeName, reqCourage, finalFailChance, minCash, maxCash, minXp, maxXp, maxCourage, maxEnergy } = payload;
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
 
@@ -49,7 +50,6 @@ exports.commitCrime = functions.https.onCall(async (request) => {
 
         if (pData.isInPrison) throw new functions.https.HttpsError('failed-precondition', 'لا يمكنك تنفيذ جريمة وأنت في السجن!');
 
-        // 🟢 تعريف VIP هنا عشان نستخدمه في الطاقة والشجاعة
         let isVip = (pData.vipUntil && new Date(pData.vipUntil) > new Date());
 
         let currentCourage = pData.courage !== undefined ? pData.courage : 30;
@@ -60,7 +60,6 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
 
-            // 🟢 تعديل الشجاعة: نقطة كل 36 ثانية
             let regenerated = Math.floor(secondsPassed / 36);
             if (regenerated > 0) {
                 currentCourage += regenerated;
@@ -86,16 +85,21 @@ exports.commitCrime = functions.https.onCall(async (request) => {
         let droppedGold = 0;
         let droppedEnergy = 0;
         let earnedTitle = null;
+        let earnedXp = 0; // 🟢 متغير لحفظ الخبرة المكتسبة
 
         if (isSuccess) {
             reward = Math.floor(Math.random() * (maxCash - minCash + 1)) + minCash;
             updates.cash = admin.firestore.FieldValue.increment(reward);
 
+            // 🟢 حساب الخبرة العشوائية بين المين والماكس
+            let safeMinXp = minXp || 15;
+            let safeMaxXp = maxXp || 30;
+            earnedXp = Math.floor(Math.random() * (safeMaxXp - safeMinXp + 1)) + safeMinXp;
+
             let currentEnergy = pData.energy !== undefined ? pData.energy : 100;
             let mEnergy = maxEnergy || 100;
             let energyChanged = false;
 
-            // 🟢 تعديل الطاقة: 9 ثواني للـ VIP و 18 للعادي
             let energyInterval = isVip ? 9 : 18;
 
             if (pData.lastEnergyUpdate && currentEnergy < mEnergy) {
@@ -111,7 +115,6 @@ exports.commitCrime = functions.https.onCall(async (request) => {
                 }
             }
 
-            // 🟢 حساب نسبة الغنائم
             let goldDropChance = Math.min(reqCourage * 0.002, 0.10);
             let energyDropChance = Math.min(reqCourage * 0.0025, 0.12);
 
@@ -138,7 +141,8 @@ exports.commitCrime = functions.https.onCall(async (request) => {
                 updates.energy = currentEnergy;
             }
 
-            let currentXP = (pData.crimeXP || 0) + xp;
+            // 🟢 استخدام الخبرة العشوائية التي تم حسابها
+            let currentXP = (pData.crimeXP || 0) + earnedXp;
             let currentLevel = pData.crimeLevel || 1;
             let nextLevelXp = Math.floor(250 * Math.pow(1.06, currentLevel - 1));
 
@@ -199,6 +203,7 @@ exports.commitCrime = functions.https.onCall(async (request) => {
         return {
             success: isSuccess,
             reward: reward,
+            earnedXp: earnedXp, // 🟢 إرجاع الخبرة العشوائية للواجهة
             prisonMinutes: prisonMinutes,
             bailCost: bailCost,
             droppedGold: droppedGold,

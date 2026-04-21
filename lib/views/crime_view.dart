@@ -93,7 +93,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
               ),
               Column(
                 children: [
-                  const SizedBox(height: 20), // 🟢 تمت إضافة هذه المسافة لإبعاد النص عن التوب بار
+                  const SizedBox(height: 20),
 
                   Expanded(
                     child: AnimatedSwitcher(
@@ -252,7 +252,8 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
 
               int activeCrimesCount = 0;
               if (isCategoryUnlocked) {
-                List<Map<String, dynamic>> catCrimes = CrimeData.getCrimesForCategory(catIndex);
+                // 🟢 استدعاء الجرائم مع تمرير المُضاعف
+                List<Map<String, dynamic>> catCrimes = CrimeData.getCrimesForCategory(catIndex, eventMultiplier: player.crimeEventMultiplier);
                 for (int i = 0; i < catCrimes.length; i++) {
                   String cId = catCrimes[i]['id'];
                   int cSuccess = player.crimeSuccessCountsMap[cId] ?? 0;
@@ -336,7 +337,8 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
 
   Widget _buildCrimesList(PlayerProvider player, int catIndex, CrimeCubit cubit) {
     final category = CrimeData.categories[catIndex];
-    List<Map<String, dynamic>> crimes = CrimeData.getCrimesForCategory(catIndex);
+    // 🟢 السطر الذي كان مفقوداً: تعريف crimes واستدعاء المُضاعف
+    List<Map<String, dynamic>> crimes = CrimeData.getCrimesForCategory(catIndex, eventMultiplier: player.crimeEventMultiplier);
     Color mainColor = category['color'];
 
     return Column(
@@ -430,7 +432,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('+${crime['xp']} XP', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                            Text('+${crime['minXp']}-${crime['maxXp']} XP', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                             const SizedBox(width: 8),
                             Text('شجاعة: ${crime['courage']}', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                           ],
@@ -480,7 +482,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
       onSuccessCallback: (reward, crimeId, xpGained, energyUsed, droppedGold, droppedEnergy, evadedPolice, earnedTitle) {
         if (player.equippedCrimeToolId != null) player.reduceDurability(player.equippedCrimeToolId, 5.0);
 
-        widget.onSuccess(reward, crimeId, crime['xp'], energyUsed, droppedGold, droppedEnergy, evadedPolice, earnedTitle, () {
+        widget.onSuccess(reward, crimeId, xpGained, energyUsed, droppedGold, droppedEnergy, evadedPolice, earnedTitle, () {
           _handleCrimeClick(context, player, cubit, crime, isUnlocked, finalFailChance);
         });
       },

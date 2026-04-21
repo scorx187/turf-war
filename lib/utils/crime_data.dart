@@ -50,7 +50,8 @@ class CrimeData {
     ['تزوير عملة دولية', 'تهريب دولي للألماس', 'السيطرة على ميناء قاري', 'قرصنة سفينة شحن', 'اختطاف طائرة ركاب', 'ابتزاز حكومة أجنبية', 'تمويل عصابات دولية', 'السيطرة على كارتل مخدرات', 'سرقة أسلحة نووية تكتيكية', 'قرصنة اتصالات دولية', 'تدمير بورصة عالمية', 'السيطرة على تجارة السلاح', 'اغتيال شخصية عالمية', 'إسقاط طائرة شحن عسكرية', 'سرقة احتياطي الذهب العالمي', 'إشعال حرب عصابات دولية', 'اختراق وزارة دفاع عظمى', 'السيطرة على منظمات سرية', 'احتكار السوق الأسود العالمي', 'إمبراطور الجريمة العالمي'],
   ];
 
-  static List<Map<String, dynamic>> getCrimesForCategory(int catIndex) {
+  // 🟢 استقبال المُضاعف وضرب الجوائز فيه
+  static List<Map<String, dynamic>> getCrimesForCategory(int catIndex, {double eventMultiplier = 1.0}) {
     List<Map<String, dynamic>> crimes = [];
 
     for (int i = 0; i < 20; i++) {
@@ -58,9 +59,12 @@ class CrimeData {
       int reqEnergy = 0;
 
       double multiplier = pow(1.3, catIndex).toDouble();
-      int minCash = (50 * multiplier).toInt() + (i * 20 * (catIndex + 1));
-      int maxCash = (100 * multiplier).toInt() + (i * 40 * (catIndex + 1));
-      int xp = (40 * multiplier).toInt() + (i * 15 * (catIndex + 1));
+
+      // الأرقام الأساسية
+      int baseMinCash = (50 * multiplier).toInt() + (i * 20 * (catIndex + 1));
+      int baseMaxCash = (100 * multiplier).toInt() + (i * 40 * (catIndex + 1));
+      int baseMinXp = (15 * multiplier).toInt() + (i * 5 * (catIndex + 1));
+      int baseMaxXp = (30 * multiplier).toInt() + (i * 10 * (catIndex + 1));
 
       double baseFailChance;
       if (catIndex == 0) {
@@ -71,8 +75,6 @@ class CrimeData {
         baseFailChance = 0.15 + ((catIndex - 2) * 0.035) + (i * 0.015);
       }
 
-      // 🟢 [التعديل هنا]: جعل ملاحقة الشرطة بطيئة جداً جداً في الارتفاع
-      // المعادلة الجديدة تضمن أن الزيادة تكاد تكون معدومة في البداية وتتدرج بشكل بسيط جداً
       double heat = 0.05 + (catIndex * 0.05) + (pow(catIndex, 1.5) * 0.01) + (i * 0.005);
 
       crimes.add({
@@ -80,10 +82,12 @@ class CrimeData {
         'name': crimeNames[catIndex][i],
         'courage': reqCourage,
         'energy': reqEnergy,
-        'minCash': minCash,
-        'maxCash': maxCash,
+        // 🟢 ضرب الكاش والخبرة في مضاعف الفعالية
+        'minCash': (baseMinCash * eventMultiplier).toInt(),
+        'maxCash': (baseMaxCash * eventMultiplier).toInt(),
+        'minXp': (baseMinXp * eventMultiplier).toInt(),
+        'maxXp': (baseMaxXp * eventMultiplier).toInt(),
         'failChance': min(baseFailChance, 0.95),
-        'xp': xp,
         'heat': heat,
       });
     }

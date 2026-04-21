@@ -1,3 +1,5 @@
+// المسار: lib/services/crime_service.dart
+
 import 'package:cloud_functions/cloud_functions.dart';
 
 class CrimeService {
@@ -12,7 +14,8 @@ class CrimeService {
     required double finalFailChance,
     required int minCash,
     required int maxCash,
-    required int xp,
+    required int minXp, // 🟢 تم التعديل لاستقبال الحد الأدنى للخبرة
+    required int maxXp, // 🟢 تم التعديل لاستقبال الحد الأقصى للخبرة
     required int maxCourage,
     required int maxEnergy,
   }) async {
@@ -26,7 +29,8 @@ class CrimeService {
         'finalFailChance': finalFailChance,
         'minCash': minCash,
         'maxCash': maxCash,
-        'xp': xp,
+        'minXp': minXp,
+        'maxXp': maxXp,
         'maxCourage': maxCourage,
         'maxEnergy': maxEnergy,
       });

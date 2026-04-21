@@ -39,7 +39,7 @@ class CrimeCubit extends Cubit<CrimeState> {
     required double finalFailChance,
     required int maxCourage,
     required int maxEnergy,
-    required Function(int, String, int, int, int, int, bool, String?) onSuccessCallback, // 🟢 تم إضافة اللقب
+    required Function(int, String, int, int, int, int, bool, String?) onSuccessCallback,
     required Function(int, String, int) onFailureCallback,
   }) async {
 
@@ -54,15 +54,18 @@ class CrimeCubit extends Cubit<CrimeState> {
         finalFailChance: finalFailChance,
         minCash: crime['minCash'],
         maxCash: crime['maxCash'],
-        xp: crime['xp'],
+        minXp: crime['minXp'], // 🟢 إرسال الحد الأدنى للخبرة للسيرفر
+        maxXp: crime['maxXp'], // 🟢 إرسال الحد الأقصى للخبرة للسيرفر
         maxCourage: maxCourage,
         maxEnergy: maxEnergy,
       );
 
       if (data['success'] == true) {
         bool evadedPolice = _random.nextDouble() < 0.15;
-        // 🟢 تمرير اللقب (إن وجد)
-        onSuccessCallback(data['reward'] ?? 0, crime['id'], crime['xp'], 0, data['droppedGold'] ?? 0, data['droppedEnergy'] ?? 0, evadedPolice, data['earnedTitle']);
+        // 🟢 استلام الخبرة العشوائية المكتسبة من السيرفر
+        int earnedXp = data['earnedXp'] ?? crime['minXp'];
+
+        onSuccessCallback(data['reward'] ?? 0, crime['id'], earnedXp, 0, data['droppedGold'] ?? 0, data['droppedEnergy'] ?? 0, evadedPolice, data['earnedTitle']);
         emit(state.copyWith(isLoading: false));
       } else {
         onFailureCallback(data['prisonMinutes'] ?? 0, crime['name'], data['bailCost'] ?? 0);
