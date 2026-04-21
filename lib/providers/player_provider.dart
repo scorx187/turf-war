@@ -47,10 +47,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _playerBailCost = 1500;
   int get playerBailCost => _playerBailCost;
 
-  // 🟢 متغير مضاعف الجرائم (الأساسي 1.0 يعني طبيعي، 2.0 يعني دبل)
-  double _crimeEventMultiplier = 1.0;
-  double get crimeEventMultiplier => _crimeEventMultiplier;
-
   String? _gameId;
   String? get gameId => _gameId;
   String _lastCrimeName = "تسكع في الشوارع";
@@ -59,6 +55,10 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _cash = 100;
   int _gold = 0;
   int _bankBalance = 0;
+
+  // 🟢 متغير مضاعف الجرائم
+  double _crimeEventMultiplier = 1.0;
+  double get crimeEventMultiplier => _crimeEventMultiplier;
 
   int _energy = 100;
   int _courage = 30;
@@ -276,7 +276,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get isInvestmentLocked => _lockedUntil != null && secureNow.isBefore(_lockedUntil!);
   int get crimeLevel => _crimeLevel;
   int get crimeXP => _crimeXP;
-  int get xpToNextLevel => (100 * pow(1.05, _crimeLevel - 1)).toInt();
+  int get xpToNextLevel => (250 * pow(1.02, _crimeLevel - 1)).toInt();
   int get workLevel => _workLevel;
   int get workXP => _workXP;
   int get workXPToNextLevel => max(150, _workLevel * 150);
@@ -320,6 +320,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _startGameLoop();
     _listenToGameConfig();
+    _listenToEvents(); // 🟢 استدعاء الاستماع للفعاليات
   }
 
   @override
@@ -386,29 +387,53 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     });
   }
 
+  // 🟢 استماع إعدادات اللعبة (الكفالة والأمور الثابتة)
   void _listenToGameConfig() {
-    _firestore.collection('config').doc('game_settings').snapshots().listen((doc) {
+    final docRef = _firestore.collection('config').doc('game_settings');
+
+    docRef.get().then((doc) {
+      if (!doc.exists) {
+        docRef.set({'bailPrice': 1500}, SetOptions(merge: true));
+      }
+    }).catchError((_) {});
+
+    docRef.snapshots().listen((doc) {
       if (doc.exists) {
         final data = doc.data()!;
         if (data.containsKey('bailPrice')) {
-          _bailPrice = data['bailPrice'];
+          _bailPrice = (data['bailPrice'] as num).toInt();
           notifyListeners();
         }
+      }
+    });
+  }
 
-        // 🟢 الحل الذكي: يقرأ المُضاعف بغض النظر عن طريقة كتابتك له في الفايربيس!
+  // 🟢 استماع قسم الفعاليات الجديد (Events Collection)
+  void _listenToEvents() {
+    final eventRef = _firestore.collection('events').doc('active_events');
+
+    // إذا ما كان موجود، ينشئه التطبيق بنفسه ويحط القيمة الطبيعية 1.0 كنوع double
+    eventRef.get().then((doc) {
+      if (!doc.exists) {
+        eventRef.set({'crimeMultiplier': 1.0}, SetOptions(merge: true));
+        debugPrint("✅ تم إنشاء ملف الأحداث (events) تلقائياً!");
+      }
+    }).catchError((_) {});
+
+    eventRef.snapshots().listen((doc) {
+      if (doc.exists) {
+        final data = doc.data()!;
         if (data.containsKey('crimeMultiplier') || data.containsKey('crime_multiplier')) {
           var val = data['crimeMultiplier'] ?? data['crime_multiplier'];
           _crimeEventMultiplier = double.tryParse(val.toString()) ?? 1.0;
-          debugPrint("🎯 تم تحديث مضاعف الجرائم إلى: $_crimeEventMultiplier"); // للطباعة في شاشة المطورين
-          notifyListeners();
+          debugPrint("🎯 تم تحديث مضاعف الجرائم من قسم events إلى: $_crimeEventMultiplier");
         } else {
-          // إذا حذفت الحقل من الفايربيس يرجع الوضع طبيعي
-          if (_crimeEventMultiplier != 1.0) {
-            _crimeEventMultiplier = 1.0;
-            notifyListeners();
-          }
+          _crimeEventMultiplier = 1.0;
         }
+        notifyListeners();
       }
+    }, onError: (error) {
+      debugPrint("❌ خطأ في قراءة الأحداث: $error");
     });
   }
 

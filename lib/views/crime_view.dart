@@ -95,6 +95,30 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                 children: [
                   const SizedBox(height: 20),
 
+                  // 🟢 لافتة (Banner) الحدث المزدوج تظهر تلقائياً لو غيرت الرقم في الفايربيس
+                  if (player.crimeEventMultiplier > 1.0)
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.redAccent, width: 1.5),
+                        boxShadow: [BoxShadow(color: Colors.redAccent.withOpacity(0.5), blurRadius: 10)],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.local_fire_department, color: Colors.amber, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '🔥 حدث دبل الجرائم نشط! (x${player.crimeEventMultiplier}) 🔥',
+                            style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
@@ -252,7 +276,6 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
 
               int activeCrimesCount = 0;
               if (isCategoryUnlocked) {
-                // 🟢 استدعاء الجرائم مع تمرير المُضاعف
                 List<Map<String, dynamic>> catCrimes = CrimeData.getCrimesForCategory(catIndex, eventMultiplier: player.crimeEventMultiplier);
                 for (int i = 0; i < catCrimes.length; i++) {
                   String cId = catCrimes[i]['id'];
@@ -337,7 +360,6 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
 
   Widget _buildCrimesList(PlayerProvider player, int catIndex, CrimeCubit cubit) {
     final category = CrimeData.categories[catIndex];
-    // 🟢 السطر الذي كان مفقوداً: تعريف crimes واستدعاء المُضاعف
     List<Map<String, dynamic>> crimes = CrimeData.getCrimesForCategory(catIndex, eventMultiplier: player.crimeEventMultiplier);
     Color mainColor = category['color'];
 

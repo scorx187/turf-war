@@ -144,14 +144,14 @@ exports.commitCrime = functions.https.onCall(async (request) => {
             // 🟢 استخدام الخبرة العشوائية التي تم حسابها
             let currentXP = (pData.crimeXP || 0) + earnedXp;
             let currentLevel = pData.crimeLevel || 1;
-            let nextLevelXp = Math.floor(250 * Math.pow(1.06, currentLevel - 1));
+            let nextLevelXp = Math.floor(250 * Math.pow(1.02, currentLevel - 1));
 
             let leveledUp = false;
             while (currentXP >= nextLevelXp && currentLevel < 500) {
                 currentXP -= nextLevelXp;
                 currentLevel++;
                 leveledUp = true;
-                nextLevelXp = Math.floor(250 * Math.pow(1.06, currentLevel - 1));
+                nextLevelXp = Math.floor(250 * Math.pow(1.02, currentLevel - 1));
             }
 
             updates.crimeXP = currentXP;
@@ -1224,4 +1224,35 @@ exports.consumeItem = functions.https.onCall(async (request) => {
         transaction.update(playerRef, updates);
         return { success: true };
     });
+});
+
+// =======================================================
+// نظام الفعاليات التلقائي (يشتغل كل يوم الساعة 12:00 ص) - الجيل الثاني V2
+// =======================================================
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+
+exports.autoCrimeEvent = onSchedule({
+    schedule: "every day 00:00",
+    timeZone: "Asia/Riyadh" // توقيت السعودية
+}, async (event) => {
+    const db = admin.firestore();
+    // 🟢 المسار الجديد والصحيح اللي اتفقنا عليه
+    const eventRef = db.collection('events').doc('active_events');
+
+    const today = new Date();
+    const currentDate = today.getDate();
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+
+    let newMultiplier = 1.0;
+    if (currentDate === 15 || currentDate === lastDayOfMonth) {
+        newMultiplier = 2.0;
+        console.log(`🎉 يوم مميز! تم تشغيل الفعالية لأن اليوم هو ${currentDate}. المضاعف: 2.0`);
+    } else {
+        newMultiplier = 1.0;
+        console.log(`📅 يوم عادي. اليوم هو ${currentDate}. المضاعف: 1.0`);
+    }
+
+    // تحديث المضاعف
+    await eventRef.set({ crimeMultiplier: newMultiplier }, { merge: true });
+    return null;
 });
