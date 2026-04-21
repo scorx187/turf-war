@@ -94,6 +94,9 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
   bool _isFetchingMore = false;
   bool _hasMore = true;
 
+  // 🟢 مصفوفة الكاش للحفاظ على الرسائل أثناء التحميل
+  List<QueryDocumentSnapshot>? _cachedMessages;
+
   @override
   void initState() {
     super.initState();
@@ -188,7 +191,6 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
   Widget _buildBountyCard(BuildContext context, Map<String, dynamic> msg, String currentUserUid) {
     final playerProv = Provider.of<PlayerProvider>(context, listen: false);
 
-    // 🟢 قراءة صورة الهدف من الستورج أو النظام القديم
     ImageProvider? imageProvider;
     final String? picUrl = msg['targetPicUrl'];
     if (picUrl != null && picUrl.isNotEmpty) {
@@ -283,22 +285,30 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
           child: StreamBuilder<QuerySnapshot>(
             stream: _chatStream,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Colors.amber));
-              }
 
               if (snapshot.hasError) {
                 return const Center(child: Text('خطأ في تحميل المحادثات', style: TextStyle(color: Colors.red, fontFamily: 'Changa')));
               }
 
-              final messages = snapshot.data?.docs ?? [];
+              // 🟢 السر هنا: تحديث الكاش بالبيانات الجديدة دائماً
+              if (snapshot.hasData) {
+                _cachedMessages = snapshot.data!.docs;
+              }
+
+              // 🟢 إظهار دائرة التحميل الكاملة فقط في المرة الأولى لفتح الشات (عندما يكون الكاش فارغاً)
+              if (_cachedMessages == null) {
+                return const Center(child: CircularProgressIndicator(color: Colors.amber));
+              }
+
+              final messages = _cachedMessages!;
 
               if (messages.isEmpty) {
                 return const Center(child: Text('لا توجد رسائل...', style: TextStyle(color: Colors.white54, fontFamily: 'Changa')));
               }
 
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted && _isFetchingMore) {
+                // 🟢 إيقاف حالة جلب المزيد فقط بعد وصول البيانات الجديدة بالفعل
+                if (mounted && _isFetchingMore && snapshot.hasData) {
                   _isFetchingMore = false;
                   _hasMore = messages.length >= _messageLimit;
                 }
