@@ -172,6 +172,9 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
   final Map<String, Uint8List> _decodedImagesCache = {};
 
+  // 🟢 مصفوفة الذاكرة المؤقتة لتسريع اللعبة وتوفير القراءات من الفايربيس 🟢
+  final Map<String, Map<String, dynamic>> _profilesCache = {};
+
   int _pvpWins = 0;
   int _totalStolenCash = 0;
   Map<String, int> _perks = {};
@@ -864,11 +867,33 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // 🟢 دالة جلب بيانات اللاعبين (معدلة ومربوطة بنظام الكاش السريع) 🟢
   Future<Map<String, dynamic>?> getPlayerById(String targetUid) async {
+    // 1. إذا كانت البيانات موجودة في الكاش مسبقاً، أرجعها فوراً للسرعة! (0 ثانية)
+    if (_profilesCache.containsKey(targetUid)) {
+      // تحديث الكاش في الخلفية بصمت للبيانات القادمة لتبقى حية
+      _firestore.collection('players').doc(targetUid).get(const GetOptions(source: Source.server)).then((doc) {
+        if (doc.exists) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          data['uid'] = doc.id;
+          _profilesCache[targetUid] = data;
+        }
+      });
+      return _profilesCache[targetUid];
+    }
+
+    // 2. إذا كانت هذه أول مرة نطلب فيها هذا اللاعب، ننتظر السيرفر
     try {
       DocumentSnapshot serverDoc = await _firestore.collection('players').doc(targetUid).get(const GetOptions(source: Source.server));
-      if (serverDoc.exists) { Map<String, dynamic> data = serverDoc.data() as Map<String, dynamic>; data['uid'] = serverDoc.id; return data; }
-    } catch (e) { debugPrint("خطأ في جلب بيانات اللاعب: $e"); }
+      if (serverDoc.exists) {
+        Map<String, dynamic> data = serverDoc.data() as Map<String, dynamic>;
+        data['uid'] = serverDoc.id;
+        _profilesCache[targetUid] = data; // 🟢 الحفظ في الكاش للمرات القادمة
+        return data;
+      }
+    } catch (e) {
+      debugPrint("خطأ في جلب بيانات اللاعب: $e");
+    }
     return null;
   }
 
@@ -892,6 +917,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   void clearDataOnLogout() {
     _uid = null;
     _playerDataSubscription?.cancel();
+
+    _profilesCache.clear(); // 🟢 تفريغ الكاش عند تسجيل الخروج لتجنب تداخل الحسابات
 
     _cash = 100; _gold = 0; _bankBalance = 0;
     _energy = 100; _courage = 100; _health = 100; _prestige = 100; _baseMaxHealth = 100; _bonusPerkPoints = 0;

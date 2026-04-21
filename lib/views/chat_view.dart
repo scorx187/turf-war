@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // 🟢 تمت إضافة مكتبة الكاش
 import '../providers/player_provider.dart';
 import '../widgets/top_bar.dart';
 import 'player_profile_view.dart';
@@ -195,7 +196,8 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
     final String? picUrl = msg['targetPicUrl'];
     if (picUrl != null && picUrl.isNotEmpty) {
       if (picUrl.startsWith('http')) {
-        imageProvider = NetworkImage(picUrl);
+        // 🟢 استخدام الكاش بدلاً من NetworkImage لصور المكافآت
+        imageProvider = CachedNetworkImageProvider(picUrl);
       } else {
         final imageBytes = playerProv.getDecodedImage(picUrl);
         if (imageBytes != null) {
@@ -421,14 +423,15 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
     );
   }
 
-  // 🟢 قراءة الصور من الستورج بشكل سليم
+  // 🟢 قراءة الصور من الستورج بشكل سليم وتخزينها في الكاش
   Widget _buildAvatar(BuildContext context, String uid, bool isVIP, bool isMe, String? picUrl, String name) {
     final playerProv = Provider.of<PlayerProvider>(context, listen: false);
 
     ImageProvider? imageProvider;
     if (picUrl != null && picUrl.isNotEmpty) {
       if (picUrl.startsWith('http')) {
-        imageProvider = NetworkImage(picUrl);
+        // 🟢 استخدام CachedNetworkImageProvider لحفظ الصورة في ذاكرة الهاتف
+        imageProvider = CachedNetworkImageProvider(picUrl);
       } else {
         final imageBytes = playerProv.getDecodedImage(picUrl);
         if (imageBytes != null) {
@@ -442,13 +445,12 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
         : const SizedBox.shrink();
 
     return GestureDetector(
-      onTap: isMe ? null : () async {
-        showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.amber)));
-        await playerProv.getPlayerById(uid);
-        if (context.mounted) {
-          Navigator.pop(context);
-          _openPlayerProfile(context, uid, name, picUrl, isVIP);
-        }
+      onTap: isMe ? null : () {
+        // 🟢 التعديل الأهم: جلب البيانات في الخلفية بدون تعطيل واجهة المستخدم
+        playerProv.getPlayerById(uid);
+
+        // 🟢 الانتقال فوراً لشاشة البروفايل مما يعطي شعوراً بالسرعة الفائقة
+        _openPlayerProfile(context, uid, name, picUrl, isVIP);
       },
       child: Container(
           width: 35, height: 35,

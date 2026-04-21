@@ -388,12 +388,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       _buildPopupRewardItem('كاش', '+\$${_formatNumber(reward)}', Colors.green, 'assets/images/icons/cash.png', isImage: true),
                     ],
                   ),
-                  if (bonusGold > 0 || bonusEnergy > 0 || gotCar || evadedPolice || earnedTitle != null) ...[
+                  if (bonusGold > 0 || bonusEnergy > 0 || gotCar || earnedTitle != null) ...[ // 🟢 أزلنا evadedPolice
                     const SizedBox(height: 20),
                     const Divider(color: Colors.white24),
                     const Text('أحداث إضافية 🎁', style: TextStyle(fontFamily: 'Changa', fontSize: 16, color: Colors.amber)),
                     const SizedBox(height: 10),
-                    // 🟢 استخدام Wrap بدلاً من Row لضمان عدم خروج العناصر عن الشاشة
                     Wrap(
                       alignment: WrapAlignment.center,
                       spacing: 15,
@@ -402,8 +401,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                         if (bonusGold > 0) _buildPopupRewardItem('ذهب', '+$bonusGold', Colors.amber, 'assets/images/icons/gold.png', isImage: true),
                         if (bonusEnergy > 0) _buildPopupRewardItem('طاقة', '+$bonusEnergy', Colors.orange, 'assets/images/icons/energy.png', isImage: true),
                         if (gotCar) _buildPopupRewardItem('سيارة', 'مسروقة!', Colors.redAccent, 'assets/images/icons/inventory.png', isImage: true),
-                        if (evadedPolice) _buildPopupRewardItem('تمويه', '-10% ملاحقة', Colors.tealAccent, Icons.local_police, isImage: false),
-                        if (earnedTitle != null) _buildPopupRewardItem('لقب جديد!', earnedTitle, Colors.purpleAccent, Icons.military_tech, isImage: false), // 🟢 إضافة اللقب هنا
+                        if (earnedTitle != null) _buildPopupRewardItem('لقب جديد!', earnedTitle, Colors.purpleAccent, Icons.military_tech, isImage: false),
                       ],
                     )
                   ],

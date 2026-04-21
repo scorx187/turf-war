@@ -1,5 +1,6 @@
 // المسار: lib/views/player_profile_view.dart
 
+import 'dart:async'; // 🟢 تمت الإضافة للستريم
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -7,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart'; // 🟢 تمت الإضافة لصور أسرع
+import 'package:shimmer/shimmer.dart'; // 🟢 تمت الإضافة لتأثير اللمعان (Shimmer)
 
 // Providers
 import '../providers/player_provider.dart';
@@ -21,7 +24,7 @@ import 'pvp_battle_view.dart';
 import 'public_gang_profile_view.dart';
 import 'titles_view.dart';
 import 'perks_view.dart';
-import 'armory_view.dart'; // 🟢 استدعاء شاشة التسليح 🟢
+import 'armory_view.dart';
 
 // Widgets
 import '../widgets/radar_painter.dart';
@@ -51,11 +54,19 @@ class PlayerProfileView extends StatefulWidget {
 
 class _PlayerProfileViewState extends State<PlayerProfileView> {
   Map<String, dynamic>? playerData;
+  StreamSubscription<DocumentSnapshot>? _profileSubscription; // 🟢 لمراقبة التحديثات الحية
+  bool _isFullDataLoaded = false; // 🟢 متغير لمعرفة هل اكتمل تحميل البيانات العميقة أم لا
 
   @override
   void initState() {
     super.initState();
     _initData();
+  }
+
+  @override
+  void dispose() {
+    _profileSubscription?.cancel(); // 🟢 إغلاق الاتصال عند الخروج لتقليل الاستهلاك
+    super.dispose();
   }
 
   // =========================================================================
@@ -67,6 +78,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     bool isMe = widget.targetUid == player.uid;
 
     if (isMe) {
+      _isFullDataLoaded = true; // 🟢 بما أنه ملفي الشخصي، البيانات موجودة مسبقاً
       playerData = {
         'uid': player.uid,
         'playerName': player.playerName,
@@ -110,6 +122,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'luckyWheelSpins': player.luckyWheelSpins,
       };
     } else {
+      _isFullDataLoaded = false; // 🟢 نحتاج تحميل البيانات من الفايربيس للزوار
       playerData = {
         'playerName': widget.previewName ?? 'جاري التحميل...',
         'gameId': '---',
@@ -117,7 +130,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'backgroundPicUrl': null,
         'isVIP': widget.previewIsVIP ?? false,
         'totalVipDays': 0,
-        'bio': 'جاري تحديث البيانات...',
+        'bio': '', // 🟢 نتركه فارغاً ليعمل الشيمر بدلاً من النص القديم
         'currentCity': 'ملاذ',
         'isHospitalized': false,
         'isInPrison': false,
@@ -149,51 +162,61 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         'totalLabCrafts': 0,
         'luckyWheelSpins': 0,
       };
-      _loadData();
+      _loadDataStream(); // 🟢 استدعاء الجلب المباشر
     }
   }
 
-  Future<void> _loadData() async {
-    final player = Provider.of<PlayerProvider>(context, listen: false);
-    final data = await player.getPlayerById(widget.targetUid);
+  // 🟢 دالة الجلب الجديدة (لحظية وفورية) 🟢
+  void _loadDataStream() {
+    _profileSubscription = FirebaseFirestore.instance
+        .collection('players')
+        .doc(widget.targetUid)
+        .snapshots() // سحر الفايربيس: يجلب من الكاش فوراً ثم يحدث من السيرفر
+        .listen((snapshot) {
+      if (mounted && snapshot.exists) {
+        Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+        data['uid'] = snapshot.id;
 
-    if (mounted && data != null) {
-      double baseStr = (data['strength'] ?? 5.0).toDouble();
-      double baseDef = (data['defense'] ?? 5.0).toDouble();
-      double baseSpd = (data['speed'] ?? 5.0).toDouble();
-      double baseSkl = (data['skill'] ?? 5.0).toDouble();
+        double baseStr = (data['strength'] ?? 5.0).toDouble();
+        double baseDef = (data['defense'] ?? 5.0).toDouble();
+        double baseSpd = (data['speed'] ?? 5.0).toDouble();
+        double baseSkl = (data['skill'] ?? 5.0).toDouble();
 
-      double bStr = (data['equippedWeaponId'] != null &&
-          GameData.weaponStats.containsKey(data['equippedWeaponId']))
-          ? baseStr * GameData.weaponStats[data['equippedWeaponId']]!['str']!
-          : 0.0;
+        double bStr = (data['equippedWeaponId'] != null &&
+            GameData.weaponStats.containsKey(data['equippedWeaponId']))
+            ? baseStr * GameData.weaponStats[data['equippedWeaponId']]!['str']!
+            : 0.0;
 
-      double bSpd = (data['equippedWeaponId'] != null &&
-          GameData.weaponStats.containsKey(data['equippedWeaponId']))
-          ? baseSpd * GameData.weaponStats[data['equippedWeaponId']]!['spd']!
-          : 0.0;
+        double bSpd = (data['equippedWeaponId'] != null &&
+            GameData.weaponStats.containsKey(data['equippedWeaponId']))
+            ? baseSpd * GameData.weaponStats[data['equippedWeaponId']]!['spd']!
+            : 0.0;
 
-      double bDef = (data['equippedArmorId'] != null &&
-          GameData.armorStats.containsKey(data['equippedArmorId']))
-          ? baseDef * GameData.armorStats[data['equippedArmorId']]!['def']!
-          : 0.0;
+        double bDef = (data['equippedArmorId'] != null &&
+            GameData.armorStats.containsKey(data['equippedArmorId']))
+            ? baseDef * GameData.armorStats[data['equippedArmorId']]!['def']!
+            : 0.0;
 
-      double bSkl = (data['equippedArmorId'] != null &&
-          GameData.armorStats.containsKey(data['equippedArmorId']))
-          ? baseSkl * GameData.armorStats[data['equippedArmorId']]!['skl']!
-          : 0.0;
+        double bSkl = (data['equippedArmorId'] != null &&
+            GameData.armorStats.containsKey(data['equippedArmorId']))
+            ? baseSkl * GameData.armorStats[data['equippedArmorId']]!['skl']!
+            : 0.0;
 
-      data['baseStrength'] = baseStr;
-      data['bonusStrength'] = bStr;
-      data['baseDefense'] = baseDef;
-      data['bonusDefense'] = bDef;
-      data['baseSpeed'] = baseSpd;
-      data['bonusSpeed'] = bSpd;
-      data['baseSkill'] = baseSkl;
-      data['bonusSkill'] = bSkl;
+        data['baseStrength'] = baseStr;
+        data['bonusStrength'] = bStr;
+        data['baseDefense'] = baseDef;
+        data['bonusDefense'] = bDef;
+        data['baseSpeed'] = baseSpd;
+        data['bonusSpeed'] = bSpd;
+        data['baseSkill'] = baseSkl;
+        data['bonusSkill'] = bSkl;
 
-      setState(() => playerData = data);
-    }
+        setState(() {
+          playerData = data;
+          _isFullDataLoaded = true; // 🟢 تم وصول البيانات بنجاح، نوقف الشيمر ونعرض الداتا
+        });
+      }
+    });
   }
 
   // =========================================================================
@@ -238,8 +261,6 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       {'name': 'مبتدئ في الشوارع 🚶', 'desc': 'اللقب الافتراضي', 'unlocked': true},
       {'name': 'مبتدئ مالي 💵', 'desc': 'اجمع 100 ألف دولار', 'unlocked': wlth >= 100000},
       {'name': 'مليونير صاعد 💰', 'desc': 'اجمع 1 مليون دولار', 'unlocked': wlth >= 1000000},
-      // ... يمكنك إضافة باقي الألقاب هنا كما هي في الكود الأصلي لتوفير المساحة
-      // (لقد أبقيت المنطق كما هو ليعمل بدون مشاكل)
       {'name': 'الحاكم المطلق 👑🌍', 'desc': 'صل للمستوى 400', 'unlocked': crimeLvl >= 400},
     ];
   }
@@ -748,6 +769,19 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
   // 🟢 دوال بناء الواجهة الصغرى (UI Widgets) 🟢
   // =========================================================================
 
+  // 🟢 ويدجت مساعدة لرسم تأثير اللمعان وقت الانتظار 🟢
+  Widget _buildShimmerBox(double width, double height, {double borderRadius = 5}) {
+    return Shimmer.fromColors(
+      baseColor: Colors.white24,
+      highlightColor: Colors.white54,
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(borderRadius)),
+      ),
+    );
+  }
+
   Widget _buildAchievements(Map<String, dynamic> data) {
     List<Map<String, dynamic>> allTitles = _getAllTitlesLocal(data);
     List<Map<String, dynamic>> unlockedTitles = allTitles.where((t) => t['unlocked'] == true).toList();
@@ -827,10 +861,12 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
-          Directionality(
+          _isFullDataLoaded
+              ? Directionality(
             textDirection: isLtr ? TextDirection.ltr : TextDirection.rtl,
             child: Text(value, style: TextStyle(color: valColor, fontSize: 16, fontWeight: FontWeight.bold)),
-          ),
+          )
+              : _buildShimmerBox(50, 16), // 🟢 إظهار الشيمر إذا لم يتم تحميل البيانات
         ],
       ),
     );
@@ -891,10 +927,10 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
     bool isMe = widget.targetUid == player.uid;
     bool isVIP = playerData!['isVIP'] == true;
 
-    // معالج الصور
+    // 🟢 إضافة كاش للصور لتسريع الفتح 🟢
     ImageProvider? getProfileImageProvider(String? url) {
       if (url == null || url.isEmpty) return null;
-      if (url.startsWith('http')) return NetworkImage(url);
+      if (url.startsWith('http')) return CachedNetworkImageProvider(url); // جلب من الذاكرة
       final bytes = player.getDecodedImage(url);
       return bytes != null ? MemoryImage(bytes) : null;
     }
@@ -986,7 +1022,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       child: Directionality(
                         textDirection: TextDirection.rtl,
                         child: Container(
-                          key: ValueKey(isMe ? player.backgroundPicUrl : playerData!['backgroundPicUrl']), // 🟢 لتحديث الكاش فوراً
+                          key: ValueKey(isMe ? player.backgroundPicUrl : playerData!['backgroundPicUrl']), // لتحديث الكاش فوراً
                           margin: const EdgeInsets.symmetric(horizontal: 15),
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
                           decoration: BoxDecoration(
@@ -1026,7 +1062,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                                           color: Colors.grey[800],
                                           child: profileImage != null
                                               ? Image(
-                                            key: ValueKey(isMe ? player.profilePicUrl : playerData!['profilePicUrl']), // 🟢 لتحديث الكاش فوراً
+                                            key: ValueKey(isMe ? player.profilePicUrl : playerData!['profilePicUrl']),
                                             image: profileImage,
                                             fit: BoxFit.cover,
                                           )
@@ -1176,7 +1212,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                     const SizedBox(height: 15),
 
                     // ---------------------------------------------------------
-                    // 2. البايو الوصفي
+                    // 2. البايو الوصفي (مع تأثير الشيمر 🟢)
                     // ---------------------------------------------------------
                     GestureDetector(
                       onTap: isMe ? () => _editBio(player) : null,
@@ -1201,10 +1237,19 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                               ],
                             ),
                             const SizedBox(height: 10),
-                            Text(
+                            _isFullDataLoaded
+                                ? Text(
                               playerData!['bio'] ?? 'لا يوجد وصف حالياً...',
                               style: const TextStyle(color: Colors.white, fontSize: 15, fontStyle: FontStyle.italic),
                               textAlign: TextAlign.right,
+                            )
+                                : Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                _buildShimmerBox(double.infinity, 14),
+                                const SizedBox(height: 5),
+                                _buildShimmerBox(150, 14),
+                              ],
                             ),
                           ],
                         ),
@@ -1213,7 +1258,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                     const SizedBox(height: 20),
 
                     // ---------------------------------------------------------
-                    // 3. السجل الإجرامي
+                    // 3. السجل الإجرامي (مع تأثير الشيمر 🟢)
                     // ---------------------------------------------------------
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1361,8 +1406,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       );
                     }),
                     _buildActionBtn(Icons.my_location, 'هجوم', Colors.red, () {
-                      if (!playerData!.containsKey('uid') || playerData!['uid'] == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جاري التحميل...')));
+                      if (!_isFullDataLoaded) { // 🟢 التأكد من تحميل البيانات أولاً
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جاري التحميل...', style: TextStyle(fontFamily: 'Changa'))));
                         return;
                       }
                       if (isHosp) {

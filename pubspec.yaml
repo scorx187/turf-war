@@ -20,7 +20,8 @@ dependencies:
   cloud_functions: 6.1.0
   image_picker: ^1.2.1
   firebase_storage: ^13.3.0 # 🟢 الإضافة الأولى: رفع الصور
-  cached_network_image: ^3.4.1 # 🟢 الإضافة الثانية: الذاكرة المؤقتة للصور
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
   awesome_notifications: ^0.11.0
   package_info_plus: ^9.0.1
   url_launcher: ^6.3.2
