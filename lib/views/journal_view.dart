@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../providers/audio_provider.dart';
 
 class JournalView extends StatefulWidget {
@@ -14,24 +15,68 @@ class JournalView extends StatefulWidget {
 }
 
 class _JournalViewState extends State<JournalView> with SingleTickerProviderStateMixin {
+  late Timer _timer;
+  DateTime _currentTime = DateTime.now();
+  bool _is24HourFormat = false;
 
-  String _getApproximateHijriDate() {
-    DateTime now = DateTime.now();
-    int gYear = now.year;
-    int gMonth = now.month;
-    int gDay = now.day;
-
-    int hYear = ((gYear - 622) * 33 / 32).floor();
-    List<String> hijriMonths = ["محرم", "صفر", "ربيع الأول", "ربيع الآخر", "جمادى الأولى", "جمادى الآخرة", "رجب", "شعبان", "رمضان", "شوال", "ذو القعدة", "ذو الحجة"];
-
-    int hMonthIndex = (gMonth + 2) % 12;
-    return '$gDay ${hijriMonths[hMonthIndex]} $hYear هـ';
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _currentTime = DateTime.now();
+        });
+      }
+    });
   }
 
-  String _getGregorianDate() {
-    DateTime now = DateTime.now();
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  String _getFormattedTime() {
+    int hour = _currentTime.hour;
+    int minute = _currentTime.minute;
+    int second = _currentTime.second;
+
+    String minuteStr = minute.toString().padLeft(2, '0');
+    String secondStr = second.toString().padLeft(2, '0');
+
+    if (_is24HourFormat) {
+      String hourStr = hour.toString().padLeft(2, '0');
+      return '$hourStr:$minuteStr:$secondStr';
+    } else {
+      String period = hour >= 12 ? 'PM' : 'AM';
+      int hour12 = hour % 12;
+      if (hour12 == 0) hour12 = 12;
+      String hourStr = hour12.toString().padLeft(2, '0');
+      return '$hourStr:$minuteStr:$secondStr $period';
+    }
+  }
+
+  // 🟢 الخوارزمية الفلكية الدقيقة (Kuwaiti Algorithm) لحساب التاريخ الهجري
+  String _getApproximateHijriDate(DateTime date) {
+    int jd = date.difference(DateTime.utc(1970, 1, 1)).inDays + 2440588;
+    int l = jd - 1948440 + 10632;
+    int n = (l - 1) ~/ 10631;
+    l = l - 10631 * n + 354;
+    int j = ((10985 - l) ~/ 5316) * ((50 * l) ~/ 17719) + (l ~/ 5670) * ((43 * l) ~/ 15238);
+    l = l - ((30 - j) ~/ 15) * ((17719 * j) ~/ 50) - (j ~/ 16) * ((15238 * j) ~/ 43) + 29;
+
+    int month = (24 * l) ~/ 709;
+    int day = l - (709 * month) ~/ 24;
+    int year = 30 * n + j - 30;
+
+    List<String> hijriMonths = ["محرم", "صفر", "ربيع الأول", "ربيع الآخر", "جمادى الأولى", "جمادى الآخرة", "رجب", "شعبان", "رمضان", "شوال", "ذو القعدة", "ذو الحجة"];
+    return '$day ${hijriMonths[month - 1]} $year هـ';
+  }
+
+  String _getGregorianDate(DateTime date) {
     List<String> months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-    return '${now.day} ${months[now.month - 1]} ${now.year} م';
+    return '${date.day} ${months[date.month - 1]} ${date.year} م';
   }
 
   @override
@@ -41,28 +86,27 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        // 🟢 1. لون ثابت ومريح للعين بدلاً من الصورة المزعجة
         backgroundColor: const Color(0xFF1A1A1D),
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // 🟢 2. التوب بار ثابت ومصغر
-            _buildStickyHeader(),
+            // التوب بار الثابت
+            _buildStickyHeader(audio),
 
             const SliverToBoxAdapter(child: SizedBox(height: 15)),
 
-            // 🟢 3. قسم الفعاليات (يعرض 3 فقط ونافذة موسعة)
+            // قسم الفعاليات
             _buildEventsSection(audio),
 
             const SliverToBoxAdapter(child: SizedBox(height: 10)),
 
-            // 🟢 4. المطلوبين للعدالة (مصغرة وغير مزعجة)
+            // المطلوبين للعدالة
             _buildCompactBountiesSection(),
 
-            // 5. أخبار الشوارع
+            // أخبار الشوارع
             _buildNewsSection(),
 
-            // 6. أزرار التصنيفات
+            // أزرار التصنيفات
             _buildLeaderboardsSection(audio),
 
             const SliverToBoxAdapter(child: SizedBox(height: 40)),
@@ -74,15 +118,18 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
   }
 
   // ==========================================
-  // 📰 الترويسة (Header) ثابتة وصغيرة
+  // 📰 الترويسة (Header)
   // ==========================================
-  Widget _buildStickyHeader() {
+  Widget _buildStickyHeader(AudioProvider audio) {
     return SliverAppBar(
       backgroundColor: const Color(0xFF1A1A1D),
-      pinned: true, // يخليها ثابتة
+      pinned: true,
       floating: false,
       automaticallyImplyLeading: false,
-      toolbarHeight: 75.0, // حجم مصغر جداً
+      // 🟢 تصغير ارتفاع الخلفية فقط مع الحفاظ على الحجم
+      expandedHeight: 70.0,
+      collapsedHeight: 70.0,
+      toolbarHeight: 70.0,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
@@ -95,32 +142,54 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
         ),
         child: SafeArea(
           bottom: false,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'صَـوْتُ المَــلاذ',
-                style: TextStyle(
-                  fontFamily: 'Changa',
-                  fontSize: 22, // خط أصغر
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFFE2C275),
-                  letterSpacing: 1.5,
-                  shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
+          child: Padding(
+            padding: const EdgeInsets.only(top: 5.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  'صَـوْتُ المَــلاذ',
+                  style: TextStyle(
+                    fontFamily: 'Changa',
+                    fontSize: 24, // الحجم ثابت
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFE2C275),
+                    letterSpacing: 1.5,
+                    shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
+                    height: 1.0,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(_getApproximateHijriDate(), style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 11)),
-                    const Text('العدد #1042', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontSize: 10, fontWeight: FontWeight.bold)),
-                    Text(_getGregorianDate(), style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 11)),
-                  ],
+                const SizedBox(height: 2), // مسافة ضئيلة للتناسق
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // التاريخ الهجري المحدث والمضبوط
+                      Text(_getApproximateHijriDate(_currentTime), style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 11)),
+
+                      // 🟢 الساعة الحية (نفس لون التاريخ وبدون خلفية مزعجة)
+                      GestureDetector(
+                        onTap: () {
+                          audio.playEffect('click.mp3');
+                          setState(() {
+                            _is24HourFormat = !_is24HourFormat;
+                          });
+                        },
+                        child: Text(
+                          _getFormattedTime(),
+                          style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                        ),
+                      ),
+
+                      // التاريخ الميلادي المحدث
+                      Text(_getGregorianDate(_currentTime), style: const TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 11)),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -128,10 +197,9 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
   }
 
   // ==========================================
-  // 🔥 قسم الفعاليات (3 نشطة فقط)
+  // 🔥 قسم الفعاليات
   // ==========================================
   Widget _buildEventsSection(AudioProvider audio) {
-    // بيانات وهمية للفعاليات النشطة (3 فقط)
     List<Map<String, dynamic>> activeEvents = [
       {'title': 'مضاعفة أرباح الجرائم', 'desc': 'جميع الجرائم تعطي 2x كاش وخبرة.', 'icon': Icons.local_fire_department, 'color': Colors.redAccent},
       {'title': 'تخفيضات السوق الأسود', 'desc': 'خصم 20% على جميع الأسلحة.', 'icon': Icons.shopping_cart, 'color': Colors.amber},
@@ -180,7 +248,6 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
               ),
             )),
             const SizedBox(height: 5),
-            // زر عرض كل الفعاليات (يفتح نافذة منبثقة)
             InkWell(
               onTap: () {
                 audio.playEffect('click.mp3');
@@ -206,7 +273,7 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
   }
 
   // ==========================================
-  // 💀 المطلوبين للعدالة (شريط مصغر جداً)
+  // 💀 المطلوبين للعدالة
   // ==========================================
   Widget _buildCompactBountiesSection() {
     List<Map<String, dynamic>> bounties = [
@@ -225,7 +292,7 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
             child: Text('🎯 مطلوبين للعدالة', style: TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 13, fontWeight: FontWeight.bold)),
           ),
           SizedBox(
-            height: 65, // 🟢 تم تصغير الارتفاع جداً
+            height: 65,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
@@ -234,7 +301,7 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
               itemBuilder: (context, index) {
                 var target = bounties[index];
                 return Container(
-                  width: 140, // كرت عريض ومسطح
+                  width: 140,
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -446,7 +513,7 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
   }
 
   // ==========================================
-  // 📅 نافذة جدول الفعاليات (البوتوم شيت)
+  // 📅 نافذة جدول الفعاليات
   // ==========================================
   void _showEventsScheduleModal(BuildContext context) {
     showModalBottomSheet(
@@ -480,7 +547,6 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // تاب الفعاليات النشطة
                       ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
@@ -489,7 +555,6 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
                           _buildEventModalCard('حملة تبرع بالدم', 'ينتهي غداً 11:59 م', Colors.greenAccent, true),
                         ],
                       ),
-                      // تاب الفعاليات القادمة
                       ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
@@ -497,7 +562,6 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
                           _buildEventModalCard('وصول تاجر الأسلحة السري', 'يبدأ يوم السبت 12:00 م', Colors.blueAccent, false),
                         ],
                       ),
-                      // تاب الفعاليات المنتهية
                       ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
