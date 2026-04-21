@@ -33,6 +33,7 @@ import '../views/private_chat_list_view.dart';
 import '../views/friends_view.dart';
 import '../views/settings_view.dart';
 import '../views/quick_recovery_dialog.dart';
+import '../views/journal_view.dart'; // 🟢 تم استدعاء واجهة الجريدة
 import 'dart:async';
 import 'dart:math';
 
@@ -738,7 +739,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       ),
       bottomNavigationBar: Consumer<PlayerProvider>(
           builder: (context, player, child) {
-            if (_selectedIndex == 3 || (_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5) return const SizedBox.shrink();
+            // 🟢 إخفاء شريط التنقل الأساسي إذا كانت واجهة الجريدة مفتوحة (رقم 4)
+            if (_selectedIndex == 3 || _selectedIndex == 4 || (_selectedIndex == 2 && (_activeArea == 'العقارات' || _activeArea == 'صالة التدريب' || _activeArea == 'المتجر الأسود')) || _selectedIndex == 5) return const SizedBox.shrink();
             if (player.isInPrison) {
               return BottomNavBar(
                 selectedIndex: _selectedIndex, isInPrison: true, onEscapeTapped: () => _attemptPrisonEscape(player),
@@ -810,6 +812,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   Widget _buildMainContent(PlayerProvider player) {
     if (_selectedIndex == 0) return const InventoryView();
+
+    // 🟢 برمجة زر الجريدة لفتح الشاشة الجديدة
+    if (_selectedIndex == 4) return JournalView(onBack: () => setState(() => _selectedIndex = 2));
+
     if (_selectedIndex == 3) {
       return CrimeView(
         courage: player.courage,
