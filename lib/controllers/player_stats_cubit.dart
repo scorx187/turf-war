@@ -247,7 +247,7 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
     int maxCourage = 29 + crimeLevel + (isVIP ? 50 : 0);
 
     int currentXp = _serverData['crimeXP'] ?? 0;
-    int maxXp = (250 * pow(1.06, crimeLevel - 1)).toInt();
+    int maxXp = (250 * pow(1.02, crimeLevel - 1)).toInt();
 
     emit(state.copyWith(
       cash: _serverData['cash'] ?? 0,

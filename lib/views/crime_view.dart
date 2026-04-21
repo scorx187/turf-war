@@ -340,7 +340,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(category['name'], style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.white : Colors.white30, fontWeight: FontWeight.bold, fontSize: 18)),
-                                Text(isCategoryUnlocked ? (activeCrimesCount > 0 ? '$activeCrimesCount أهداف بانتظارك.. خلّص عليهم' : 'نظفت المنطقة بالكامل 👑') : 'مو مستواك للحين 🔒', style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.greenAccent : Colors.redAccent, fontSize: 12)),
+                                Text(isCategoryUnlocked ? (activeCrimesCount > 0 ? '$activeCrimesCount أهداف بانتظارك.. خلّص عليهم' : 'نظفت المنطقة بالكامل 👑') : 'أنهِ أعمالك السابقة لفتح هذا المجال', style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.greenAccent : Colors.redAccent, fontSize: 12)),
                               ],
                             ),
                           ),
