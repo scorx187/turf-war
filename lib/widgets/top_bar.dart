@@ -88,6 +88,7 @@ class TopBar extends StatelessWidget {
                           child: state.profilePicUrl != null && state.profilePicUrl!.startsWith('http')
                               ? Image.network(
                             state.profilePicUrl!,
+                            key: ValueKey(state.profilePicUrl),
                             fit: BoxFit.cover,
                             width: 40,
                             height: 40,

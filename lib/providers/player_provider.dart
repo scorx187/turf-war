@@ -745,7 +745,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   void travelToCity(String city, int price) { if (_cash >= price) { _cash -= price; _currentCity = city; _syncWithFirestore(); notifyListeners(); _sendSystemNotification("السفر ✈️", "هبطت طائرتك بسلام في $city!", "info"); } }
   void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
 
-// 🟢 دالة رفع الصورة الشخصية (مُعدّلة) 🟢
+// 🟢 دالة رفع الصورة الشخصية (مُعدّلة مع تفريغ الكاش) 🟢
   Future<String?> uploadAndSetProfilePic(Uint8List imageBytes) async {
     if (_uid == null) return null;
 
@@ -755,7 +755,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // التعديل السحري هنا: إضافة ختم زمني لكسر الكاش وإجبار الواجهة على التحديث الفوري
+      // مسح الصورة القديمة من كاش فلاتر لتجنب تعليق الصورة
+      if (_profilePicUrl != null && _profilePicUrl!.startsWith('http')) {
+        await NetworkImage(_profilePicUrl!).evict();
+      }
+
+      // إضافة الختم الزمني
       downloadUrl = "$downloadUrl&v=${DateTime.now().millisecondsSinceEpoch}";
 
       _profilePicUrl = downloadUrl;
@@ -778,7 +783,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // 🟢 دالة رفع صورة الغلاف (مُعدّلة) 🟢
+  // 🟢 دالة رفع صورة الغلاف (مُعدّلة مع تفريغ الكاش) 🟢
   Future<String?> uploadAndSetBackgroundPic(Uint8List imageBytes) async {
     if (_uid == null) return null;
 
@@ -788,7 +793,11 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // التعديل السحري هنا: إضافة ختم زمني لكسر الكاش وإجبار الواجهة على التحديث الفوري
+      // مسح الغلاف القديم من الكاش
+      if (_backgroundPicUrl != null && _backgroundPicUrl!.startsWith('http')) {
+        await NetworkImage(_backgroundPicUrl!).evict();
+      }
+
       downloadUrl = "$downloadUrl&v=${DateTime.now().millisecondsSinceEpoch}";
 
       _backgroundPicUrl = downloadUrl;
