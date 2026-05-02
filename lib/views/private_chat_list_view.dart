@@ -1,4 +1,4 @@
-// المسار: lib/views/private_chat_list_view.dart
+﻿// المسار: lib/views/private_chat_list_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -15,10 +15,10 @@ class PrivateChatListView extends StatelessWidget {
     final myUid = player.uid!;
 
     // 🟢 التعديل الأهم: اختطاف زر الرجوع الخاص بالجوال لمنع إعادة تشغيل اللعبة 🟢
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.of(context).pop(); // نرجع خطوة وحدة للوراء بأمان
-        return false; // نمنع النظام من العبث بالشاشات الأخرى
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.of(context).pop();
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF1A1A1D),
@@ -72,9 +72,9 @@ class PrivateChatListView extends StatelessWidget {
                   String timeString = '';
                   if (lastTime != null) {
                     final diff = DateTime.now().difference(lastTime.toDate());
-                    if (diff.inMinutes < 60) timeString = 'منذ ${diff.inMinutes} دقيقة';
-                    else if (diff.inHours < 24) timeString = 'منذ ${diff.inHours} ساعة';
-                    else timeString = 'منذ ${diff.inDays} يوم';
+                    if (diff.inMinutes < 60) { timeString = 'منذ ${diff.inMinutes} دقيقة'; }
+                    else if (diff.inHours < 24) { timeString = 'منذ ${diff.inHours} ساعة'; }
+                    else { timeString = 'منذ ${diff.inDays} يوم'; }
                   }
 
                   if (targetUid.isEmpty) return const SizedBox();
@@ -100,11 +100,11 @@ class PrivateChatListView extends StatelessWidget {
                       final imageBytes = Provider.of<PlayerProvider>(context, listen: false).getDecodedImage(targetPic);
 
                       return Card(
-                        color: unreadCount > 0 ? Colors.amber.withOpacity(0.05) : Colors.white.withOpacity(0.03),
+                        color: unreadCount > 0 ? Colors.amber.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.03),
                         margin: const EdgeInsets.only(bottom: 8),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
-                          side: BorderSide(color: unreadCount > 0 ? Colors.amber.withOpacity(0.5) : Colors.white10),
+                          side: BorderSide(color: unreadCount > 0 ? Colors.amber.withValues(alpha: 0.5) : Colors.white10),
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),

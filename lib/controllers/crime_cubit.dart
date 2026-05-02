@@ -21,13 +21,13 @@ class CrimeCubit extends Cubit<CrimeState> {
 
     if (equippedToolId != null) {
       double toolBonus = 0.0;
-      if (equippedToolId == 'emp_device') toolBonus = 0.30;
-      else if (equippedToolId == 'thermite' && catIndex >= 14) toolBonus = 0.25;
-      else if (equippedToolId == 'slim_jim' && (catIndex == 3 || catIndex == 6)) toolBonus = 0.15;
-      else if (equippedToolId == 'lockpick' && catIndex == 4) toolBonus = 0.15;
-      else toolBonus = 0.10;
+      if (equippedToolId == 'emp_device') { toolBonus = 0.30; }
+      else if (equippedToolId == 'thermite' && catIndex >= 14) { toolBonus = 0.25; }
+      else if (equippedToolId == 'slim_jim' && (catIndex == 3 || catIndex == 6)) { toolBonus = 0.15; }
+      else if (equippedToolId == 'lockpick' && catIndex == 4) { toolBonus = 0.15; }
+      else { toolBonus = 0.10; }
 
-      if (toolDurability >= 10) finalFailChance -= toolBonus; else finalFailChance -= (toolBonus / 2);
+      if (toolDurability >= 10) { finalFailChance -= toolBonus; } else { finalFailChance -= (toolBonus / 2); }
     }
 
     return finalFailChance.clamp(0.00, 0.98);

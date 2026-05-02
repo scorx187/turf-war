@@ -1,4 +1,4 @@
-// المسار: lib/widgets/radar_painter.dart
+﻿// المسار: lib/widgets/radar_painter.dart
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -27,7 +27,7 @@ class RadarPainter extends CustomPainter {
     path.lineTo(center.dx - (radius * (spd / maxStat)), center.dy);
     path.close();
 
-    canvas.drawPath(path, Paint()..color = Colors.amber.withOpacity(0.4)..style = PaintingStyle.fill);
+    canvas.drawPath(path, Paint()..color = Colors.amber.withValues(alpha: 0.4)..style = PaintingStyle.fill);
     canvas.drawPath(path, Paint()..color = Colors.amber..style = PaintingStyle.stroke..strokeWidth = 2);
   }
 

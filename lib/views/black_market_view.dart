@@ -1,4 +1,4 @@
-// المسار: lib/views/black_market_view.dart
+﻿// المسار: lib/views/black_market_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -159,7 +159,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-            side: BorderSide(color: color.withOpacity(0.5), width: 1.5),
+            side: BorderSide(color: color.withValues(alpha: 0.5), width: 1.5),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(15),
@@ -173,7 +173,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
                 children: [
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
                     child: Icon(group['icon'], size: 28, color: color),
                   ),
                   const SizedBox(width: 16),
@@ -438,7 +438,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.8),
+                          color: Colors.black.withValues(alpha: 0.8),
                           blurRadius: 10,
                           offset: const Offset(0, -5),
                         ),
@@ -522,16 +522,16 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
           color: const Color(0xFF262630),
           margin: const EdgeInsets.only(bottom: 12),
           elevation: isSpecial ? 8 : 2,
-          shadowColor: isSpecial ? (item['color'] as Color).withOpacity(0.5) : Colors.black,
+          shadowColor: isSpecial ? (item['color'] as Color).withValues(alpha: 0.5) : Colors.black,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-            side: BorderSide(color: isSpecial ? (item['color'] as Color) : (item['color'] as Color).withOpacity(0.5), width: isSpecial ? 1.5 : 1),
+            side: BorderSide(color: isSpecial ? (item['color'] as Color) : (item['color'] as Color).withValues(alpha: 0.5), width: isSpecial ? 1.5 : 1),
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             leading: CircleAvatar(
               radius: 25,
-              backgroundColor: (item['color'] as Color).withOpacity(0.2),
+              backgroundColor: (item['color'] as Color).withValues(alpha: 0.2),
               child: Icon(item['icon'] as IconData, color: item['color'], size: 28),
             ),
             title: Text(item['name'], style: TextStyle(color: isSpecial ? item['color'] : Colors.white, fontWeight: FontWeight.bold, fontSize: 15, fontFamily: 'Changa')),
@@ -580,7 +580,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.1),
+                color: Colors.amber.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(15),
                 border: Border.all(color: Colors.amber)
             ),
@@ -611,7 +611,7 @@ class _BlackMarketViewState extends State<BlackMarketView> with SingleTickerProv
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
-                    side: BorderSide(color: Colors.amber.withOpacity(0.5), width: 1.5)
+                    side: BorderSide(color: Colors.amber.withValues(alpha: 0.5), width: 1.5)
                 ),
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

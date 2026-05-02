@@ -1,10 +1,8 @@
-// المسار: lib/screens/game_screen.dart
+﻿// المسار: lib/screens/game_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/top_bar.dart';
@@ -66,7 +64,7 @@ class BottomNavBar extends StatelessWidget {
           top: BorderSide(color: Color(0xFF856024), width: 2),
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 10, offset: const Offset(0, -5)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 10, offset: const Offset(0, -5)),
         ],
       ),
       padding: const EdgeInsets.only(top: 4, bottom: 26),
@@ -96,7 +94,7 @@ class BottomNavBar extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.redAccent, width: 1.5),
-                        boxShadow: [BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 8, spreadRadius: 1)],
+                        boxShadow: [BoxShadow(color: Colors.redAccent.withValues(alpha: 0.3), blurRadius: 8, spreadRadius: 1)],
                       ),
                       child: const Icon(Icons.directions_run, color: Colors.white, size: 30),
                     ),
@@ -133,7 +131,7 @@ class BottomNavBar extends StatelessWidget {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.6), blurRadius: 10, spreadRadius: 1)] : [],
+              boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFC5A059).withValues(alpha: 0.6), blurRadius: 10, spreadRadius: 1)] : [],
               border: isSelected ? Border.all(color: const Color(0xFFC5A059), width: 1.5) : null,
             ),
             child: Opacity(
@@ -250,7 +248,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       textToShow = parts[1];
     }
     if (textToShow.contains('لقب:')) {
-      try { titleToView = textToShow.split('(')[1].split(')')[0]; } catch(e) {}
+      try { titleToView = textToShow.split('(')[1].split(')')[0]; } catch(e) {} // ignore: empty_catches
     }
     bool isWarning = textToShow.contains('⚠️') || textToShow.contains('خطر') || textToShow.contains('سجن') || textToShow.contains('🎭') || textToShow.contains('🏥');
     ScaffoldMessenger.of(context).clearSnackBars();
@@ -262,7 +260,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           Expanded(child: Text(textToShow, style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 14)))
         ]),
         duration: const Duration(seconds: 4),
-        backgroundColor: textToShow.contains('🎭') ? Colors.blueAccent.withOpacity(0.9) : (isWarning ? Colors.redAccent.withOpacity(0.9) : Colors.green.withOpacity(0.9)),
+        backgroundColor: textToShow.contains('🎭') ? Colors.blueAccent.withValues(alpha: 0.9) : (isWarning ? Colors.redAccent.withValues(alpha: 0.9) : Colors.green.withValues(alpha: 0.9)),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         margin: const EdgeInsets.all(15),
@@ -373,7 +371,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   color: const Color(0xFF1A1A1D),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFFC5A059), width: 2),
-                  boxShadow: [BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
+                  boxShadow: [BoxShadow(color: const Color(0xFFC5A059).withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)]
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -469,7 +467,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   color: const Color(0xFF1A1A1D),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.redAccent, width: 2),
-                  boxShadow: [BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
+                  boxShadow: [BoxShadow(color: Colors.redAccent.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)]
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -611,7 +609,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   color: const Color(0xFF1A1A1D),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.greenAccent, width: 2),
-                  boxShadow: [BoxShadow(color: Colors.greenAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
+                  boxShadow: [BoxShadow(color: Colors.greenAccent.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)]
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -665,7 +663,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   color: const Color(0xFF1A1A1D),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.redAccent, width: 2),
-                  boxShadow: [BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 2)]
+                  boxShadow: [BoxShadow(color: Colors.redAccent.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)]
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -866,7 +864,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             onTap: () { Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3'); _showQuickMenuDialog(context); },
             child: Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.black.withOpacity(0.85), shape: BoxShape.circle, border: Border.all(color: Colors.amber, width: 2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 8, offset: const Offset(0, 4)), BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 10, spreadRadius: 1)]),
+              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.85), shape: BoxShape.circle, border: Border.all(color: Colors.amber, width: 2), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8, offset: const Offset(0, 4)), BoxShadow(color: Colors.amber.withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 1)]),
               child: const Icon(Icons.menu, color: Colors.amber, size: 28),
             ),
           ),
@@ -883,7 +881,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           Provider.of<AudioProvider>(context, listen: false).playEffect('click.mp3');
           if (areaName == 'العصابات') { Navigator.push(context, MaterialPageRoute(builder: (_) => const GangView())); } else { setState(() => _activeArea = areaName); }
         },
-        child: Container(color: debugColor.withOpacity(0.5), child: Center(child: Text(areaName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, backgroundColor: Colors.black54, fontSize: 24), textAlign: TextAlign.center))),
+        child: Container(color: debugColor.withValues(alpha: 0.5), child: Center(child: Text(areaName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, backgroundColor: Colors.black54, fontSize: 24), textAlign: TextAlign.center))),
       ),
     );
   }
@@ -936,7 +934,7 @@ class _GameLoadingViewState extends State<GameLoadingView> with SingleTickerProv
                     builder: (context, child) {
                       return Column(
                         children: [
-                          Container(decoration: BoxDecoration(boxShadow: [BoxShadow(color: const Color(0xFFB30000).withOpacity(0.5), blurRadius: 10, offset: const Offset(0, 2))]), child: ClipRRect(borderRadius: BorderRadius.circular(5), child: LinearProgressIndicator(value: _controller.value, backgroundColor: Colors.black45, valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB30000)), minHeight: 10))),
+                          Container(decoration: BoxDecoration(boxShadow: [BoxShadow(color: const Color(0xFFB30000).withValues(alpha: 0.5), blurRadius: 10, offset: const Offset(0, 2))]), child: ClipRRect(borderRadius: BorderRadius.circular(5), child: LinearProgressIndicator(value: _controller.value, backgroundColor: Colors.black45, valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB30000)), minHeight: 10))),
                           const SizedBox(height: 12),
                           Text('${(_controller.value * 100).toInt()}%', style: const TextStyle(color: Color(0xFFB30000), fontWeight: FontWeight.w900, fontSize: 22, fontStyle: FontStyle.italic))
                         ],

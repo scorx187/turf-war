@@ -218,10 +218,10 @@ class InventoryView extends StatelessWidget {
         final durability = player.getItemDurability(id);
 
         bool isEquipped = false;
-        if (type == 'weapon') isEquipped = player.equippedWeaponId == id;
-        else if (type == 'armor') isEquipped = player.equippedArmorId == id;
-        else if (type == 'mask') isEquipped = player.equippedMaskId == id;
-        else if (type == 'crime_tool') isEquipped = player.equippedCrimeToolId == id;
+        if (type == 'weapon') { isEquipped = player.equippedWeaponId == id; }
+        else if (type == 'armor') { isEquipped = player.equippedArmorId == id; }
+        else if (type == 'mask') { isEquipped = player.equippedMaskId == id; }
+        else if (type == 'crime_tool') { isEquipped = player.equippedCrimeToolId == id; }
 
         return Card(
           color: isEquipped ? Colors.amber.withValues(alpha:0.1) : Colors.black45,

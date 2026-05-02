@@ -1,4 +1,4 @@
-// المسار: lib/views/store_view.dart
+﻿// المسار: lib/views/store_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -189,15 +189,15 @@ class _StoreCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color mainColor = isGold ? Colors.orangeAccent : Colors.greenAccent;
-    Color bgColor = isGold ? Colors.orange.withOpacity(0.05) : Colors.green.withOpacity(0.05);
+    Color bgColor = isGold ? Colors.orange.withValues(alpha: 0.05) : Colors.green.withValues(alpha: 0.05);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: mainColor.withOpacity(0.5), width: 1.5),
-        boxShadow: [BoxShadow(color: mainColor.withOpacity(0.05), blurRadius: 10, spreadRadius: 1)],
+        border: Border.all(color: mainColor.withValues(alpha: 0.5), width: 1.5),
+        boxShadow: [BoxShadow(color: mainColor.withValues(alpha: 0.05), blurRadius: 10, spreadRadius: 1)],
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -211,7 +211,7 @@ class _StoreCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.black45,
                     shape: BoxShape.circle,
-                    border: Border.all(color: mainColor.withOpacity(0.5)),
+                    border: Border.all(color: mainColor.withValues(alpha: 0.5)),
                   ),
                   child: Image.asset(
                     imagePath,
@@ -253,7 +253,7 @@ class _StoreCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     elevation: 5,
-                    shadowColor: mainColor.withOpacity(0.5),
+                    shadowColor: mainColor.withValues(alpha: 0.5),
                   ),
                   onPressed: () => _simulatePurchase(context),
                   child: Text(
@@ -274,7 +274,7 @@ class _StoreCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.redAccent,
                   borderRadius: BorderRadius.circular(10),
-                  boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 4)],
+                  boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.5), blurRadius: 4)],
                 ),
                 child: const Text(
                   '💎 الخيار الأفضل',

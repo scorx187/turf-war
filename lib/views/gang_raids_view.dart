@@ -1,4 +1,4 @@
-// المسار: lib/views/gang_raids_view.dart
+﻿// المسار: lib/views/gang_raids_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -200,8 +200,8 @@ class _GangRaidsViewState extends State<GangRaidsView> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
                       decoration: BoxDecoration(
                         color: Colors.black87,
-                        border: Border(bottom: BorderSide(color: Colors.orangeAccent.withOpacity(0.5), width: 2)),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 8)],
+                        border: Border(bottom: BorderSide(color: Colors.orangeAccent.withValues(alpha: 0.5), width: 2)),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 8)],
                       ),
                       child: Row(
                         children: [
@@ -251,7 +251,7 @@ class _GangRaidsViewState extends State<GangRaidsView> {
                           return Card(
                             color: Colors.black45,
                             margin: const EdgeInsets.only(bottom: 15),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: raid['color'].withOpacity(0.4), width: 1.5)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: raid['color'].withValues(alpha: 0.4), width: 1.5)),
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Column(
@@ -261,7 +261,7 @@ class _GangRaidsViewState extends State<GangRaidsView> {
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(color: raid['color'].withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: raid['color'].withOpacity(0.5))),
+                                        decoration: BoxDecoration(color: raid['color'].withValues(alpha: 0.1), shape: BoxShape.circle, border: Border.all(color: raid['color'].withValues(alpha: 0.5))),
                                         child: Icon(raid['icon'], color: raid['color'], size: 28),
                                       ),
                                       const SizedBox(width: 12),

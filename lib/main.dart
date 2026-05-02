@@ -1,4 +1,4 @@
-// المسار: lib/main.dart
+﻿// المسار: lib/main.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -375,7 +375,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     fontWeight: FontWeight.w900,
                     letterSpacing: 3.0,
                     shadows: [
-                      Shadow(blurRadius: 15, color: GameColors.accent.withOpacity(0.7), offset: const Offset(3, 3)),
+                      Shadow(blurRadius: 15, color: GameColors.accent.withValues(alpha: 0.7), offset: const Offset(3, 3)),
                       const Shadow(blurRadius: 5, color: Colors.black, offset: Offset(-1, -1)),
                     ],
                   ),
@@ -552,7 +552,7 @@ class GameActionButton extends StatelessWidget {
         minimumSize: const Size(double.infinity, 60),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         elevation: isPrimary ? 10 : 2,
-        shadowColor: isPrimary ? GameColors.primary.withOpacity(0.5) : Colors.black54,
+        shadowColor: isPrimary ? GameColors.primary.withValues(alpha: 0.5) : Colors.black54,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,

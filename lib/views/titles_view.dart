@@ -1,4 +1,4 @@
-// المسار: lib/views/titles_view.dart
+﻿// المسار: lib/views/titles_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -62,7 +62,7 @@ class TitlesView extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                            color: isUnlocked ? (isCurrent ? Colors.amber.withOpacity(0.2) : Colors.white10) : Colors.black54,
+                            color: isUnlocked ? (isCurrent ? Colors.amber.withValues(alpha: 0.2) : Colors.white10) : Colors.black54,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: isUnlocked ? (isCurrent ? Colors.amber : Colors.white24) : Colors.white10, width: isCurrent ? 2 : 1)
                         ),

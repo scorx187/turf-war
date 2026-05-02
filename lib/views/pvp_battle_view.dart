@@ -1,4 +1,4 @@
-// المسار: lib/views/pvp_battle_view.dart
+﻿// المسار: lib/views/pvp_battle_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +23,6 @@ class _PvpBattleViewState extends State<PvpBattleView> {
   bool _isBattling = false;
   bool isX2Speed = false;
   String? _result;
-  int _stolenAmount = 0;
 
   String _formatWithCommas(int number) {
     RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
@@ -190,7 +189,6 @@ class _PvpBattleViewState extends State<PvpBattleView> {
     if (mounted) {
       setState(() {
         _result = 'win';
-        _stolenAmount = reward;
         battleLog += "\n\n$summary";
         _isBattling = false;
       });
@@ -336,7 +334,7 @@ class _PvpBattleViewState extends State<PvpBattleView> {
     return Container(
       width: 140,
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withOpacity(0.3))),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withValues(alpha: 0.3))),
       child: Column(
         children: [
           Text(name, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontFamily: 'Changa', fontSize: 14), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),

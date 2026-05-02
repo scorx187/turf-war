@@ -5,8 +5,8 @@ import 'dart:math';
 
 class CrimeData {
   static final List<Map<String, dynamic>> categories = [
-    {'name': 'جرائم الشوارع', 'icon': Icons.directions_walk, 'color': Colors.brown},
-    {'name': 'السرقات البسيطة', 'icon': Icons.shopping_bag, 'color': Colors.grey},
+    {'name': 'جرائم الشوارع', 'icon': Icons.directions_walk, 'color': Colors.brown, 'image': 'assets/images/crimes/street_crime.png'},
+    {'name': 'السرقات البسيطة', 'icon': Icons.shopping_bag, 'color': Colors.grey, 'image': 'assets/images/crimes/petty_theft.png'},
     {'name': 'النشل والسرقة السريعة', 'icon': Icons.account_balance_wallet, 'color': Colors.teal},
     {'name': 'سرقة السيارات الكلاسيكية', 'icon': Icons.directions_car, 'color': Colors.orangeAccent},
     {'name': 'السطو على المنازل', 'icon': Icons.home, 'color': Colors.purpleAccent},

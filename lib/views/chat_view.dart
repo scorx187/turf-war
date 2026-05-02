@@ -1,4 +1,4 @@
-// المسار: lib/views/chat_view.dart
+﻿// المسار: lib/views/chat_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -131,6 +131,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
       if (query.docs.isNotEmpty) {
         if (mounted) setState(() => _cachedAdminMsg = query.docs.first.data());
       }
+    // ignore: empty_catches
     } catch (e) {}
   }
 
@@ -209,7 +210,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.deepOrange.withOpacity(0.6), width: 1.5)),
+      decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.deepOrange.withValues(alpha: 0.6), width: 1.5)),
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Column(
@@ -258,28 +259,28 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
           Container(
               padding: const EdgeInsets.symmetric(vertical: 10),
               width: double.infinity,
-              decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), border: const Border(bottom: BorderSide(color: Colors.redAccent))),
+              decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), border: const Border(bottom: BorderSide(color: Colors.redAccent))),
               child: const Text('شات العناية المركزة 🏥', style: TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Changa'), textAlign: TextAlign.center)
           )
         else if (widget.isPrison)
             Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 width: double.infinity,
-                decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), border: const Border(bottom: BorderSide(color: Colors.grey))),
+                decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), border: const Border(bottom: BorderSide(color: Colors.grey))),
                 child: const Text('زنزانة السجن المركزي 🚷', style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Changa'), textAlign: TextAlign.center)
             )
           else
             Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 width: double.infinity,
-                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), border: const Border(bottom: BorderSide(color: Colors.orangeAccent))),
+                decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), border: const Border(bottom: BorderSide(color: Colors.orangeAccent))),
                 child: const Text('المحادثات سرية ومشفرة 🔒', style: TextStyle(color: Colors.orangeAccent, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Changa'), textAlign: TextAlign.center)
             ),
 
         if (widget.isGlobal && _cachedAdminMsg != null)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), border: Border(bottom: BorderSide(color: Colors.amber.withOpacity(0.3)))),
+            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), border: Border(bottom: BorderSide(color: Colors.amber.withValues(alpha: 0.3)))),
             child: Directionality(textDirection: TextDirection.rtl, child: Row(children: [const Icon(Icons.campaign, color: Colors.amber, size: 20), const SizedBox(width: 8), Expanded(child: Text(_cachedAdminMsg!['message'] ?? '', style: const TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold)))])),
           ),
 
@@ -339,9 +340,9 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                   final String? picUrl = msg['profilePicUrl'];
 
                   Color bubbleColor = isMe ? const Color(0xFF1B3B2B) : const Color(0xFF28282B);
-                  if (widget.isHospital && isMe) bubbleColor = Colors.red.withOpacity(0.3);
-                  else if (widget.isPrison && isMe) bubbleColor = Colors.grey.withOpacity(0.3);
-                  else if (!widget.isGlobal && !widget.isHospital && !widget.isPrison && isMe) bubbleColor = Colors.orange.withOpacity(0.3);
+                  if (widget.isHospital && isMe) { bubbleColor = Colors.red.withValues(alpha: 0.3); }
+                  else if (widget.isPrison && isMe) { bubbleColor = Colors.grey.withValues(alpha: 0.3); }
+                  else if (!widget.isGlobal && !widget.isHospital && !widget.isPrison && isMe) { bubbleColor = Colors.orange.withValues(alpha: 0.3); }
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -368,7 +369,7 @@ class _ChatListWidgetState extends State<_ChatListWidget> {
                                     decoration: BoxDecoration(
                                       color: bubbleColor,
                                       borderRadius: BorderRadius.only(topLeft: const Radius.circular(12), topRight: const Radius.circular(12), bottomLeft: isMe ? const Radius.circular(12) : Radius.zero, bottomRight: isMe ? Radius.zero : const Radius.circular(12)),
-                                      border: Border.all(color: isMe ? (widget.isGlobal ? Colors.green.withOpacity(0.2) : (widget.isHospital ? Colors.redAccent.withOpacity(0.4) : (widget.isPrison ? Colors.grey.withOpacity(0.4) : Colors.orangeAccent.withOpacity(0.4)))) : Colors.white10, width: 0.5),
+                                      border: Border.all(color: isMe ? (widget.isGlobal ? Colors.green.withValues(alpha: 0.2) : (widget.isHospital ? Colors.redAccent.withValues(alpha: 0.4) : (widget.isPrison ? Colors.grey.withValues(alpha: 0.4) : Colors.orangeAccent.withValues(alpha: 0.4)))) : Colors.white10, width: 0.5),
                                     ),
                                     child: Text(msg['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.2)),
                                   ),

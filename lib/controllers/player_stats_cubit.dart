@@ -59,13 +59,11 @@ class PlayerStatsCubit extends Cubit<PlayerStatsState> {
         // 🟢 1. حساب الحد الأقصى للموارد أولاً لضمان عدم تجاوزه
         int crimeLevel = _serverData['crimeLevel'] ?? 1;
         int maxEnergy = 100;
-        int maxPrestige = 100;
         bool isVIP = false;
         if (_serverData['vipUntil'] != null) {
           isVIP = DateTime.parse(_serverData['vipUntil']).isAfter(now);
           if (isVIP) {
             maxEnergy = 200;
-            maxPrestige = 200;
           }
         }
         int maxCourage = 29 + crimeLevel + (isVIP ? 50 : 0);

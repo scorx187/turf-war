@@ -1,4 +1,4 @@
-// المسار: lib/views/gang_management_view.dart
+﻿// المسار: lib/views/gang_management_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -62,8 +62,8 @@ class _GangManagementViewState extends State<GangManagementView> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
                       decoration: BoxDecoration(
                         color: Colors.black87,
-                        border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.5), width: 2)),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 8)],
+                        border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.5), width: 2)),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 8)],
                       ),
                       child: Row(
                         children: [

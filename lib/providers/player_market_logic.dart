@@ -1,6 +1,7 @@
-// المسار: lib/providers/player_market_logic.dart
+﻿// Ø§Ù„Ù…Ø³Ø§Ø±: lib/providers/player_market_logic.dart
 
 part of 'player_provider.dart';
+// ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
 extension PlayerMarketLogic on PlayerProvider {
 
@@ -63,7 +64,7 @@ extension PlayerMarketLogic on PlayerProvider {
       if (_loanAmount == 0) {
         _loanTime = null;
         _creditScore += 10;
-        _showNotification("البنك 🏦: سددت قرضك بالكامل! زادت سمعتك.");
+        _showNotification("Ø§Ù„Ø¨Ù†Ùƒ ðŸ¦: Ø³Ø¯Ø¯Øª Ù‚Ø±Ø¶Ùƒ Ø¨Ø§Ù„ÙƒØ§Ù…Ù„! Ø²Ø§Ø¯Øª Ø³Ù…Ø¹ØªÙƒ.");
       }
       _syncWithFirestore();
       notifyListeners();

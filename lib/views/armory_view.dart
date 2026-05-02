@@ -1,4 +1,4 @@
-// المسار: lib/views/armory_view.dart
+﻿// المسار: lib/views/armory_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -36,19 +36,19 @@ class ArmoryView extends StatelessWidget {
     if (id.startsWith('w_') || id.startsWith('a_')) {
       String type = id.startsWith('w_') ? 'سلاح' : 'درع';
       String color = '';
-      if (id.contains('_silver_')) color = 'فضي';
-      else if (id.contains('_green_')) color = 'أخضر';
-      else if (id.contains('_blue_')) color = 'أزرق';
-      else if (id.contains('_purple_')) color = 'بنفسجي';
-      else if (id.contains('_gold_')) color = 'ذهبي';
-      else if (id.contains('_red_')) color = 'أحمر';
+      if (id.contains('_silver_')) { color = 'فضي'; }
+      else if (id.contains('_green_')) { color = 'أخضر'; }
+      else if (id.contains('_blue_')) { color = 'أزرق'; }
+      else if (id.contains('_purple_')) { color = 'بنفسجي'; }
+      else if (id.contains('_gold_')) { color = 'ذهبي'; }
+      else if (id.contains('_red_')) { color = 'أحمر'; }
 
       String style = '';
-      if (id.endsWith('_heavy')) style = 'ثقيل';
-      else if (id.endsWith('_assault')) style = 'هجومي';
-      else if (id.endsWith('_balanced')) style = 'متوازن';
-      else if (id.endsWith('_tactical')) style = 'تكتيكي';
-      else if (id.endsWith('_agile')) style = 'خفيف';
+      if (id.endsWith('_heavy')) { style = 'ثقيل'; }
+      else if (id.endsWith('_assault')) { style = 'هجومي'; }
+      else if (id.endsWith('_balanced')) { style = 'متوازن'; }
+      else if (id.endsWith('_tactical')) { style = 'تكتيكي'; }
+      else if (id.endsWith('_agile')) { style = 'خفيف'; }
 
       return '$type $color $style'.trim();
     }
@@ -98,10 +98,10 @@ class ArmoryView extends StatelessWidget {
           Container(
             width: 65, height: 65,
             decoration: BoxDecoration(
-              color: isEquipped ? color.withOpacity(0.2) : Colors.black45,
+              color: isEquipped ? color.withValues(alpha: 0.2) : Colors.black45,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: isEquipped ? color : Colors.white24, width: 2),
-              boxShadow: isEquipped ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8)] : [],
+              boxShadow: isEquipped ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 8)] : [],
             ),
             child: Center(
               child: isEquipped
@@ -146,7 +146,7 @@ class ArmoryView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 60, color: Colors.white.withOpacity(0.2)),
+            Icon(Icons.inventory_2_outlined, size: 60, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 15),
             const Text("لا تملك أي عناصر هنا", style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 16)),
             const SizedBox(height: 5),
@@ -171,14 +171,14 @@ class ArmoryView extends StatelessWidget {
           }).join(" | ");
 
           return Card(
-            color: isEquipped ? themeColor.withOpacity(0.15) : Colors.black45,
+            color: isEquipped ? themeColor.withValues(alpha: 0.15) : Colors.black45,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: isEquipped ? themeColor : Colors.white10)),
             margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               leading: Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: themeColor.withOpacity(0.5))),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: themeColor.withValues(alpha: 0.5))),
                 child: Icon(_getItemIcon(itemId), color: themeColor),
               ),
               title: Text(_translateItemId(itemId), style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 14)),
@@ -217,7 +217,7 @@ class ArmoryView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 60, color: Colors.white.withOpacity(0.2)),
+            Icon(Icons.inventory_2_outlined, size: 60, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 15),
             const Text("لا تملك أي أدوات خاصة هنا", style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 16)),
           ],
@@ -234,14 +234,14 @@ class ArmoryView extends StatelessWidget {
           bool isEquipped = currentEquippedId == itemId;
 
           return Card(
-            color: isEquipped ? themeColor.withOpacity(0.15) : Colors.black45,
+            color: isEquipped ? themeColor.withValues(alpha: 0.15) : Colors.black45,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: isEquipped ? themeColor : Colors.white10)),
             margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               leading: Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: themeColor.withOpacity(0.5))),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: themeColor.withValues(alpha: 0.5))),
                 child: Icon(_getItemIcon(itemId), color: themeColor),
               ),
               title: Text(_translateItemId(itemId), style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 14)),
@@ -277,7 +277,7 @@ class ArmoryView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 80, color: Colors.white.withOpacity(0.15)),
+          Icon(icon, size: 80, color: Colors.white.withValues(alpha: 0.15)),
           const SizedBox(height: 15),
           Text("سوق $title قيد الإنشاء", style: const TextStyle(color: Colors.white54, fontSize: 18, fontFamily: 'Changa', fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
@@ -354,7 +354,7 @@ class ArmoryView extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
-                    onTap: () { audio.playEffect('click.mp3'); if (onBack != null) onBack!(); else Navigator.pop(context); },
+                    onTap: () { audio.playEffect('click.mp3'); if (onBack != null) { onBack!(); } else { Navigator.pop(context); } },
                     child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24), SizedBox(height: 4), Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
                   ),
                   GestureDetector(

@@ -1,4 +1,4 @@
-// المسار: lib/widgets/top_bar.dart
+﻿// المسار: lib/widgets/top_bar.dart
 
 import 'package:flutter/material.dart';
 import 'dart:convert';
@@ -40,8 +40,6 @@ class TopBar extends StatelessWidget {
         int prSeconds = state.prestige < state.maxPrestige ? (state.maxPrestige - state.prestige) * 6 : 0;
 
         String displayName = state.playerName.length > 13 ? '${state.playerName.substring(0, 13)}..' : state.playerName;
-        final imageBytes = _getDecodedImage(state.profilePicUrl);
-
         double topPadding = MediaQuery.of(context).padding.top;
         double safeTop = topPadding > 10 ? topPadding - 5 : 2;
 
@@ -60,7 +58,7 @@ class TopBar extends StatelessWidget {
                 bottom: BorderSide(color: Color(0xFF856024), width: 2.0),
               ),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.9), blurRadius: 10, offset: const Offset(0, 3)),
+                BoxShadow(color: Colors.black.withValues(alpha: 0.9), blurRadius: 10, offset: const Offset(0, 3)),
               ],
             ),
             child: Column(
@@ -81,7 +79,7 @@ class TopBar extends StatelessWidget {
                           radius: 1.2,
                         ),
                         boxShadow: [
-                          BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.6), blurRadius: 8, spreadRadius: 1),
+                          BoxShadow(color: const Color(0xFFC5A059).withValues(alpha: 0.6), blurRadius: 8, spreadRadius: 1),
                         ],
                       ),
                         child: ClipOval(
@@ -223,7 +221,7 @@ class TopBar extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: const Color(0xFF856024), width: 1.0),
                           boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 4, offset: const Offset(0, 2)),
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 4, offset: const Offset(0, 2)),
                           ],
                         ),
                         child: Stack(
@@ -239,7 +237,7 @@ class TopBar extends StatelessWidget {
                                       colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
                                     ),
                                     borderRadius: BorderRadius.circular(6),
-                                    boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.8), blurRadius: 6)],
+                                    boxShadow: [BoxShadow(color: Colors.orangeAccent.withValues(alpha: 0.8), blurRadius: 6)],
                                   ),
                                 ),
                               ),
@@ -288,7 +286,7 @@ class TopBar extends StatelessWidget {
             decoration: BoxDecoration(
               image: DecorationImage(image: AssetImage(bgImagePath), fit: BoxFit.fill),
               borderRadius: BorderRadius.circular(5),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 3, offset: const Offset(0, 1))],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 3, offset: const Offset(0, 1))],
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -327,7 +325,7 @@ class TopBar extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.55),
+            color: Colors.black.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(5),
             border: Border.all(color: Colors.white12, width: 1),
           ),
@@ -381,7 +379,7 @@ class TopBar extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: barColor,
                         borderRadius: BorderRadius.circular(2),
-                        boxShadow: [BoxShadow(color: barColor.withOpacity(0.8), blurRadius: 3)],
+                        boxShadow: [BoxShadow(color: barColor.withValues(alpha: 0.8), blurRadius: 3)],
                       ),
                     ),
                   ),

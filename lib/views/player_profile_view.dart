@@ -1,13 +1,10 @@
-// المسار: lib/views/player_profile_view.dart
+﻿// المسار: lib/views/player_profile_view.dart
 
 import 'dart:async'; // 🟢 تمت الإضافة للستريم
-import 'dart:math';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart'; // 🟢 تمت الإضافة لصور أسرع
 import 'package:shimmer/shimmer.dart'; // 🟢 تمت الإضافة لتأثير اللمعان (Shimmer)
 
@@ -231,31 +228,8 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
   }
 
   List<Map<String, dynamic>> _getAllTitlesLocal(Map<String, dynamic> data) {
-    int pvp = data['pvpWins'] ?? 0;
     int wlth = (data['cash'] ?? 0) + (data['bankBalance'] ?? 0);
-    int gld = data['gold'] ?? 0;
-    int cr = 0;
-    if (data['crimeSuccessCountsMap'] != null) {
-      (data['crimeSuccessCountsMap'] as Map).forEach(
-            (k, v) => cr += (v as int),
-      );
-    }
-
-    int hap = data['happiness'] ?? 0;
-    List<String> ownedProps = List<String>.from(data['ownedProperties'] ?? []);
-    bool isHoused = data['activePropertyId'] != null;
-    int totalProps = GameData.residentialProperties.length;
-
-    int carsOwned = List<String>.from(data['ownedCars'] ?? []).length;
-    int gangCont = data['gangContribution'] ?? 0;
     int crimeLvl = data['crimeLevel'] ?? 1;
-    int workLvl = data['workLevel'] ?? 1;
-    int arenaLvl = data['arenaLevel'] ?? 1;
-    int totalVipDays = data['totalVipDays'] ?? 0;
-    int bizCount = (data['ownedBusinesses'] as Map?)?.length ?? 0;
-    int spareParts = data['spareParts'] ?? 0;
-    int labCrafts = data['totalLabCrafts'] ?? 0;
-    int wheelSpins = data['luckyWheelSpins'] ?? 0;
 
     return [
       {'name': 'مبتدئ في الشوارع 🚶', 'desc': 'اللقب الافتراضي', 'unlocked': true},
@@ -607,7 +581,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                   decoration: BoxDecoration(
                     color: Colors.black45,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -621,7 +595,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                       ),
                       Switch(
                         value: isAnonymous,
-                        activeColor: Colors.amber,
+                        activeThumbColor: Colors.amber,
                         onChanged: (val) => setDialogState(() => isAnonymous = val),
                       ),
                     ],
@@ -794,7 +768,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
       decoration: BoxDecoration(
         color: Colors.black26,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
       ),
       child: Directionality(
         textDirection: TextDirection.rtl,
@@ -810,7 +784,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               margin: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.9),
+                color: Colors.black.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.amber, width: 1),
               ),
@@ -823,7 +797,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isCurrent ? Colors.amber.withOpacity(0.2) : Colors.black54,
+                  color: isCurrent ? Colors.amber.withValues(alpha: 0.2) : Colors.black54,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: isCurrent ? Colors.amber : Colors.white24),
                 ),
@@ -890,9 +864,9 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
-                border: Border.all(color: color.withOpacity(0.5)),
+                border: Border.all(color: color.withValues(alpha: 0.5)),
               ),
               child: Icon(icon, color: color, size: 20),
             ),
@@ -956,19 +930,19 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
 
     String locationText = '📍 $currentCity';
     Color locColor = Colors.tealAccent;
-    Color locBg = Colors.teal.withOpacity(0.2);
-    Color locBorder = Colors.teal.withOpacity(0.4);
+    Color locBg = Colors.teal.withValues(alpha: 0.2);
+    Color locBorder = Colors.teal.withValues(alpha: 0.4);
 
     if (isHosp) {
       locationText = '🏥 مستشفى $currentCity';
       locColor = Colors.redAccent;
-      locBg = Colors.red.withOpacity(0.2);
-      locBorder = Colors.red.withOpacity(0.4);
+      locBg = Colors.red.withValues(alpha: 0.2);
+      locBorder = Colors.red.withValues(alpha: 0.4);
     } else if (isPris) {
       locationText = '🔒 سجن $currentCity';
       locColor = Colors.grey;
-      locBg = Colors.grey.withOpacity(0.2);
-      locBorder = Colors.grey.withOpacity(0.4);
+      locBg = Colors.grey.withValues(alpha: 0.2);
+      locBorder = Colors.grey.withValues(alpha: 0.4);
     }
 
     // إحصائيات
@@ -1026,16 +1000,16 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                           margin: const EdgeInsets.symmetric(horizontal: 15),
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E1E1E).withOpacity(0.8),
+                            color: const Color(0xFF1E1E1E).withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: isVIP ? Colors.amber.withOpacity(0.4) : Colors.white10,
+                              color: isVIP ? Colors.amber.withValues(alpha: 0.4) : Colors.white10,
                             ),
                             image: backgroundImage != null
                                 ? DecorationImage(
                               image: backgroundImage,
                               fit: BoxFit.cover,
-                              colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.darken),
+                              colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.5), BlendMode.darken),
                             )
                                 : null,
                           ),
@@ -1053,7 +1027,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                                         color: const Color(0xFF212121),
                                         shape: BoxShape.circle,
                                         border: isVIP ? Border.all(color: Colors.amberAccent, width: 3) : null,
-                                        boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)],
+                                        boxShadow: isVIP ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.6), blurRadius: 15, spreadRadius: 2)] : [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10)],
                                       ),
                                       child: ClipOval(
                                         child: Container(
@@ -1145,9 +1119,9 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: Colors.orange.withOpacity(0.3),
+                                              color: Colors.orange.withValues(alpha: 0.3),
                                               borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                                              border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
                                             ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
@@ -1177,9 +1151,9 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: Colors.amber.withOpacity(0.2),
+                                            color: Colors.amber.withValues(alpha: 0.2),
                                             borderRadius: BorderRadius.circular(10),
-                                            border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                                            border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                                           ),
                                           child: Text(
                                             'السكن: ${isMe ? player.currentResidenceName : (playerData!['activePropertyId'] != null ? 'عقار خاص' : 'غير معروف')}',
@@ -1221,9 +1195,9 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                         padding: const EdgeInsets.all(15),
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: isMe ? Colors.white.withOpacity(0.05) : Colors.black45,
+                          color: isMe ? Colors.white.withValues(alpha: 0.05) : Colors.black45,
                           borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: isMe ? Colors.amber.withOpacity(0.3) : Colors.white10),
+                          border: Border.all(color: isMe ? Colors.amber.withValues(alpha: 0.3) : Colors.white10),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -1277,7 +1251,7 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
                               decoration: BoxDecoration(
                                 color: Colors.black45,
                                 borderRadius: BorderRadius.circular(15),
-                                border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
                               ),
                               child: Column(
                                 children: [
@@ -1383,9 +1357,9 @@ class _PlayerProfileViewState extends State<PlayerProfileView> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.95),
+                  color: Colors.black.withValues(alpha: 0.95),
                   border: const Border(top: BorderSide(color: Colors.amber, width: 1)),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 10, offset: const Offset(0, -5))],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 10, offset: const Offset(0, -5))],
                 ),
                 child: Wrap(
                   spacing: 10,

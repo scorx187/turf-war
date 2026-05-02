@@ -1,4 +1,4 @@
-// المسار: lib/views/gang_store_view.dart
+﻿// المسار: lib/views/gang_store_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -150,13 +150,13 @@ class _GangStoreViewState extends State<GangStoreView> {
                   final item = _storeItems[index];
                   return Card(
                     color: Colors.black45,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: item['color'].withOpacity(0.5), width: 1.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: item['color'].withValues(alpha: 0.5), width: 1.5)),
                     margin: const EdgeInsets.only(bottom: 15),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: item['color'].withOpacity(0.2), shape: BoxShape.circle), child: Icon(item['icon'], color: item['color'], size: 30)),
+                          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: item['color'].withValues(alpha: 0.2), shape: BoxShape.circle), child: Icon(item['icon'], color: item['color'], size: 30)),
                           const SizedBox(width: 15),
                           Expanded(
                             child: Column(

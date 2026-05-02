@@ -1,4 +1,4 @@
-// المسار: lib/views/gang_members_view.dart
+﻿// المسار: lib/views/gang_members_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -31,8 +31,8 @@ class GangMembersView extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
                       decoration: BoxDecoration(
                         color: Colors.black87,
-                        border: Border(bottom: BorderSide(color: Colors.blueAccent.withOpacity(0.5), width: 2)),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 8)],
+                        border: Border(bottom: BorderSide(color: Colors.blueAccent.withValues(alpha: 0.5), width: 2)),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 8)],
                       ),
                       child: Row(
                         children: [
@@ -78,7 +78,7 @@ class GangMembersView extends StatelessWidget {
                                 return Card(
                                   color: Colors.black45,
                                   margin: const EdgeInsets.only(bottom: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.blueAccent.withOpacity(0.3))),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.blueAccent.withValues(alpha: 0.3))),
                                   child: ListTile(
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
                                     leading: Container(

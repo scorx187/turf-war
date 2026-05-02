@@ -1,4 +1,4 @@
-// المسار: lib/views/gang_skills_view.dart
+﻿// المسار: lib/views/gang_skills_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -130,8 +130,8 @@ class _GangSkillsViewState extends State<GangSkillsView> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
                       decoration: BoxDecoration(
                         color: Colors.black87,
-                        border: Border(bottom: BorderSide(color: Colors.purpleAccent.withOpacity(0.5), width: 2)),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 8)],
+                        border: Border(bottom: BorderSide(color: Colors.purpleAccent.withValues(alpha: 0.5), width: 2)),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 8)],
                       ),
                       child: Row(
                         children: [
@@ -157,7 +157,7 @@ class _GangSkillsViewState extends State<GangSkillsView> {
                       decoration: BoxDecoration(
                         color: Colors.black45,
                         borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.amber.withOpacity(0.5), width: 1.5),
+                        border: Border.all(color: Colors.amber.withValues(alpha: 0.5), width: 1.5),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -184,7 +184,7 @@ class _GangSkillsViewState extends State<GangSkillsView> {
                           return Card(
                             color: Colors.black45,
                             margin: const EdgeInsets.only(bottom: 15),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: skill['color'].withOpacity(0.5))),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: skill['color'].withValues(alpha: 0.5))),
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Row(
@@ -193,7 +193,7 @@ class _GangSkillsViewState extends State<GangSkillsView> {
                                   // أيقونة المهارة
                                   Container(
                                     padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(color: skill['color'].withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: skill['color'].withOpacity(0.5))),
+                                    decoration: BoxDecoration(color: skill['color'].withValues(alpha: 0.15), shape: BoxShape.circle, border: Border.all(color: skill['color'].withValues(alpha: 0.5))),
                                     child: Icon(skill['icon'], color: skill['color'], size: 30),
                                   ),
                                   const SizedBox(width: 15),

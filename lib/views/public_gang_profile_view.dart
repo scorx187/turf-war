@@ -1,4 +1,4 @@
-// المسار: lib/views/public_gang_profile_view.dart
+﻿// المسار: lib/views/public_gang_profile_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,7 +9,7 @@ import '../providers/audio_provider.dart';
 class PublicGangProfileView extends StatefulWidget {
   final String gangName;
 
-  const PublicGangProfileView({Key? key, required this.gangName}) : super(key: key);
+  const PublicGangProfileView({super.key, required this.gangName});
 
   @override
   State<PublicGangProfileView> createState() => _PublicGangProfileViewState();
@@ -95,8 +95,8 @@ class _PublicGangProfileViewState extends State<PublicGangProfileView> {
                     decoration: BoxDecoration(
                       color: Colors.black45,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.amber.withOpacity(0.5), width: 2),
-                      boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.1), blurRadius: 20, spreadRadius: 5)],
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.5), width: 2),
+                      boxShadow: [BoxShadow(color: Colors.amber.withValues(alpha: 0.1), blurRadius: 20, spreadRadius: 5)],
                     ),
                     child: Column(
                       children: [
@@ -139,7 +139,7 @@ class _PublicGangProfileViewState extends State<PublicGangProfileView> {
                   else
                     Container(
                       padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.redAccent.withOpacity(0.3))),
+                      decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3))),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -164,7 +164,7 @@ class _PublicGangProfileViewState extends State<PublicGangProfileView> {
       children: [
         Container(
           padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(color: Colors.black38, shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.5))),
+          decoration: BoxDecoration(color: Colors.black38, shape: BoxShape.circle, border: Border.all(color: color.withValues(alpha: 0.5))),
           child: Icon(icon, color: color, size: 30),
         ),
         const SizedBox(height: 8),

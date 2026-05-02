@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class BottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -24,7 +24,7 @@ class BottomNavBar extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.8),
+            color: Colors.black.withValues(alpha: 0.8),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -67,7 +67,7 @@ class BottomNavBar extends StatelessWidget {
               boxShadow: isSelected
                   ? [
                 BoxShadow(
-                  color: const Color(0xFFC5A059).withOpacity(0.6),
+                  color: const Color(0xFFC5A059).withValues(alpha: 0.6),
                   blurRadius: 10,
                   spreadRadius: 1,
                 )

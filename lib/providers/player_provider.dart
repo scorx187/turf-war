@@ -16,9 +16,12 @@ part 'player_market_logic.dart';
 part 'player_combat_logic.dart';
 part 'player_inventory_logic.dart';
 part 'player_social_logic.dart';
-
 part 'player_titles_logic.dart';
 part 'player_stats_logic.dart';
+part 'player_firebase_logic.dart';
+part 'player_game_loop.dart';
+part 'player_actions_logic.dart';
+part 'player_profile_logic.dart';
 
 class Transaction {
   final String title;
@@ -37,6 +40,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   String? _uid;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   StreamSubscription? _playerDataSubscription;
+  StreamSubscription? _gameConfigSubscription;
+  StreamSubscription? _eventsSubscription;
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
@@ -56,7 +61,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int _gold = 0;
   int _bankBalance = 0;
 
-  // 🟢 متغير مضاعف الجرائم
   double _crimeEventMultiplier = 1.0;
   double get crimeEventMultiplier => _crimeEventMultiplier;
 
@@ -175,8 +179,10 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   List<Transaction> _transactions = [];
 
   final Map<String, Uint8List> _decodedImagesCache = {};
-
   final Map<String, Map<String, dynamic>> _profilesCache = {};
+
+  static const int _maxProfilesCacheSize = 50;
+  static const int _maxImagesCacheSize = 30;
 
   int _pvpWins = 0;
   int _totalStolenCash = 0;
@@ -196,6 +202,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int get energy {
     if (_lastEnergyUpdate == null) return _energy;
     int secondsPassed = DateTime.now().difference(_lastEnergyUpdate!).inSeconds;
+    if (secondsPassed < 0) return _energy;
     int interval = isVIP ? 9 : 18;
     return min(maxEnergy, _energy + (secondsPassed ~/ interval));
   }
@@ -203,6 +210,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   int get courage {
     if (_lastCourageUpdate == null) return _courage;
     int secondsPassed = DateTime.now().difference(_lastCourageUpdate!).inSeconds;
+    if (secondsPassed < 0) return _courage;
     return min(maxCourage, _courage + (secondsPassed ~/ 36));
   }
 
@@ -211,6 +219,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     int interval = isVIP ? 9 : 18;
     if (_lastEnergyUpdate == null) return interval;
     int secondsPassed = DateTime.now().difference(_lastEnergyUpdate!).inSeconds;
+    if (secondsPassed < 0) return interval;
     return interval - (secondsPassed % interval);
   }
 
@@ -218,6 +227,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     if (courage >= maxCourage) return 0;
     if (_lastCourageUpdate == null) return 36;
     int secondsPassed = DateTime.now().difference(_lastCourageUpdate!).inSeconds;
+    if (secondsPassed < 0) return 36;
     return 36 - (secondsPassed % 36);
   }
 
@@ -320,7 +330,7 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _startGameLoop();
     _listenToGameConfig();
-    _listenToEvents(); // 🟢 استدعاء الاستماع للفعاليات
+    _listenToEvents();
   }
 
   @override
@@ -352,606 +362,13 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
   }
 
-  Uint8List? getDecodedImage(String? base64Str) {
-    if (base64Str == null || base64Str.isEmpty) return null;
-    if (_decodedImagesCache.containsKey(base64Str)) return _decodedImagesCache[base64Str]!;
-    try {
-      final bytes = base64Decode(base64Str);
-      _decodedImagesCache[base64Str] = bytes;
-      return bytes;
-    } catch (e) { return null; }
-  }
-
-  Future<void> initializePlayerOnServer(String uid, String name) async {
-    _uid = uid; _isLoading = true; notifyListeners();
-    _playerDataSubscription?.cancel();
-    try {
-      final initialDoc = await _firestore.collection('players').doc(uid).get();
-      if (initialDoc.exists) {
-        _applyFirestoreData(initialDoc.data()!);
-        if (_gameId == null) {
-          _gameId = (100000 + Random().nextInt(900000)).toString();
-          _isLoading = false; await _syncWithFirestore();
-        }
-      } else if (name.isNotEmpty) {
-        _playerName = name; _inventory['name_change_card'] = 1;
-        _gameId = (100000 + Random().nextInt(900000)).toString();
-        _lastPassiveIncomeTime = secureNow;
-        _lastEnergyUpdate = DateTime.now();
-        _lastCourageUpdate = DateTime.now();
-        _isLoading = false; await _syncWithFirestore();
-      }
-    } catch (e) {} finally { _isLoading = false; notifyListeners(); }
-    _playerDataSubscription = _firestore.collection('players').doc(uid).snapshots().listen((snapshot) {
-      if (snapshot.exists && snapshot.metadata.hasPendingWrites == false) { _applyFirestoreData(snapshot.data()!); notifyListeners(); }
-    });
-  }
-
-  // 🟢 استماع إعدادات اللعبة (الكفالة والأمور الثابتة)
-  void _listenToGameConfig() {
-    final docRef = _firestore.collection('config').doc('game_settings');
-
-    docRef.get().then((doc) {
-      if (!doc.exists) {
-        docRef.set({'bailPrice': 1500}, SetOptions(merge: true));
-      }
-    }).catchError((_) {});
-
-    docRef.snapshots().listen((doc) {
-      if (doc.exists) {
-        final data = doc.data()!;
-        if (data.containsKey('bailPrice')) {
-          _bailPrice = (data['bailPrice'] as num).toInt();
-          notifyListeners();
-        }
-      }
-    });
-  }
-
-  // 🟢 استماع قسم الفعاليات الجديد (Events Collection)
-  void _listenToEvents() {
-    final eventRef = _firestore.collection('events').doc('active_events');
-
-    // إذا ما كان موجود، ينشئه التطبيق بنفسه ويحط القيمة الطبيعية 1.0 كنوع double
-    eventRef.get().then((doc) {
-      if (!doc.exists) {
-        eventRef.set({'crimeMultiplier': 1.0}, SetOptions(merge: true));
-        debugPrint("✅ تم إنشاء ملف الأحداث (events) تلقائياً!");
-      }
-    }).catchError((_) {});
-
-    eventRef.snapshots().listen((doc) {
-      if (doc.exists) {
-        final data = doc.data()!;
-        if (data.containsKey('crimeMultiplier') || data.containsKey('crime_multiplier')) {
-          var val = data['crimeMultiplier'] ?? data['crime_multiplier'];
-          _crimeEventMultiplier = double.tryParse(val.toString()) ?? 1.0;
-          debugPrint("🎯 تم تحديث مضاعف الجرائم من قسم events إلى: $_crimeEventMultiplier");
-        } else {
-          _crimeEventMultiplier = 1.0;
-        }
-        notifyListeners();
-      }
-    }, onError: (error) {
-      debugPrint("❌ خطأ في قراءة الأحداث: $error");
-    });
-  }
-
-  void _applyFirestoreData(Map<String, dynamic> data) {
-    _playerName = data['playerName'] ?? _playerName; _gameId = data['gameId'] ?? _gameId; _bio = data['bio'] ?? _bio;
-    _profilePicUrl = data['profilePicUrl']; _backgroundPicUrl = data['backgroundPicUrl']; _currentCity = data['currentCity'] ?? 'ملاذ';
-    _cash = data['cash'] ?? _cash; _gold = data['gold'] ?? _gold; _bankBalance = data['bankBalance'] ?? _bankBalance;
-
-    _baseMaxHealth = data['maxHealth'] ?? _baseMaxHealth;
-    _happiness = data['happiness'] ?? _happiness;
-    _baseStrength = (data['strength'] ?? 5.0).toDouble(); _baseDefense = (data['defense'] ?? 5.0).toDouble(); _baseSkill = (data['skill'] ?? 5.0).toDouble(); _baseSpeed = (data['speed'] ?? 5.0).toDouble();
-    _bonusPerkPoints = data['bonusPerkPoints'] ?? 0;
-
-    _energy = data['energy'] ?? _energy;
-    if (data['lastEnergyUpdate'] != null) {
-      _lastEnergyUpdate = (data['lastEnergyUpdate'] is Timestamp) ? (data['lastEnergyUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastEnergyUpdate'].toString());
-    } else {
-      _lastEnergyUpdate ??= DateTime.now();
-    }
-
-    _courage = data['courage'] ?? _courage;
-    if (data['lastCourageUpdate'] != null) {
-      _lastCourageUpdate = (data['lastCourageUpdate'] is Timestamp) ? (data['lastCourageUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastCourageUpdate'].toString());
-    } else {
-      _lastCourageUpdate ??= DateTime.now();
-    }
-
-    if (!_isInitialDataLoaded) {
-      _prestige = data['prestige'] ?? 100;
-      _health = data['health'] ?? _health;
-    } else {
-      if (data['health'] != null) {
-        if (data['health'] < (_health - 2) || (data['health'] - _health) > 2) {
-          _health = data['health'];
-        }
-      }
-      if (data['prestige'] != null) {
-        if (data['prestige'] < (_prestige - 2) || (data['prestige'] - _prestige) > 2) {
-          _prestige = data['prestige'];
-        }
-      }
-    }
-
-    if (data['activeSteroidEndTime'] != null) _activeSteroidEndTime = DateTime.parse(data['activeSteroidEndTime']);
-    _activeCoach = data['activeCoach'];
-    if (data['coachEndTime'] != null) _coachEndTime = DateTime.parse(data['coachEndTime']);
-
-    _ownedProperties = List<String>.from(data['ownedProperties'] ?? []); _activePropertyId = data['activePropertyId'];
-    _listedProperties = List<String>.from(data['listedProperties'] ?? []);
-    _rentedOutProperties = {};
-    if (data['rentedOutProperties'] != null) {
-      (data['rentedOutProperties'] as Map).forEach((k, v) {
-        if (v is String) _rentedOutProperties[k.toString()] = {'expire': v, 'renterId': '', 'renterName': 'مجهول'};
-        else _rentedOutProperties[k.toString()] = Map<String, dynamic>.from(v);
-      });
-    }
-    if (data['activeRentedProperty'] != null) _activeRentedProperty = Map<String, dynamic>.from(data['activeRentedProperty']);
-    _ownedBusinesses = Map<String, int>.from(data['ownedBusinesses'] ?? {}); _inventory = Map<String, int>.from(data['inventory'] ?? {});
-    _crimeLevel = data['crimeLevel'] ?? 1; _crimeXP = data['crimeXP'] ?? 0; _lastCrimeName = data['lastCrimeName'] ?? "تسكع في الشوارع"; _playerBailCost = data['bailCost'] ?? 1500;
-    _workLevel = data['workLevel'] ?? 1; _workXP = data['workXP'] ?? 0; _arenaLevel = data['arenaLevel'] ?? 1;
-
-    bool wasInPrison = _isInPrison;
-    DateTime? oldRelease = _prisonReleaseTime;
-    _isInPrison = data['isInPrison'] ?? false;
-
-    if (data['prisonReleaseTime'] != null) {
-      _prisonReleaseTime = DateTime.parse(data['prisonReleaseTime']);
-    } else {
-      _prisonReleaseTime = null;
-    }
-
-    if (wasInPrison && !_isInPrison && oldRelease != null && secureNow.isBefore(oldRelease)) {
-      _notificationStream.add("💸 كفالة!|لقد تم دفع كفالتك وإخراجك من السجن!");
-    }
-
-    _isHospitalized = data['isHospitalized'] ?? false; if (data['hospitalReleaseTime'] != null) _hospitalReleaseTime = DateTime.parse(data['hospitalReleaseTime']);
-    _lockedBalance = data['lockedBalance'] ?? 0; _lockedProfits = data['lockedProfits'] ?? 0; if (data['lockedUntil'] != null) _lockedUntil = DateTime.parse(data['lockedUntil']);
-    if (data['vipUntil'] != null) _vipUntil = DateTime.parse(data['vipUntil']);
-    _totalVipDays = data['totalVipDays'] ?? 0;
-    _totalLabCrafts = data['totalLabCrafts'] ?? 0;
-    _luckyWheelSpins = data['luckyWheelSpins'] ?? 0;
-    _loanAmount = data['loanAmount'] ?? 0; _creditScore = data['creditScore'] ?? 0; if (data['loanTime'] != null) _loanTime = DateTime.parse(data['loanTime']);
-    _gangName = data['gangName']; _gangRank = data['gangRank'] ?? "عضو"; _gangContribution = data['gangContribution'] ?? 0; _gangWarWins = data['gangWarWins'] ?? 0;
-    if (data['territoryOwners'] != null) _territoryOwners = Map<String, String>.from(data['territoryOwners']);
-    if (data['contractEndTime'] != null) _contractEndTime = DateTime.parse(data['contractEndTime']);
-    _activeContractName = data['activeContractName']; _contractSalary = data['contractSalary'] ?? 0; _ownedCars = List<String>.from(data['ownedCars'] ?? []); _activeCarId = data['activeCarId'];
-    if (data['chopShopEndTime'] != null) _chopShopEndTime = DateTime.parse(data['chopShopEndTime']); _isChopping = data['isChopping'] ?? false;
-    if (data['labEndTime'] != null) _labEndTime = DateTime.parse(data['labEndTime']); _isCrafting = data['isCrafting'] ?? false; _craftingItemId = data['craftingItemId'];
-    _heat = (data['heat'] ?? 0.0).toDouble(); _spareParts = data['spareParts'] ?? 0;
-    _durability = data['durability'] != null ? Map<String, double>.from(data['durability'].map((k, v) => MapEntry(k, v.toDouble()))) : {};
-
-    _equippedWeaponId = data['equippedWeaponId'];
-    _equippedArmorId = data['equippedArmorId'];
-    _equippedMaskId = data['equippedMaskId'];
-    _equippedCrimeToolId = data['equippedCrimeToolId'];
-    _equippedSpecialId = data['equippedSpecialId'];
-
-    if (data['transactions'] != null) _transactions = (data['transactions'] as List).map((t) => Transaction.fromJson(Map<String, dynamic>.from(t))).toList();
-    if (data['crimeSuccessCountsMap'] != null) crimeSuccessCountsMap = Map<String, int>.from(data['crimeSuccessCountsMap']);
-
-    _pvpWins = (data['pvpWins'] as num?)?.toInt() ?? 0;
-    _totalStolenCash = (data['totalStolenCash'] as num?)?.toInt() ?? 0;
-    _selectedTitle = data['selectedTitle'];
-
-    _perks = {};
-    if (data['perks'] != null && data['perks'] is Map) {
-      (data['perks'] as Map).forEach((k, v) {
-        if (GameData.perksList.any((p) => p['id'] == k.toString())) {
-          _perks[k.toString()] = (v as num).toInt();
-        }
-      });
-    }
-
-    if (data['lastUpdate'] != null) {
-      DateTime serverTime = (data['lastUpdate'] is Timestamp) ? (data['lastUpdate'] as Timestamp).toDate() : DateTime.parse(data['lastUpdate'].toString());
-      int secondsPassed = DateTime.now().difference(serverTime).inSeconds;
-
-      if (!_isInitialDataLoaded && secondsPassed > 0) {
-        bool isVipNow = _vipUntil != null && secureNow.isBefore(_vipUntil!);
-
-        int gainedPrestige = secondsPassed ~/ (isVipNow ? 36 : 72);
-        _prestige = min(maxPrestige, _prestige + gainedPrestige);
-
-        double healthRegenTime = 1800.0 + (maxHealth * 0.0005);
-        double regenPerSecond = maxHealth / healthRegenTime;
-        int gainedHealth = (secondsPassed * regenPerSecond).toInt();
-        _health = min(maxHealth, _health + gainedHealth);
-
-        double lostHeat = secondsPassed * 0.0278; _heat = max(0, _heat - lostHeat);
-        Future.microtask(() => _syncWithFirestore());
-      }
-
-      _lastServerTime = serverTime;
-      _sessionTimer.reset();
-      _sessionTimer.start();
-    }
-
-    if (data['lastPassiveIncomeTime'] != null) {
-      _lastPassiveIncomeTime = DateTime.parse(data['lastPassiveIncomeTime'].toString());
-      int hoursPassed = secureNow.difference(_lastPassiveIncomeTime!).inHours;
-      if (hoursPassed >= 24) {
-        int daysPassed = hoursPassed ~/ 24;
-        int passiveIncome = (getTotalPassiveIncomePerDay() + getPropertyRentIncomePerDay()) * daysPassed;
-        if (passiveIncome > 0) { _cash += passiveIncome; Future.microtask(() => _sendSystemNotification("الأرباح اليومية 🏢", "استلمت أرباحك بقيمة: \$${_formatWithCommas(passiveIncome)}", "money")); }
-        _lastPassiveIncomeTime = _lastPassiveIncomeTime!.add(Duration(days: daysPassed));
-      }
-    } else { _lastPassiveIncomeTime = secureNow; }
-
-    if (data['unlockedTitlesList'] != null) {
-      _unlockedTitlesList = List<String>.from(data['unlockedTitlesList']);
-    } else {
-      _unlockedTitlesList = getAllTitles().where((t) => t['unlocked'] == true).map((t) => t['name'] as String).toList();
-    }
-
-    _isInitialDataLoaded = true;
-  }
-
-  Future<void> _syncWithFirestore() async {
-    if (_uid == null || _isLoading) return;
-    try {
-      await _firestore.collection('players').doc(_uid).set({
-        'playerName': _playerName, 'gameId': _gameId, 'bio': _bio, 'profilePicUrl': _profilePicUrl, 'backgroundPicUrl': _backgroundPicUrl, 'currentCity': _currentCity,
-        'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance,
-        'prestige': _prestige, 'health': _health, 'maxHealth': _baseMaxHealth, 'happiness': _happiness, 'strength': _baseStrength, 'defense': _baseDefense, 'skill': _baseSkill, 'speed': _baseSpeed,
-        'activeSteroidEndTime': _activeSteroidEndTime?.toIso8601String(), 'activeCoach': _activeCoach, 'coachEndTime': _coachEndTime?.toIso8601String(),
-        'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),
-        'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'totalVipDays': _totalVipDays, 'totalLabCrafts': _totalLabCrafts, 'luckyWheelSpins': _luckyWheelSpins, 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability,
-        'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'equippedSpecialId': _equippedSpecialId,
-        'bonusPerkPoints': _bonusPerkPoints,
-        'transactions': _transactions.map((t) => t.toJson()).toList(), 'lastCrimeName': _lastCrimeName, 'bailCost': _playerBailCost,
-        'pvpWins': _pvpWins,
-        'totalStolenCash': _totalStolenCash,
-        'perks': _perks,
-        'selectedTitle': _selectedTitle,
-        'unlockedTitlesList': _unlockedTitlesList,
-      }, SetOptions(merge: true));
-    } catch (e) {}
-  }
-
-  void putInPrison(int minutes, String crimeName, int bailCost) {
-    _isInPrison = true;
-    _prisonReleaseTime = secureNow.add(Duration(minutes: minutes));
-    _playerBailCost = bailCost;
-    _lastCrimeName = crimeName;
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
-  bool attemptEscape() {
-    if (courage < 10 || !_isInPrison) return false;
-    _courage = courage - 10;
-    _lastCourageUpdate = DateTime.now();
-    bool success = Random().nextDouble() < 0.3;
-    if (success) {
-      _isInPrison = false;
-      _prisonReleaseTime = null;
-      _notificationStream.add("هروب ناجح 🏃‍♂️|لقد تمكنت من الهروب من السجن بنجاح!");
-    }
-    _syncWithFirestore();
-    notifyListeners();
-    return success;
-  }
-
-  void addEnergy(int amount) {
-    _energy = min(maxEnergy, energy + amount);
-    _lastEnergyUpdate = DateTime.now();
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
-  void addInventoryItem(String itemId, int quantity) {
-    _inventory[itemId] = (_inventory[itemId] ?? 0) + quantity;
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
-  void addBonusPerkPoint(int amount) {
-    _bonusPerkPoints += amount;
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
-  void toggleSpecialItem(String itemId) {
-    if (_equippedSpecialId == itemId) {
-      _equippedSpecialId = null;
-    } else {
-      _equippedSpecialId = itemId;
-    }
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
-  void _startGameLoop() {
-    _gameLoopTimer?.cancel();
-    _gameLoopTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_isLoading) return;
-      bool localChanged = false;
-
-      if (timer.tick % 5 == 0) {
-        checkNewTitles();
-      }
-
-      if (_activeSteroidEndTime != null && secureNow.isAfter(_activeSteroidEndTime!)) {
-        _activeSteroidEndTime = null;
-        localChanged = true;
-      }
-
-      if (_coachEndTime != null && secureNow.isAfter(_coachEndTime!)) {
-        _activeCoach = null;
-        _coachEndTime = null;
-        localChanged = true;
-      }
-
-      int steroidCooldown = _inventory['steroid_cooldown'] ?? 0;
-      if (steroidCooldown > 0 && secureNow.millisecondsSinceEpoch > steroidCooldown) {
-        _inventory.remove('steroid_cooldown');
-        if (_uid != null) {
-          _firestore.collection('players').doc(_uid).update({'inventory.steroid_cooldown': FieldValue.delete()}).catchError((_) {});
-        }
-        _sendSystemNotification("سوق المنشطات 💉", "انتهت فترة الراحة للمنشطات! يمكنك شراء وحقن جرعة جديدة الآن.", "info");
-        localChanged = true;
-      }
-
-      int coachCooldown = _inventory['coach_cooldown'] ?? 0;
-      if (coachCooldown > 0 && secureNow.millisecondsSinceEpoch > coachCooldown) {
-        _inventory.remove('coach_cooldown');
-        if (_uid != null) {
-          _firestore.collection('players').doc(_uid).update({'inventory.coach_cooldown': FieldValue.delete()}).catchError((_) {});
-        }
-        _sendSystemNotification("صالة التدريب 🥊", "المدربون متاحون الآن للتعاقد من جديد!", "info");
-        localChanged = true;
-      }
-
-      if (_activeRentedProperty != null && secureNow.isAfter(DateTime.parse(_activeRentedProperty!['expire']))) {
-        String propId = _activeRentedProperty!['id']; _activeRentedProperty = null;
-        if (_activePropertyId == propId) { _activePropertyId = null; _happiness = 0; }
-        _sendSystemNotification("إيجار السكن 🏠", "انتهى عقد إيجار سكنك الحالي!", "home");
-        localChanged = true;
-      }
-
-      if (_rentedOutProperties.isNotEmpty) {
-        List<String> expired = [];
-        _rentedOutProperties.forEach((id, data) { if (secureNow.isAfter(DateTime.parse(data['expire']))) expired.add(id); });
-        for (var id in expired) {
-          _rentedOutProperties.remove(id);
-          _sendSystemNotification("إدارة الأملاك 🔑", "انتهت مدة إيجار عقارك ($id) وعاد إليك!", "key");
-          localChanged = true;
-        }
-      }
-
-      if (_heat > 0) { _heat = max(0, _heat - 0.0278); localChanged = true; }
-
-      if (timer.tick % (isVIP ? 36 : 72) == 0 && _prestige < maxPrestige) {
-        _prestige++; localChanged = true;
-      }
-
-      if (energy < maxEnergy || courage < maxCourage) { localChanged = true; }
-
-      if (_health < maxHealth) {
-        double healthRegenTime = 1800.0 + (maxHealth * 0.0005);
-        double regenPerSecond = maxHealth / healthRegenTime;
-        _fractionalHealth += regenPerSecond;
-        if (_fractionalHealth >= 1.0) {
-          int healAmount = _fractionalHealth.toInt();
-          _health = min(maxHealth, _health + healAmount);
-          _fractionalHealth -= healAmount; localChanged = true;
-          if (_health >= maxHealth && _isHospitalized) {
-            _isHospitalized = false; _hospitalReleaseTime = null;
-            _sendSystemNotification("المستشفى 🏥", "تعافيت بالكامل وخرجت من المستشفى!", "hospital");
-          }
-        }
-      } else { _fractionalHealth = 0.0; }
-
-      if (_lastPassiveIncomeTime != null && secureNow.difference(_lastPassiveIncomeTime!).inHours >= 24) {
-        int passiveIncome = getTotalPassiveIncomePerDay() + getPropertyRentIncomePerDay();
-        if (passiveIncome > 0) {
-          _cash += passiveIncome;
-          _sendSystemNotification("الأرباح اليومية 🏢", "استلمت أرباحك اليومية: \$${_formatWithCommas(passiveIncome)}", "money");
-        }
-        _lastPassiveIncomeTime = _lastPassiveIncomeTime!.add(const Duration(hours: 24)); localChanged = true;
-      }
-
-      if (timer.tick % 60 == 0) { for (var tool in GameData.crimeToolsList) { if ((_durability[tool] ?? 100) < 100) { _durability[tool] = min(100.0, (_durability[tool] ?? 100) + 1.0); localChanged = true; } } }
-      if (_loanAmount > 0 && _loanTime != null) {
-        if (secureNow.difference(_loanTime!).inHours >= 2) {
-          _loanAmount = (_loanAmount * 1.1).floor(); _loanTime = secureNow;
-          _sendSystemNotification("البنك 🏦", "تمت إضافة فوائد 10% على قرضك لتأخرك في السداد!", "bank");
-          localChanged = true;
-        }
-      }
-      if (_isInPrison && _prisonReleaseTime != null && secureNow.isAfter(_prisonReleaseTime!)) {
-        _isInPrison = false; _prisonReleaseTime = null;
-        _notificationStream.add("إفراج 🔓|تم الإفراج عنك من السجن بعد انتهاء مدة عقوبتك.");
-        localChanged = true;
-      }
-      if (_isHospitalized && _hospitalReleaseTime != null && secureNow.isAfter(_hospitalReleaseTime!)) {
-        _isHospitalized = false; _hospitalReleaseTime = null; _health = (maxHealth * 0.25).toInt();
-        _sendSystemNotification("المستشفى 🏥", "تم خروجك من المستشفى!", "hospital");
-        localChanged = true;
-      }
-      if (_lockedUntil != null && secureNow.isAfter(_lockedUntil!)) {
-        int total = _lockedBalance + _lockedProfits; _bankBalance += total; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
-        _sendSystemNotification("الاستثمار 📈", "انتهى الاستثمار! استلمت $total كاش", "invest");
-        localChanged = true;
-      }
-      if (isUnderContract && _lastContractRewardTime != null && secureNow.difference(_lastContractRewardTime!).inMinutes >= 1) {
-        _cash += _contractSalary; _lastContractRewardTime = secureNow; _addTransaction("راتب عقد: $_activeContractName", _contractSalary, true); _workXP += 5;
-        if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; }
-        localChanged = true;
-      }
-
-      if (localChanged) notifyListeners();
-    });
-  }
-
-  void travelToCity(String city, int price) { if (_cash >= price) { _cash -= price; _currentCity = city; _syncWithFirestore(); notifyListeners(); _sendSystemNotification("السفر ✈️", "هبطت طائرتك بسلام في $city!", "info"); } }
-  void updateBio(String newBio) { if (newBio.length <= 150) { _bio = newBio; _syncWithFirestore(); notifyListeners(); } }
-
-  Future<String?> uploadAndSetProfilePic(Uint8List imageBytes) async {
-    if (_uid == null) return null;
-
-    try {
-      Reference ref = FirebaseStorage.instance.ref().child('profile_pics/$_uid');
-      UploadTask uploadTask = ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
-      TaskSnapshot snapshot = await uploadTask;
-      String downloadUrl = await snapshot.ref.getDownloadURL();
-
-      if (_profilePicUrl != null && _profilePicUrl!.startsWith('http')) {
-        await NetworkImage(_profilePicUrl!).evict();
-      }
-
-      downloadUrl = "$downloadUrl&v=${DateTime.now().millisecondsSinceEpoch}";
-
-      _profilePicUrl = downloadUrl;
-      await _syncWithFirestore();
-
-      WriteBatch batch = _firestore.batch();
-      var chatQuery = await _firestore.collection('chat').where('uid', isEqualTo: _uid).get();
-      for (var doc in chatQuery.docs) {
-        batch.update(doc.reference, {'profilePicUrl': downloadUrl});
-      }
-      await batch.commit();
-
-      _sendSystemNotification("تحديث الحساب 📸", "تم رفع وتحديث صورتك الشخصية بنجاح!", "info");
-      notifyListeners();
-      return downloadUrl;
-    } catch (e) {
-      debugPrint("خطأ في رفع الصورة: $e");
-      _sendSystemNotification("خطأ ⚠️", "فشل رفع الصورة، تأكد من اتصالك بالإنترنت.", "error");
-      return null;
-    }
-  }
-
-  Future<String?> uploadAndSetBackgroundPic(Uint8List imageBytes) async {
-    if (_uid == null) return null;
-
-    try {
-      Reference ref = FirebaseStorage.instance.ref().child('background_pics/$_uid');
-      UploadTask uploadTask = ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
-      TaskSnapshot snapshot = await uploadTask;
-      String downloadUrl = await snapshot.ref.getDownloadURL();
-
-      if (_backgroundPicUrl != null && _backgroundPicUrl!.startsWith('http')) {
-        await NetworkImage(_backgroundPicUrl!).evict();
-      }
-
-      downloadUrl = "$downloadUrl&v=${DateTime.now().millisecondsSinceEpoch}";
-
-      _backgroundPicUrl = downloadUrl;
-      await _syncWithFirestore();
-
-      _sendSystemNotification("تحديث الحساب 📸", "تم رفع وتحديث صورة الغلاف بنجاح!", "info");
-      notifyListeners();
-      return downloadUrl;
-    } catch (e) {
-      debugPrint("خطأ في رفع صورة الغلاف: $e");
-      _sendSystemNotification("خطأ ⚠️", "فشل رفع صورة الغلاف.", "error");
-      return null;
-    }
-  }
-
-  void increaseHeat(double amount) { _heat = min(100, _heat + amount); notifyListeners(); }
-  void reduceHeat(double amount) { _heat = max(0, _heat - amount); notifyListeners(); }
-  void addCash(int amount, {String reason = "مكافأة", String? senderUid}) { _cash += amount; _addTransaction(reason, amount, true, senderUid: senderUid); _syncWithFirestore(); notifyListeners(); }
-  void removeCash(int amount, {String reason = "خصم", String? senderUid}) { _cash = max(0, _cash - amount); _addTransaction(reason, amount, false, senderUid: senderUid); _syncWithFirestore(); notifyListeners(); }
-  void addGold(int amount) { _gold += amount; _syncWithFirestore(); notifyListeners(); }
-  void removeGold(int amount) { _gold = max(0, _gold - amount); _syncWithFirestore(); notifyListeners(); }
-  void updateName(String newName) { if (_inventory.containsKey('name_change_card') && _inventory['name_change_card']! > 0) { _playerName = newName; _inventory['name_change_card'] = _inventory['name_change_card']! - 1; if (_inventory['name_change_card'] == 0) _inventory.remove('name_change_card'); _syncWithFirestore(); notifyListeners(); } }
-
-  void addWorkXP(int amount) {
-    _workXP += amount;
-    if (_workXP >= workXPToNextLevel) {
-      _workXP -= workXPToNextLevel;
-      _workLevel++;
-    }
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
-  void addCrimeXP(int amount) {
-    _crimeXP += amount;
-    if (_crimeXP >= xpToNextLevel) {
-      _crimeXP -= xpToNextLevel;
-      _crimeLevel++;
-      _notificationStream.add("ترقية 🔫|تهانينا! وصلت للمستوى $_crimeLevel في الجريمة");
-    }
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
-  void buyVIP(int days, int cost) {
-    if (_gold >= cost) {
-      _gold -= cost;
-      _totalVipDays += days;
-      DateTime start = isVIP ? _vipUntil! : secureNow;
-      _vipUntil = start.add(Duration(days: days));
-      _syncWithFirestore();
-      notifyListeners();
-    }
-  }
-
-  void incrementLabCrafts() { _totalLabCrafts++; _syncWithFirestore(); notifyListeners(); }
-  void incrementLuckyWheelSpins() { _luckyWheelSpins++; _syncWithFirestore(); notifyListeners(); }
-
-  void _addTransaction(String title, int amount, bool isPositive, {String? senderUid}) { _transactions.insert(0, Transaction(title: title, amount: amount, date: secureNow, isPositive: isPositive, senderUid: senderUid)); if (_transactions.length > 20) _transactions.removeLast(); }
-
-  void updateTitle(String newTitle) {
-    _selectedTitle = newTitle;
-    _syncWithFirestore();
-    notifyListeners();
-  }
-
-  Future<Map<String, dynamic>?> getPlayerById(String targetUid) async {
-    if (_profilesCache.containsKey(targetUid)) {
-      _firestore.collection('players').doc(targetUid).get(const GetOptions(source: Source.server)).then((doc) {
-        if (doc.exists) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          data['uid'] = doc.id;
-          _profilesCache[targetUid] = data;
-        }
-      });
-      return _profilesCache[targetUid];
-    }
-
-    try {
-      DocumentSnapshot serverDoc = await _firestore.collection('players').doc(targetUid).get(const GetOptions(source: Source.server));
-      if (serverDoc.exists) {
-        Map<String, dynamic> data = serverDoc.data() as Map<String, dynamic>;
-        data['uid'] = serverDoc.id;
-        _profilesCache[targetUid] = data;
-        return data;
-      }
-    } catch (e) {
-      debugPrint("خطأ في جلب بيانات اللاعب: $e");
-    }
-    return null;
-  }
-
-  Future<void> resetPlayerData() async {
-    _cash = 500; _gold = 0; _bankBalance = 0; _energy = 100; _courage = 30; _prestige = 100; _baseStrength = 5; _baseDefense = 5; _baseSkill = 5; _baseSpeed = 5;
-    _ownedProperties = []; _activePropertyId = null; _ownedBusinesses = {}; _happiness = 0; _inventory = {'name_change_card': 1};
-    _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _equippedSpecialId = null; _vipUntil = null; _totalVipDays = 0; _totalLabCrafts = 0; _luckyWheelSpins = 0; _unlockedTitlesList = [];
-    _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
-    _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {};
-    crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
-    _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ';
-    _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null; _lastPassiveIncomeTime = secureNow;
-    _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _pvpWins = 0; _totalStolenCash = 0; _perks = {}; _selectedTitle = null; _baseMaxHealth = 100; _bonusPerkPoints = 0;
-
-    _lastEnergyUpdate = DateTime.now();
-    _lastCourageUpdate = DateTime.now();
-
-    await _syncWithFirestore(); notifyListeners();
-  }
-
   void clearDataOnLogout() {
     _uid = null;
+    _isInitialDataLoaded = false;
     _playerDataSubscription?.cancel();
+    _gameLoopTimer?.cancel();
+    _gameConfigSubscription?.cancel();
+    _eventsSubscription?.cancel();
 
     _profilesCache.clear();
 
@@ -983,43 +400,12 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void upgradePerk(String perkId) {
-    int currentLvl = _perks[perkId] ?? 0;
-    int maxLvl = GameData.perksList.firstWhere((p) => p['id'] == perkId)['maxLevel'];
-    if (currentLvl < maxLvl && unspentSkillPoints > 0) {
-      _perks[perkId] = currentLvl + 1;
-      _syncWithFirestore();
-      notifyListeners();
-      _sendSystemNotification("شجرة الامتيازات ⭐", "تم تفعيل الامتياز بنجاح!", "star");
-    } else {
-      _sendSystemNotification("نقاط غير كافية ⚠️", "حقق المزيد من الألقاب لجمع النقاط.", "warning");
-    }
-  }
-
-  void releaseFromHospital() {
-    _isHospitalized = false;
-    _hospitalReleaseTime = null;
-    notifyListeners();
-    _syncWithFirestore();
-  }
-
-  void releaseFromPrison() {
-    _isInPrison = false;
-    _prisonReleaseTime = null;
-    notifyListeners();
-  }
-
-  void setHeat(double value) {
-    _heat = value;
-    if (_heat < 0) _heat = 0;
-    notifyListeners();
-    _syncWithFirestore();
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _playerDataSubscription?.cancel();
+    _gameConfigSubscription?.cancel();
+    _eventsSubscription?.cancel();
     _gameLoopTimer?.cancel();
     _notificationStream.close();
     _sessionTimer.stop();

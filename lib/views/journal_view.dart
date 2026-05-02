@@ -1,4 +1,4 @@
-// المسار: lib/views/journal_view.dart
+﻿// المسار: lib/views/journal_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -375,7 +375,7 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
                 ],
               ),
             );
-          }).toList(),
+          }),
 
           const SizedBox(height: 10),
           OutlinedButton(
@@ -573,7 +573,7 @@ class _JournalViewState extends State<JournalView> with SingleTickerProviderStat
       decoration: BoxDecoration(
         color: Colors.black45,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isActive ? color.withOpacity(0.5) : Colors.white10),
+        border: Border.all(color: isActive ? color.withValues(alpha: 0.5) : Colors.white10),
       ),
       child: Row(
         children: [

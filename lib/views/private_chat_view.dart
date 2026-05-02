@@ -1,10 +1,9 @@
-// المسار: lib/views/private_chat_view.dart
+﻿// المسار: lib/views/private_chat_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
-import 'dart:convert';
 import '../providers/player_provider.dart';
 import '../widgets/top_bar.dart';
 import 'player_profile_view.dart';
@@ -218,11 +217,13 @@ class _PrivateChatViewState extends State<PrivateChatView> {
     final myUid = Provider.of<PlayerProvider>(context, listen: false).uid!;
 
     // 🟢 التعديل الأهم: اختطاف زر الرجوع في الأندرويد باستخدام WillPopScope للرجوع بأمان 🟢
-    return WillPopScope(
-      onWillPop: () async {
-        FocusScope.of(context).unfocus(); // إغلاق الكيبورد أولاً
-        Navigator.of(context).pop();      // العودة للشاشة السابقة بأمان
-        return false; // نمنع النظام من التصرف من رأسه وإغلاق التطبيق
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          FocusScope.of(context).unfocus();
+          Navigator.of(context).pop();
+        }
       },
       child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -521,7 +522,7 @@ class TransferBubble extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(color: Colors.amber.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)),
+        decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)),
         child: Directionality(
           textDirection: TextDirection.rtl,
           child: Text(message, style: const TextStyle(color: Colors.amber, fontFamily: 'Changa', fontSize: 14, fontWeight: FontWeight.bold)),

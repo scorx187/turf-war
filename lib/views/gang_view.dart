@@ -1,4 +1,4 @@
-// المسار: lib/views/gang_view.dart
+﻿// المسار: lib/views/gang_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -129,8 +129,8 @@ class _GangViewState extends State<GangView> {
                 padding: const EdgeInsets.only(top: 15, bottom: 15, right: 10, left: 15),
                 decoration: BoxDecoration(
                   color: Colors.black87,
-                  border: Border(bottom: BorderSide(color: Colors.redAccent.withOpacity(0.5), width: 2)),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 8)],
+                  border: Border(bottom: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5), width: 2)),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 8)],
                 ),
                 child: Row(
                   children: [
@@ -171,7 +171,7 @@ class _GangViewState extends State<GangView> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          Icon(Icons.groups_3, size: 90, color: Colors.white.withOpacity(0.1)),
+          Icon(Icons.groups_3, size: 90, color: Colors.white.withValues(alpha: 0.1)),
           const SizedBox(height: 20),
           const Text('أنت ذئب وحيد حالياً!', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
           const SizedBox(height: 10),
@@ -183,8 +183,8 @@ class _GangViewState extends State<GangView> {
             decoration: BoxDecoration(
                 color: Colors.black45,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.redAccent.withOpacity(0.4), width: 1.5),
-                boxShadow: [BoxShadow(color: Colors.redAccent.withOpacity(0.05), blurRadius: 15, spreadRadius: 2)]
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4), width: 1.5),
+                boxShadow: [BoxShadow(color: Colors.redAccent.withValues(alpha: 0.05), blurRadius: 15, spreadRadius: 2)]
             ),
             child: Column(
               children: [
@@ -313,15 +313,15 @@ class _GangViewState extends State<GangView> {
         decoration: BoxDecoration(
           color: Colors.black45,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
-          boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 5)],
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 5)],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
               child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(height: 6),
@@ -344,7 +344,7 @@ class _GangViewState extends State<GangView> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(colors: [Colors.red.shade900, const Color(0xFF1A1A1D)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        border: Border(bottom: BorderSide(color: Colors.redAccent.withOpacity(0.5), width: 2)),
+        border: Border(bottom: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5), width: 2)),
       ),
       child: Column(
         children: [
@@ -418,7 +418,7 @@ class _GangViewState extends State<GangView> {
                           height: 120,
                           margin: const EdgeInsets.all(10),
                           padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10), border: Border.all(color: _isWarring ? Colors.redAccent : Colors.green.withOpacity(0.5))),
+                          decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10), border: Border.all(color: _isWarring ? Colors.redAccent : Colors.green.withValues(alpha: 0.5))),
                           child: SingleChildScrollView(
                             reverse: true,
                             child: Text(_warLog, style: TextStyle(color: _isWarring ? Colors.orangeAccent : Colors.greenAccent, fontSize: 11, fontFamily: 'monospace', height: 1.5)),
@@ -434,9 +434,9 @@ class _GangViewState extends State<GangView> {
                               bool isMyGang = owner == player.gangName;
 
                               return Card(
-                                color: isMyGang ? Colors.green.withOpacity(0.1) : Colors.black45,
+                                color: isMyGang ? Colors.green.withValues(alpha: 0.1) : Colors.black45,
                                 margin: const EdgeInsets.only(bottom: 10),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: isMyGang ? Colors.green.withOpacity(0.5) : Colors.white10)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: isMyGang ? Colors.green.withValues(alpha: 0.5) : Colors.white10)),
                                 child: ListTile(
                                   leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle, border: Border.all(color: isMyGang ? Colors.green : Colors.redAccent)), child: Icon(terr['icon'], color: isMyGang ? Colors.green : Colors.redAccent, size: 20)),
                                   title: Text(terr['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Changa')),

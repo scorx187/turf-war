@@ -137,7 +137,7 @@ class _SettingsViewState extends State<SettingsView> {
 }
 
 class _DeleteConfirmDialog extends StatefulWidget {
-  const _DeleteConfirmDialog({Key? key}) : super(key: key);
+  const _DeleteConfirmDialog();
 
   @override
   State<_DeleteConfirmDialog> createState() => _DeleteConfirmDialogState();

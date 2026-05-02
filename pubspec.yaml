@@ -41,6 +41,7 @@ flutter:
     - assets/images/ui/
     - assets/images/icons/
     - assets/images/backgrounds/
+    - assets/images/crimes/
     - assets/audio/
   fonts:
     - family: Changa

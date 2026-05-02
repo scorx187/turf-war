@@ -1,4 +1,4 @@
-// المسار: lib/views/street_race_view.dart
+﻿// المسار: lib/views/street_race_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -148,7 +148,7 @@ class _StreetRaceViewContentState extends State<_StreetRaceViewContent> {
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(color: isActive ? color.withOpacity(0.2) : Colors.black54, border: Border.all(color: isActive ? color : Colors.white10), borderRadius: BorderRadius.circular(10)),
+          decoration: BoxDecoration(color: isActive ? color.withValues(alpha: 0.2) : Colors.black54, border: Border.all(color: isActive ? color : Colors.white10), borderRadius: BorderRadius.circular(10)),
           alignment: Alignment.center,
           child: Text(title, style: TextStyle(color: isActive ? color : Colors.white70, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'Changa')),
         ),
@@ -218,7 +218,7 @@ class _StreetRaceViewContentState extends State<_StreetRaceViewContent> {
         bool isActive = player.activeCarId == carId;
 
         return Card(
-          color: isActive ? Colors.blueAccent.withOpacity(0.2) : Colors.black54,
+          color: isActive ? Colors.blueAccent.withValues(alpha: 0.2) : Colors.black54,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: isActive ? Colors.blueAccent : Colors.white10)),
           child: ListTile(
             leading: Icon(carData['icon'], color: isActive ? Colors.blueAccent : Colors.white, size: 40),

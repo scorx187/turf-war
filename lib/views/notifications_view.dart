@@ -1,4 +1,4 @@
-// المسار: lib/views/notifications_view.dart
+﻿// المسار: lib/views/notifications_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -81,10 +81,10 @@ class NotificationsView extends StatelessWidget {
                     bool isRead = data['isRead'] ?? false;
 
                     return Card(
-                      color: isRead ? Colors.black45 : Colors.amber.withOpacity(0.15),
+                      color: isRead ? Colors.black45 : Colors.amber.withValues(alpha: 0.15),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15),
-                        side: BorderSide(color: isRead ? Colors.white10 : Colors.amber.withOpacity(0.5)),
+                        side: BorderSide(color: isRead ? Colors.white10 : Colors.amber.withValues(alpha: 0.5)),
                       ),
                       child: ListTile(
                         onTap: () {
@@ -137,8 +137,8 @@ class NotificationsView extends StatelessWidget {
                 GestureDetector(
                   onTap: () {
                     audio.playEffect('click.mp3');
-                    if (onBack != null) onBack!();
-                    else Navigator.pop(context);
+                    if (onBack != null) { onBack!(); }
+                    else { Navigator.pop(context); }
                   },
                   child: const Column(
                       mainAxisSize: MainAxisSize.min,

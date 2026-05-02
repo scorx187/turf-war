@@ -1,4 +1,4 @@
-// المسار: lib/views/real_estate_view.dart
+﻿// المسار: lib/views/real_estate_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -214,7 +214,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.8),
+                          color: Colors.black.withValues(alpha: 0.8),
                           blurRadius: 10,
                           offset: const Offset(0, -5),
                         ),
@@ -306,7 +306,7 @@ class _RealEstateViewState extends State<RealEstateView> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
             side: BorderSide(
-              color: (isActive || isActiveRented) ? Colors.green : (isListed ? Colors.amber : (isOwned ? Colors.blue : (prop['color'] as Color).withOpacity(0.3))),
+              color: (isActive || isActiveRented) ? Colors.green : (isListed ? Colors.amber : (isOwned ? Colors.blue : (prop['color'] as Color).withValues(alpha: 0.3))),
             ),
           ),
           child: Padding(
@@ -314,7 +314,7 @@ class _RealEstateViewState extends State<RealEstateView> {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: (prop['color'] as Color).withOpacity(0.2),
+                  backgroundColor: (prop['color'] as Color).withValues(alpha: 0.2),
                   child: Icon(prop['icon'] as IconData, color: prop['color']),
                 ),
                 const SizedBox(width: 12),
@@ -648,12 +648,12 @@ class _RealEstateViewState extends State<RealEstateView> {
                   return Card(
                     color: Colors.black45,
                     margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.amber.withOpacity(0.5))),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.amber.withValues(alpha: 0.5))),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          CircleAvatar(backgroundColor: (prop['color'] as Color).withOpacity(0.2), child: Icon(prop['icon'] as IconData, color: prop['color'])),
+                          CircleAvatar(backgroundColor: (prop['color'] as Color).withValues(alpha: 0.2), child: Icon(prop['icon'] as IconData, color: prop['color'])),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -807,14 +807,14 @@ class _RealEstateViewState extends State<RealEstateView> {
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
-                  side: BorderSide(color: isOwned ? bizColor.withOpacity(0.5) : Colors.white10),
+                  side: BorderSide(color: isOwned ? bizColor.withValues(alpha: 0.5) : Colors.white10),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
                   child: Row(
                     children: [
                       CircleAvatar(
-                        backgroundColor: bizColor.withOpacity(0.2),
+                        backgroundColor: bizColor.withValues(alpha: 0.2),
                         child: Icon(bizIcon, color: bizColor),
                       ),
                       const SizedBox(width: 12),

@@ -1,4 +1,4 @@
-// المسار: lib/views/crime_view.dart
+﻿// المسار: lib/views/crime_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -87,7 +87,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                   'assets/images/ui/crime_bg.jpg',
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black.withValues(alpha: 0.7),
                   colorBlendMode: BlendMode.darken,
                 ),
               ),
@@ -101,10 +101,10 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Colors.redAccent.withOpacity(0.2),
+                        color: Colors.redAccent.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.redAccent, width: 1.5),
-                        boxShadow: [BoxShadow(color: Colors.redAccent.withOpacity(0.5), blurRadius: 10)],
+                        boxShadow: [BoxShadow(color: Colors.redAccent.withValues(alpha: 0.5), blurRadius: 10)],
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -257,6 +257,12 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
   }
 
   Widget _buildCategoriesList(PlayerProvider player) {
+    // حساب قوائم الجرائم مرة واحدة لكل الفئات قبل بناء القائمة
+    final List<List<Map<String, dynamic>>> allCategoryCrimes = List.generate(
+      CrimeData.categories.length,
+      (i) => CrimeData.getCrimesForCategory(i, eventMultiplier: player.crimeEventMultiplier),
+    );
+
     return Column(
       key: const ValueKey('CategoriesList'),
       children: [
@@ -276,7 +282,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
 
               int activeCrimesCount = 0;
               if (isCategoryUnlocked) {
-                List<Map<String, dynamic>> catCrimes = CrimeData.getCrimesForCategory(catIndex, eventMultiplier: player.crimeEventMultiplier);
+                final catCrimes = allCategoryCrimes[catIndex];
                 for (int i = 0; i < catCrimes.length; i++) {
                   String cId = catCrimes[i]['id'];
                   int cSuccess = player.crimeSuccessCountsMap[cId] ?? 0;
@@ -308,13 +314,14 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                   );
                 },
                 child: Card(
+                  clipBehavior: Clip.antiAlias, // 🟢 هذه الخاصية تقص أي جزء يخرج عن حواف البطاقة
                   color: Colors.black87,
                   margin: const EdgeInsets.only(bottom: 12),
                   elevation: isCategoryUnlocked ? 8 : 0,
-                  shadowColor: isCategoryUnlocked ? category['color'].withOpacity(0.4) : Colors.transparent,
+                  shadowColor: isCategoryUnlocked ? category['color'].withValues(alpha: 0.4) : Colors.transparent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
-                    side: BorderSide(color: isCategoryUnlocked ? category['color'].withOpacity(0.5) : Colors.white10, width: 1.5),
+                    side: BorderSide(color: isCategoryUnlocked ? category['color'].withValues(alpha: 0.5) : Colors.white10, width: 1.5),
                   ),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(15),
@@ -325,28 +332,52 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                       }
                       setState(() { _selectedCategoryIndex = catIndex; });
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(shape: BoxShape.circle, color: isCategoryUnlocked ? category['color'].withOpacity(0.2) : Colors.white10),
-                            child: Icon(category['icon'], color: isCategoryUnlocked ? category['color'] : Colors.white30, size: 28),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 90,
+                          height: 90,
+                          decoration: BoxDecoration(
+                            // 🟢 تم تغيير الزوايا إلى اليمين لتتناسب مع اتجاه التطبيق العربي
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(15),
+                              bottomRight: Radius.circular(15),
+                            ),
+                            color: isCategoryUnlocked ? category['color'].withValues(alpha: 0.2) : Colors.white10,
+                            image: category.containsKey('image') && isCategoryUnlocked
+                                ? DecorationImage(
+                              image: AssetImage(category['image']),
+                              fit: BoxFit.cover,
+                              colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.1), BlendMode.darken),
+                            )
+                                : null,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          child: (!category.containsKey('image') || !isCategoryUnlocked)
+                              ? Icon(category['icon'], color: isCategoryUnlocked ? category['color'] : Colors.white30, size: 35)
+                              : null,
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                            child: Row(
                               children: [
-                                Text(category['name'], style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.white : Colors.white30, fontWeight: FontWeight.bold, fontSize: 18)),
-                                Text(isCategoryUnlocked ? (activeCrimesCount > 0 ? '$activeCrimesCount أهداف بانتظارك.. خلّص عليهم' : 'نظفت المنطقة بالكامل 👑') : 'أنهِ أعمالك السابقة لفتح هذا المجال', style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.greenAccent : Colors.redAccent, fontSize: 12)),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(category['name'], style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.white : Colors.white30, fontWeight: FontWeight.bold, fontSize: 17)),
+                                      Text(isCategoryUnlocked ? (activeCrimesCount > 0 ? '$activeCrimesCount أهداف خلّص عليهم' : 'نظفت المنطقة بالكامل 👑') : 'أنهِ أعمالك السابقة لفتح هذا المجال', style: TextStyle(fontFamily: 'Changa', color: isCategoryUnlocked ? Colors.greenAccent : Colors.redAccent, fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Icon(Icons.arrow_forward_ios, color: isCategoryUnlocked ? Colors.white54 : Colors.transparent, size: 18),
                               ],
                             ),
                           ),
-                          Icon(Icons.arrow_forward_ios, color: isCategoryUnlocked ? Colors.white54 : Colors.transparent, size: 18),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -379,10 +410,10 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
               int stars = successCount >= 500 ? 3 : successCount >= 50 ? 2 : successCount >= 10 ? 1 : 0;
 
               double progressValue = 0.0;
-              if (stars == 3) progressValue = 1.0;
-              else if (stars == 2) progressValue = (successCount - 50) / 450;
-              else if (stars == 1) progressValue = (successCount - 10) / 40;
-              else progressValue = successCount / 10;
+              if (stars == 3) { progressValue = 1.0; }
+              else if (stars == 2) { progressValue = (successCount - 50) / 450; }
+              else if (stars == 1) { progressValue = (successCount - 10) / 40; }
+              else { progressValue = successCount / 10; }
               progressValue = progressValue.clamp(0.0, 1.0);
 
               bool isCrimeUnlocked = true;
@@ -410,10 +441,10 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.8),
+                    color: Colors.black.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: isCrimeUnlocked ? mainColor.withOpacity(0.5) : Colors.white10),
-                    boxShadow: isCrimeUnlocked ? [BoxShadow(color: mainColor.withOpacity(0.1), blurRadius: 8, spreadRadius: 1)] : [],
+                    border: Border.all(color: isCrimeUnlocked ? mainColor.withValues(alpha: 0.5) : Colors.white10),
+                    boxShadow: isCrimeUnlocked ? [BoxShadow(color: mainColor.withValues(alpha: 0.1), blurRadius: 8, spreadRadius: 1)] : [],
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -442,7 +473,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                         children: [
                           Row(mainAxisSize: MainAxisSize.min, children: List.generate(3, (i) => Icon(Icons.star, size: 14, color: i < stars ? const Color(0xFFE2C275) : Colors.white10))),
                           Text('نجاح: $successCount', style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'Changa')),
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), decoration: BoxDecoration(color: successColor.withOpacity(0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: successColor.withOpacity(0.5))), child: Text('النسبة: $successPercentage%', style: TextStyle(color: successColor, fontSize: 10, fontFamily: 'Changa', fontWeight: FontWeight.bold))),
+                          Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), decoration: BoxDecoration(color: successColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: successColor.withValues(alpha: 0.5))), child: Text('النسبة: $successPercentage%', style: TextStyle(color: successColor, fontSize: 10, fontFamily: 'Changa', fontWeight: FontWeight.bold))),
                         ],
                       ),
                     ) : const Text('أنجز الجريمة السابقة للتقدم', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontFamily: 'Changa')),
@@ -474,7 +505,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
   Widget _buildHeader(String title, String subtitle) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), border: const Border.symmetric(horizontal: BorderSide(color: Color(0xFF856024)))),
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), border: const Border.symmetric(horizontal: BorderSide(color: Color(0xFF856024)))),
       child: Center(
         child: Column(
           children: [

@@ -1,4 +1,4 @@
-// المسار: lib/views/gang_donation_view.dart
+﻿// المسار: lib/views/gang_donation_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -95,8 +95,8 @@ class _GangDonationViewState extends State<GangDonationView> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
                       decoration: BoxDecoration(
                         color: Colors.black87,
-                        border: Border(bottom: BorderSide(color: Colors.greenAccent.withOpacity(0.5), width: 2)),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 8)],
+                        border: Border(bottom: BorderSide(color: Colors.greenAccent.withValues(alpha: 0.5), width: 2)),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 8)],
                       ),
                       child: Row(
                         children: [
@@ -128,7 +128,7 @@ class _GangDonationViewState extends State<GangDonationView> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                       decoration: BoxDecoration(
-                                        color: !_isGold ? Colors.green.withOpacity(0.2) : Colors.black45,
+                                        color: !_isGold ? Colors.green.withValues(alpha: 0.2) : Colors.black45,
                                         borderRadius: const BorderRadius.only(topRight: Radius.circular(15), bottomRight: Radius.circular(15)),
                                         border: Border.all(color: !_isGold ? Colors.greenAccent : Colors.white10),
                                       ),
@@ -149,7 +149,7 @@ class _GangDonationViewState extends State<GangDonationView> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                       decoration: BoxDecoration(
-                                        color: _isGold ? Colors.amber.withOpacity(0.2) : Colors.black45,
+                                        color: _isGold ? Colors.amber.withValues(alpha: 0.2) : Colors.black45,
                                         borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), bottomLeft: Radius.circular(15)),
                                         border: Border.all(color: _isGold ? Colors.amber : Colors.white10),
                                       ),
@@ -175,7 +175,7 @@ class _GangDonationViewState extends State<GangDonationView> {
                               decoration: BoxDecoration(
                                 color: Colors.black45,
                                 borderRadius: BorderRadius.circular(15),
-                                border: Border.all(color: _isGold ? Colors.amber.withOpacity(0.5) : Colors.greenAccent.withOpacity(0.5)),
+                                border: Border.all(color: _isGold ? Colors.amber.withValues(alpha: 0.5) : Colors.greenAccent.withValues(alpha: 0.5)),
                               ),
                               child: Column(
                                 children: [
@@ -210,7 +210,7 @@ class _GangDonationViewState extends State<GangDonationView> {
                                       activeTrackColor: _isGold ? Colors.amber : Colors.greenAccent,
                                       inactiveTrackColor: Colors.white10,
                                       thumbColor: _isGold ? Colors.amberAccent : Colors.green,
-                                      overlayColor: (_isGold ? Colors.amber : Colors.green).withOpacity(0.2),
+                                      overlayColor: (_isGold ? Colors.amber : Colors.green).withValues(alpha: 0.2),
                                     ),
                                     child: Slider(
                                       value: _sliderValue,

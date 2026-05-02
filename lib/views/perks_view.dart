@@ -1,4 +1,4 @@
-// المسار: lib/views/perks_view.dart
+﻿// المسار: lib/views/perks_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -69,7 +69,7 @@ class _PerksViewState extends State<PerksView> {
                         textDirection: TextDirection.rtl,
                         child: Row(
                           children: [
-                            CircleAvatar(radius: 25, backgroundColor: perk['color'].withOpacity(0.2), child: Icon(perk['icon'], color: perk['color'], size: 25)),
+                            CircleAvatar(radius: 25, backgroundColor: perk['color'].withValues(alpha: 0.2), child: Icon(perk['icon'], color: perk['color'], size: 25)),
                             const SizedBox(width: 15),
                             Expanded(
                               child: Column(

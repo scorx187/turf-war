@@ -1,4 +1,4 @@
-// المسار: lib/views/bank_view.dart
+﻿// المسار: lib/views/bank_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +8,6 @@ import '../providers/market_provider.dart';
 import '../providers/audio_provider.dart';
 import 'package:intl/intl.dart';
 import '../controllers/bank_cubit.dart';
-import '../controllers/bank_state.dart';
 
 class BankView extends StatefulWidget {
   final VoidCallback onBack;
@@ -214,7 +213,7 @@ class _BankViewState extends State<BankView> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.white10)
       ),
@@ -267,7 +266,7 @@ class _BankViewState extends State<BankView> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: isLocked ? Colors.cyan.withOpacity(0.1) : Colors.black26,
+          color: isLocked ? Colors.cyan.withValues(alpha: 0.1) : Colors.black26,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: isLocked ? Colors.cyan : Colors.white10)
       ),
@@ -316,7 +315,7 @@ class _BankViewState extends State<BankView> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-            backgroundColor: color.withOpacity(0.2),
+            backgroundColor: color.withValues(alpha: 0.2),
             side: BorderSide(color: color),
             minimumSize: const Size(double.infinity, 40)
         ),
@@ -474,7 +473,7 @@ class _BankViewState extends State<BankView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                          color: Colors.blueAccent.withOpacity(0.2),
+                          color: Colors.blueAccent.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.blueAccent)
                       ),
@@ -672,7 +671,7 @@ class _BankViewState extends State<BankView> {
                 style: ElevatedButton.styleFrom(
                     backgroundColor: buttonColor,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    disabledBackgroundColor: Colors.grey.withOpacity(0.3)
+                    disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3)
                 ),
                 onPressed: (maxValue > 0 && sliderValue > 0 && onPressed != null) ? onPressed : null,
                 child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Changa'))),

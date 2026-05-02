@@ -1,4 +1,4 @@
-// المسار: lib/views/lucky_wheel_view.dart
+﻿// المسار: lib/views/lucky_wheel_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -91,7 +91,7 @@ class _LuckyWheelContentState extends State<_LuckyWheelContent> {
               return Container(
                 width: 80,
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: prizeData['color'].withOpacity(0.5))),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10), border: Border.all(color: prizeData['color'].withValues(alpha: 0.5))),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -130,13 +130,13 @@ class _LuckyWheelContentState extends State<_LuckyWheelContent> {
             duration: const Duration(milliseconds: 150),
             margin: const EdgeInsets.all(1),
             decoration: BoxDecoration(
-              color: isHighlighted ? prize['color'].withOpacity(0.3) : Colors.black54,
+              color: isHighlighted ? prize['color'].withValues(alpha: 0.3) : Colors.black54,
               border: Border.all(
                   color: isHighlighted ? Colors.yellowAccent : Colors.white12,
                   width: isHighlighted ? 3 : 1
               ),
               borderRadius: BorderRadius.circular(8),
-              boxShadow: isHighlighted ? [BoxShadow(color: Colors.yellowAccent.withOpacity(0.8), blurRadius: 15, spreadRadius: 2)] : [],
+              boxShadow: isHighlighted ? [BoxShadow(color: Colors.yellowAccent.withValues(alpha: 0.8), blurRadius: 15, spreadRadius: 2)] : [],
             ),
             child: Padding(
               padding: const EdgeInsets.all(2.0),
@@ -214,7 +214,7 @@ class _LuckyWheelContentState extends State<_LuckyWheelContent> {
         decoration: BoxDecoration(
           color: Colors.black45,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-          border: Border.all(color: Colors.amber.withOpacity(0.4), width: 1.5),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.4), width: 1.5),
         ),
         child: Column(
           children: [
@@ -222,7 +222,7 @@ class _LuckyWheelContentState extends State<_LuckyWheelContent> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.2),
+                color: Colors.amber.withValues(alpha: 0.2),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
               ),
               child: const Text('🏆 اسماء اخر الفائزين 🏆', textAlign: TextAlign.center, style: TextStyle(color: Colors.amber, fontFamily: 'Changa', fontWeight: FontWeight.bold, fontSize: 12)),
@@ -245,7 +245,7 @@ class _LuckyWheelContentState extends State<_LuckyWheelContent> {
                       if (data['timestamp'] != null) {
                         timeStr = DateFormat('hh:mm a').format((data['timestamp'] as Timestamp).toDate());
                       }
-                      Color prizeColor = Color(data['prizeColor'] ?? Colors.amber.value);
+                      Color prizeColor = Color(data['prizeColor'] ?? Colors.amber.toARGB32());
                       bool isMe = data['uid'] == player.uid;
 
                       listItems.add(
@@ -296,7 +296,7 @@ class _LuckyWheelContentState extends State<_LuckyWheelContent> {
                   return ListView.separated(
                     padding: const EdgeInsets.all(4),
                     itemCount: listItems.length,
-                    separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 4),
+                    separatorBuilder: (_, _) => const Divider(color: Colors.white10, height: 4),
                     itemBuilder: (context, index) => listItems[index],
                   );
                 },
@@ -355,8 +355,8 @@ class _LuckyWheelContentState extends State<_LuckyWheelContent> {
                 decoration: BoxDecoration(
                     color: Colors.black45,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.orange.withOpacity(0.5), width: 2),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)]
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.5), width: 2),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10)]
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

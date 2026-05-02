@@ -1,4 +1,4 @@
-// المسار: lib/widgets/quick_recovery_dialog.dart
+﻿// المسار: lib/widgets/quick_recovery_dialog.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -111,7 +111,7 @@ class _QuickRecoveryDialogContentState extends State<_QuickRecoveryDialogContent
         borderRadius: BorderRadius.circular(20),
         // 🟢 نفس إطار الجريمة بالضبط
         border: Border.all(color: const Color(0xFFC5A059), width: 2),
-        boxShadow: [BoxShadow(color: const Color(0xFFC5A059).withOpacity(0.3), blurRadius: 20, spreadRadius: 2)],
+        boxShadow: [BoxShadow(color: const Color(0xFFC5A059).withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

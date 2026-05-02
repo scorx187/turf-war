@@ -1,8 +1,7 @@
-// المسار: lib/views/gym_view.dart
+﻿// المسار: lib/views/gym_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
 import 'dart:async';
 import '../providers/player_provider.dart';
@@ -284,7 +283,7 @@ class _GymViewContentState extends State<_GymViewContent> {
 
               if (state.isLoading)
                 Container(
-                  color: Colors.black.withOpacity(0.8),
+                  color: Colors.black.withValues(alpha: 0.8),
                   child: const Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -329,7 +328,7 @@ class _GymViewContentState extends State<_GymViewContent> {
                 color: Colors.black87,
                 image: const DecorationImage(image: AssetImage('assets/images/ui/bottom_navbar_bg.png'), fit: BoxFit.cover),
                 border: const Border(top: BorderSide(color: Color(0xFF856024), width: 2)),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 10, offset: const Offset(0, -5))],
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 10, offset: const Offset(0, -5))],
               ),
               padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
               child: SafeArea(
@@ -374,8 +373,8 @@ class _GymViewContentState extends State<_GymViewContent> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(colors: [Color(0xFF2C2C2C), Color(0xFF1A1A1A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amber.withOpacity(0.4), width: 1.5),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 8, offset: const Offset(0, 4))],
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.4), width: 1.5),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8, offset: const Offset(0, 4))],
             ),
             child: Column(
               children: [
@@ -450,7 +449,7 @@ class _GymViewContentState extends State<_GymViewContent> {
             height: 55,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(15),
-              boxShadow: totalAllocated > 0 ? [BoxShadow(color: Colors.amber.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)] : [],
+              boxShadow: totalAllocated > 0 ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.5), blurRadius: 15, spreadRadius: 2)] : [],
             ),
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -488,14 +487,14 @@ class _GymViewContentState extends State<_GymViewContent> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [color.withOpacity(0.15), Colors.black45], begin: Alignment.centerRight, end: Alignment.centerLeft),
-        borderRadius: BorderRadius.circular(15), border: Border.all(color: color.withOpacity(0.4), width: 1),
+        gradient: LinearGradient(colors: [color.withValues(alpha: 0.15), Colors.black45], begin: Alignment.centerRight, end: Alignment.centerLeft),
+        borderRadius: BorderRadius.circular(15), border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.2), shape: BoxShape.circle), child: Icon(icon, color: color, size: 24)),
+              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.2), shape: BoxShape.circle), child: Icon(icon, color: color, size: 24)),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -515,7 +514,7 @@ class _GymViewContentState extends State<_GymViewContent> {
                     onTap: () => _showNumberInputDialog(context, name, allocated, maxAllowed, onChanged),
                     child: Container(
                       width: 45, alignment: Alignment.center, padding: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.withOpacity(0.4))),
+                      decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.withValues(alpha: 0.4))),
                       child: Text(allocated.toString(), style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
@@ -554,7 +553,7 @@ class _GymViewContentState extends State<_GymViewContent> {
         if (hasCoach)
           Container(
             padding: const EdgeInsets.all(15), margin: const EdgeInsets.only(bottom: 15),
-            decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.green.shade900.withOpacity(0.7), Colors.black87]), border: Border.all(color: Colors.greenAccent), borderRadius: BorderRadius.circular(15)),
+            decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.green.shade900.withValues(alpha: 0.7), Colors.black87]), border: Border.all(color: Colors.greenAccent), borderRadius: BorderRadius.circular(15)),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -582,14 +581,14 @@ class _GymViewContentState extends State<_GymViewContent> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.black54, borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isActive ? Colors.greenAccent : (isCooldown ? Colors.redAccent : color.withOpacity(0.5)), width: isActive || isCooldown ? 2 : 1),
-        boxShadow: isActive ? [BoxShadow(color: Colors.greenAccent.withOpacity(0.2), blurRadius: 10)] : [],
+        border: Border.all(color: isActive ? Colors.greenAccent : (isCooldown ? Colors.redAccent : color.withValues(alpha: 0.5)), width: isActive || isCooldown ? 2 : 1),
+        boxShadow: isActive ? [BoxShadow(color: Colors.greenAccent.withValues(alpha: 0.2), blurRadius: 10)] : [],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.2), shape: BoxShape.circle), child: Icon(icon, color: color, size: 28)),
+            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withValues(alpha: 0.2), shape: BoxShape.circle), child: Icon(icon, color: color, size: 28)),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
@@ -644,7 +643,7 @@ class _GymViewContentState extends State<_GymViewContent> {
         children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: Colors.redAccent.withOpacity(0.5), width: 2)),
+            decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha: 0.1), shape: BoxShape.circle, border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5), width: 2)),
             child: const Icon(Icons.science, color: Colors.redAccent, size: 60),
           ),
           const SizedBox(height: 15),
@@ -653,9 +652,9 @@ class _GymViewContentState extends State<_GymViewContent> {
 
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: hasSteroid ? [Colors.green.shade900, Colors.black87] : [Colors.red.shade900.withOpacity(0.5), Colors.black87], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              gradient: LinearGradient(colors: hasSteroid ? [Colors.green.shade900, Colors.black87] : [Colors.red.shade900.withValues(alpha: 0.5), Colors.black87], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(20), border: Border.all(color: hasSteroid ? Colors.greenAccent : (isCooldown ? Colors.grey : Colors.redAccent), width: 2),
-              boxShadow: [BoxShadow(color: (hasSteroid ? Colors.green : Colors.redAccent).withOpacity(0.3), blurRadius: 15)],
+              boxShadow: [BoxShadow(color: (hasSteroid ? Colors.green : Colors.redAccent).withValues(alpha: 0.3), blurRadius: 15)],
             ),
             child: Padding(
               padding: const EdgeInsets.all(20.0),
