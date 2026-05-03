@@ -968,7 +968,6 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
         let currentEnergy = data.energy !== undefined ? data.energy : 100;
         let mEnergy = maxEnergy || 100;
 
-        // 🟢 تعريف VIP هنا عشان نستخدمه في الطاقة
         let isVip = (data.vipUntil && new Date(data.vipUntil) > new Date());
         let energyInterval = isVip ? 9 : 18;
 
@@ -977,7 +976,6 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
             let now = new Date();
             let secondsPassed = Math.floor((now.getTime() - lastUpdate.getTime()) / 1000);
 
-            // 🟢 تعديل الطاقة
             let gainedEnergy = Math.floor(secondsPassed / energyInterval);
             if (gainedEnergy > 0) {
                 currentEnergy += gainedEnergy;
@@ -987,6 +985,22 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
 
         if (currentEnergy < totalEnergyUsed) {
             throw new functions.https.HttpsError('failed-precondition', 'طاقة غير كافية للتدريب المطلوب');
+        }
+
+// 🟢 1. حساب الحد الأقصى بنظام المحطات الرياضية (يفتح بالضبط على 5, 10, 15... حتى 500)
+        let crimeLevel = data.crimeLevel || 1;
+        if (crimeLevel > 500) crimeLevel = 500; // قفل اللفل على 500 كحد أقصى
+
+        // 🟢 التعديل الجديد: اللفل الفعال يتغير بالضبط عند مضاعفات الرقم 5
+        let effectiveLevel = crimeLevel < 5 ? 1 : Math.floor(crimeLevel / 5) * 5;
+
+        // حساب السقف بناءً على المحطة الحالية
+        let maxGymStats = 100.0 + (effectiveLevel * 50.0) + (Math.pow(effectiveLevel, 2) * 2.0);
+        let currentBaseStats = (data.strength || 5) + (data.defense || 5) + (data.skill || 5) + (data.speed || 5);
+
+        // 🟢 2. التحقق من الوصول للحد الأقصى ومنع التدريب
+        if (currentBaseStats >= maxGymStats) {
+            throw new functions.https.HttpsError('failed-precondition', 'الحد_الأقصى');
         }
 
         let baseMultiplier = 0.1;
@@ -1007,7 +1021,27 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
         if (data.activeCoach === 'ninja') { skillGain *= 1.5; spdGain *= 1.5; }
 
         let totalGained = strGain + defGain + skillGain + spdGain;
-        let newEnergy = currentEnergy - totalEnergyUsed;
+
+        let availableRoom = maxGymStats - currentBaseStats;
+        let actualEnergyUsed = totalEnergyUsed;
+        let refundedEnergy = 0;
+
+        // 🟢 إذا تعدينا الحد، نقلص الفايدة ونسترجع الطاقة
+        if (totalGained > availableRoom) {
+            let scale = availableRoom / totalGained;
+            strGain *= scale;
+            defGain *= scale;
+            skillGain *= scale;
+            spdGain *= scale;
+            totalGained = availableRoom;
+
+            // حساب الطاقة اللي احتاجها فعلياً واسترجاع الباقي
+            actualEnergyUsed = Math.ceil(totalEnergyUsed * scale);
+            if (actualEnergyUsed === 0 && availableRoom > 0) actualEnergyUsed = 1;
+            refundedEnergy = totalEnergyUsed - actualEnergyUsed;
+        }
+
+        let newEnergy = currentEnergy - actualEnergyUsed;
 
         let updates = {
             energy: newEnergy,
@@ -1039,7 +1073,8 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
 
         transaction.update(playerRef, updates);
 
-        return { success: true, gained: parseFloat(totalGained.toFixed(2)) };
+        // 🟢 السيرفر يرسل كم طاقة تم استرجاعها للواجهة
+        return { success: true, gained: parseFloat(totalGained.toFixed(2)), refunded: refundedEnergy };
     });
 });
 

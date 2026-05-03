@@ -47,6 +47,16 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get isLoading => _isLoading;
   bool _isInitialDataLoaded = false;
 
+  // 🟢 ===== إضافة وضع المطور ===== 🟢
+  bool _isDevModeUnlocked = false;
+  bool get isDevModeUnlocked => _isDevModeUnlocked;
+
+  void toggleDevMode() {
+    _isDevModeUnlocked = !_isDevModeUnlocked;
+    notifyListeners();
+  }
+  // 🟢 ============================== 🟢
+
   int _bailPrice = 1500;
   int get bailPrice => _bailPrice;
   int _playerBailCost = 1500;
@@ -393,6 +403,9 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _loanAmount = 0; _creditScore = 0; _loanTime = null;
     _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
     _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _contractEndTime = null; _activeContractName = null;
+
+    // 🟢 تصفير وضع المطور عند تسجيل الخروج
+    _isDevModeUnlocked = false;
 
     _lastEnergyUpdate = null;
     _lastCourageUpdate = null;

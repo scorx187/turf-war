@@ -5,7 +5,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 class GymService {
   final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
-  Future<double> trainStats({
+  // 🟢 تعديل: إرجاع Map بدلاً من double لاستقبال الطاقة المسترجعة
+  Future<Map<String, dynamic>> trainStats({
     required String uid,
     required int strE,
     required int defE,
@@ -22,7 +23,9 @@ class GymService {
         'spdE': spdE,
         'maxEnergy': maxEnergy, // 🟢 ونقوم بتمريره هنا للسيرفر (index.js)
       });
-      return (result.data['gained'] as num).toDouble();
+
+      // 🟢 نرجع البيانات كاملة كـ Map ليقرأها الكيوبت
+      return Map<String, dynamic>.from(result.data as Map);
     } catch (e) {
       throw Exception('فشل التدريب: $e');
     }

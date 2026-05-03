@@ -4,6 +4,39 @@ part of 'player_provider.dart';
 
 extension PlayerStatsLogic on PlayerProvider {
 
+  // 🟢 إجمالي الإحصائيات الأساسية الحالية
+  double get currentBaseStats {
+    return _baseStrength + _baseDefense + _baseSkill + _baseSpeed;
+  }
+
+  // 🟢 الحد الأقصى لمستوى اللعبة
+  int get maxGameLevel => 500;
+
+  // 🟢 اللفل الفعال (يثبت المحطة الحالية ويتغير بالضبط عند 5، 10، 15...)
+  int get effectiveLevel {
+    int lvl = _crimeLevel > maxGameLevel ? maxGameLevel : _crimeLevel;
+    if (lvl < 5) return 1;
+    return (lvl ~/ 5) * 5;
+  }
+
+  // 🟢 اللفل المطلوب لفتح المحطة القادمة
+  int get nextStatMilestone {
+    if (_crimeLevel >= maxGameLevel) return maxGameLevel;
+    if (_crimeLevel < 5) return 5;
+    return effectiveLevel + 5;
+  }
+
+  // 🟢 قراءة الحد الأقصى الحالي بناءً على اللفل الفعال
+  double get maxGymStats {
+    return 100.0 + (effectiveLevel * 50.0) + (pow(effectiveLevel, 2) * 2.0);
+  }
+
+  // 🟢 قراءة الحد الأقصى القادم (عشان تظهر للّاعب في شاشة القفل)
+  double get nextMaxGymStats {
+    int nextLvl = nextStatMilestone;
+    return 100.0 + (nextLvl * 50.0) + (pow(nextLvl, 2) * 2.0);
+  }
+
   int get earnedPerkPoints {
     return getAllTitles().where((t) => t['unlocked'] == true).length - 1;
   }
@@ -79,8 +112,6 @@ extension PlayerStatsLogic on PlayerProvider {
   }
 
   int get maxCourage {
-    // 🟢 الأساس 29 للاعب العادي (29 + مستوى 1 = 30)
-    // 🟢 إذا كان اللاعب VIP جعلنا الأساس 60 كـ ميزة إضافية
     int crg = (isVIP ? 60 : 29) + _crimeLevel;
 
     if (_perks.containsKey('max_courage_boost')) crg += (_perks['max_courage_boost']! * 1);

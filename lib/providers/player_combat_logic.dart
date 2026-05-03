@@ -91,9 +91,6 @@ extension PlayerCombatLogic on PlayerProvider {
     }
   }
 
-  double get maxGymStats => 100.0 + (_crimeLevel * 50.0) + (pow(_crimeLevel, 2) * 2.0);
-  double get currentBaseStats => _baseStrength + _baseDefense + _baseSkill + _baseSpeed;
-
   Future<double> trainMultipleStats(int strE, int defE, int skillE, int spdE) async {
     int totalEnergy = strE + defE + skillE + spdE;
     if (_energy < totalEnergy || totalEnergy <= 0) return 0.0;

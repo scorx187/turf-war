@@ -95,7 +95,6 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                 children: [
                   const SizedBox(height: 20),
 
-                  // 🟢 لافتة (Banner) الحدث المزدوج تظهر تلقائياً لو غيرت الرقم في الفايربيس
                   if (player.crimeEventMultiplier > 1.0)
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -257,10 +256,9 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
   }
 
   Widget _buildCategoriesList(PlayerProvider player) {
-    // حساب قوائم الجرائم مرة واحدة لكل الفئات قبل بناء القائمة
     final List<List<Map<String, dynamic>>> allCategoryCrimes = List.generate(
       CrimeData.categories.length,
-      (i) => CrimeData.getCrimesForCategory(i, eventMultiplier: player.crimeEventMultiplier),
+          (i) => CrimeData.getCrimesForCategory(i, eventMultiplier: player.crimeEventMultiplier),
     );
 
     return Column(
@@ -274,10 +272,12 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
             itemBuilder: (context, catIndex) {
               final category = CrimeData.categories[catIndex];
               bool isCategoryUnlocked = true;
+
+              // 🟢 تعديل وضع المطور لفتح كل الفئات 🟢
               if (catIndex > 0) {
                 String prevCatLastCrimeId = 'cat_${catIndex - 1}_crime_19';
                 int prevCatLastCrimeCount = player.crimeSuccessCountsMap[prevCatLastCrimeId] ?? 0;
-                isCategoryUnlocked = prevCatLastCrimeCount >= 10;
+                isCategoryUnlocked = player.isDevModeUnlocked || prevCatLastCrimeCount >= 10;
               }
 
               int activeCrimesCount = 0;
@@ -288,7 +288,8 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                   int cSuccess = player.crimeSuccessCountsMap[cId] ?? 0;
 
                   bool unlocked = true;
-                  if (i > 0) {
+                  // 🟢 إضافة استثناء لو وضع المطور شغال 🟢
+                  if (i > 0 && !player.isDevModeUnlocked) {
                     String prevId = catCrimes[i - 1]['id'];
                     if ((player.crimeSuccessCountsMap[prevId] ?? 0) < 10) {
                       unlocked = false;
@@ -314,7 +315,7 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                   );
                 },
                 child: Card(
-                  clipBehavior: Clip.antiAlias, // 🟢 هذه الخاصية تقص أي جزء يخرج عن حواف البطاقة
+                  clipBehavior: Clip.antiAlias,
                   color: Colors.black87,
                   margin: const EdgeInsets.only(bottom: 12),
                   elevation: isCategoryUnlocked ? 8 : 0,
@@ -338,7 +339,6 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
                           width: 90,
                           height: 90,
                           decoration: BoxDecoration(
-                            // 🟢 تم تغيير الزوايا إلى اليمين لتتناسب مع اتجاه التطبيق العربي
                             borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(15),
                               bottomRight: Radius.circular(15),
@@ -417,9 +417,11 @@ class _CrimeViewContentState extends State<_CrimeViewContent> {
               progressValue = progressValue.clamp(0.0, 1.0);
 
               bool isCrimeUnlocked = true;
+
+              // 🟢 تعديل وضع المطور لفتح كل الجرائم 🟢
               if (crimeIndex > 0) {
                 String prevCrimeId = crimes[crimeIndex - 1]['id'];
-                isCrimeUnlocked = (player.crimeSuccessCountsMap[prevCrimeId] ?? 0) >= 10;
+                isCrimeUnlocked = player.isDevModeUnlocked || (player.crimeSuccessCountsMap[prevCrimeId] ?? 0) >= 10;
               }
 
               double toolDurability = player.equippedCrimeToolId != null ? player.getItemDurability(player.equippedCrimeToolId!) : 0;

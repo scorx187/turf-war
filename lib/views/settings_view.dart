@@ -49,7 +49,7 @@ class _SettingsViewState extends State<SettingsView> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.clear();
 
-        // 3. 🟢 رمي المهمة الثقيلة على السيرفر ليتخطى كل قواعد الحماية وينسف الداتا
+        // 3. رمي المهمة الثقيلة على السيرفر ليتخطى كل قواعد الحماية وينسف الداتا
         final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('deletePlayerAccount');
         await callable.call({'uid': uid});
 
@@ -138,24 +138,42 @@ class _SettingsViewState extends State<SettingsView> {
               const Divider(color: Colors.white24),
               const SizedBox(height: 10),
 
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[800],
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.list_alt, color: Colors.amber),
-                  label: const Text(
-                    'عرض جميع الجرائم',
-                    style: TextStyle(fontFamily: 'Changa', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const _AllCrimesScreen()),
-                  ),
-                ),
+              // 🟢 زر أدوات المطور الجديد لفتح وإغلاق الجرائم للتجربة 🟢
+              Consumer<PlayerProvider>(
+                  builder: (context, player, child) {
+                    return SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: player.isDevModeUnlocked ? Colors.green[800] : Colors.grey[800],
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: Icon(
+                            player.isDevModeUnlocked ? Icons.lock_open : Icons.lock,
+                            color: Colors.amber
+                        ),
+                        label: Text(
+                          player.isDevModeUnlocked ? 'إغلاق وضع المطور (تفعيل الأقفال)' : 'فتح جميع الجرائم للتجربة (مطور)',
+                          style: const TextStyle(fontFamily: 'Changa', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        onPressed: () {
+                          player.toggleDevMode();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                player.isDevModeUnlocked
+                                    ? 'تم فتح جميع الجرائم للتجربة 🔓'
+                                    : 'تم إعادة الأقفال لوضعها الطبيعي 🔒',
+                                style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold),
+                              ),
+                              backgroundColor: player.isDevModeUnlocked ? Colors.green : Colors.orange,
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }
               ),
             ],
           ),
@@ -216,7 +234,6 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
           style: TextStyle(color: Colors.white, fontFamily: 'Changa', fontSize: 16),
         ),
         actions: [
-          // 🟢 زر التأكيد على اليمين (لأنه العنصر الأول في اتجاه اليمين لليسار)
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _secondsLeft > 0 ? Colors.grey[600] : Colors.red[800],
@@ -227,65 +244,11 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
               style: const TextStyle(color: Colors.white, fontFamily: 'Changa', fontWeight: FontWeight.bold),
             ),
           ),
-          // زر الإلغاء على اليسار
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('إلغاء', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 16)),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AllCrimesScreen extends StatelessWidget {
-  const _AllCrimesScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final categories = CrimeData.categories;
-    final crimeNames = CrimeData.crimeNames;
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          title: const Text('جميع الجرائم', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.grey[900],
-          centerTitle: true,
-        ),
-        body: ListView.builder(
-          itemCount: categories.length,
-          itemBuilder: (context, catIndex) {
-            final cat = categories[catIndex];
-            final crimes = crimeNames[catIndex];
-            return ExpansionTile(
-              leading: Icon(cat['icon'] as IconData, color: cat['color'] as Color),
-              title: Text(
-                '${catIndex + 1}. ${cat['name']}',
-                style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              collapsedBackgroundColor: const Color(0xFF1E1E1E),
-              backgroundColor: const Color(0xFF111111),
-              iconColor: Colors.amber,
-              collapsedIconColor: Colors.white54,
-              children: crimes.asMap().entries.map((entry) {
-                return ListTile(
-                  dense: true,
-                  leading: Text(
-                    '${entry.key + 1}',
-                    style: const TextStyle(color: Colors.white38, fontFamily: 'Changa', fontSize: 12),
-                  ),
-                  title: Text(
-                    entry.value,
-                    style: const TextStyle(fontFamily: 'Changa', fontSize: 14, color: Colors.white70),
-                  ),
-                );
-              }).toList(),
-            );
-          },
-        ),
       ),
     );
   }

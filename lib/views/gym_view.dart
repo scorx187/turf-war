@@ -2,12 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
+import 'dart:math';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/quick_recovery_dialog.dart';
-import '../controllers/gym_cubit.dart'; // 🟢 استدعاء الكيوبت
+import '../controllers/gym_cubit.dart';
 
 class GymView extends StatelessWidget {
   final VoidCallback onBack;
@@ -15,7 +16,6 @@ class GymView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 تغليف الشاشة بالكيوبت
     return BlocProvider(
       create: (context) => GymCubit(),
       child: _GymViewContent(onBack: onBack),
@@ -47,7 +47,6 @@ class _GymViewContentState extends State<_GymViewContent> {
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      // 🟢 تحديث الوقت فقط إذا لم يكن هناك تحميل جاري
       if (mounted && !context.read<GymCubit>().state.isLoading) setState(() {});
     });
   }
@@ -94,6 +93,73 @@ class _GymViewContentState extends State<_GymViewContent> {
     Future.delayed(const Duration(milliseconds: 1300), () {
       if (mounted) setState(() => _showFloatingEffect = false);
     });
+  }
+
+  // 🟢 تعديل الـ Pop-Up ليظهر المستوى المطلوب والحد الجديد (كل 5 مستويات)
+  void _showMaxStatsDialog(BuildContext context, AudioProvider audio, PlayerProvider player) {
+    int currentTier = ((player.crimeLevel - 1) ~/ 5) + 1;
+    int nextLevel = currentTier * 5 + 1;
+    double nextMaxStats = 100.0 + (nextLevel * 50.0) + (pow(nextLevel, 2) * 2.0);
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1D),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.redAccent, width: 2),
+                boxShadow: [BoxShadow(color: Colors.redAccent.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)],
+              ),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.block, color: Colors.redAccent, size: 60),
+                    const SizedBox(height: 10),
+                    const Text('تم قفل التدريب!', style: TextStyle(fontFamily: 'Changa', fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                    const SizedBox(height: 10),
+                    Text(
+                      'جسمك ما عاد يتحمل تدريب أكثر، وصلت للحد الأقصى للإحصائيات في مستواك الحالي (${player.crimeLevel})!\n\n'
+                          'ارفع مستواك الإجرامي لـ ($nextLevel) عشان يفتح لك السقف وتقدر توصل لـ ${nextMaxStats.toStringAsFixed(0)} إحصائية.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontFamily: 'Changa', fontSize: 15, color: Colors.white70, height: 1.5),
+                    ),
+                    const SizedBox(height: 30),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                          onPressed: () {
+                            audio.playEffect('click.mp3');
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(Icons.check, color: Colors.black),
+                          label: const Text('فهمت، بروح أرفع مستواي', style: TextStyle(fontFamily: 'Changa', color: Colors.black, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return Transform.scale(scale: anim1.value, child: child);
+      },
+    );
   }
 
   void _showNumberInputDialog(BuildContext context, String statName, int currentValue, int maxAllowed, Function(int) onSave) {
@@ -183,7 +249,7 @@ class _GymViewContentState extends State<_GymViewContent> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('💪 الإحصائيات:', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-                Text('اسحب الشريط أو اضغط على الرقم لكتابة الطاقة المطلوبة.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+                Text('اسحب الشريط لتخصيص الطاقة، أو اضغط زر (تدريب MAX) لضخ طاقتك بالكامل في إحصائية واحدة فوراً.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
                 SizedBox(height: 10),
                 Text('🥊 المدربون الفاسدون:', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                 Text('استأجر مدرباً لـ 30 دقيقة. يتطلب 6 ساعات فترة راحة بعد ذلك.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
@@ -207,15 +273,17 @@ class _GymViewContentState extends State<_GymViewContent> {
 
     return BlocConsumer<GymCubit, GymState>(
       listener: (context, state) {
-        // 🟢 الاستماع لرسائل النجاح والخطأ من الكيوبت وعرضها
         if (state.errorMessage.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage, style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
+          if (state.errorMessage.contains('الحد_الأقصى')) {
+            _showMaxStatsDialog(context, Provider.of<AudioProvider>(context, listen: false), player);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage, style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
+          }
         }
         if (state.successMessage.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.successMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
         }
 
-        // 🟢 الاستماع لقيمة الزيادة لتشغيل الأنيميشن وتصفير العدادات
         if (state.gainedStats != null) {
           _triggerFloatingAnimation(state.gainedStats!);
           setState(() {
@@ -354,96 +422,150 @@ class _GymViewContentState extends State<_GymViewContent> {
     );
   }
 
-  // 🟢 1. صالة الحديد الأساسية
   Widget _buildGymTab(PlayerProvider player, AudioProvider audio, GymCubit cubit) {
     int totalAllocated = strE + defE + skillE + spdE;
     double maxStats = player.maxGymStats;
     double currentStats = player.currentBaseStats;
     double progress = (currentStats / maxStats).clamp(0.0, 1.0);
 
+    // 🟢 حساب الحد الأقصى للفل (أو الـ Tier) القادم وعرضه في الواجهة
+    int currentTier = ((player.crimeLevel - 1) ~/ 5) + 1;
+    int nextLevel = currentTier * 5 + 1;
+    double nextMaxStats = 100.0 + (nextLevel * 50.0) + (pow(nextLevel, 2) * 2.0);
+
     bool hasSteroid = player.activeSteroidEndTime != null;
     String coachName = player.activeCoach == 'russian' ? 'الروسي (+قوة)' : (player.activeCoach == 'tactical' ? 'التكتيكي (+دفاع)' : (player.activeCoach == 'ninja' ? 'النينجا (+سرعة ومهارة)' : 'لا يوجد'));
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF2C2C2C), Color(0xFF1A1A1A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amber.withValues(alpha: 0.4), width: 1.5),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8, offset: const Offset(0, 4))],
-            ),
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('طاقتك الحالية:', style: TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Changa')),
-                    Row(
-                      children: [
-                        const Icon(Icons.bolt, color: Colors.yellow, size: 28),
-                        Text('${player.energy} / ${player.maxEnergy}', style: const TextStyle(color: Colors.yellow, fontSize: 26, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ],
-                ),
-                const Divider(color: Colors.white24, height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(children: [Icon(Icons.home, color: Colors.greenAccent, size: 16), SizedBox(width: 5), Text('مكافأة السعادة:', style: TextStyle(color: Colors.white70, fontSize: 12))]),
-                    Text('+${player.happiness}', style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(children: [Icon(Icons.person, color: Colors.orangeAccent, size: 16), SizedBox(width: 5), Text('تأثير المدرب:', style: TextStyle(color: Colors.white70, fontSize: 12))]),
-                    Text(coachName, style: TextStyle(color: player.activeCoach != null ? Colors.orangeAccent : Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                if (hasSteroid) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF2C2C2C), Color(0xFF1A1A1A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4), width: 1.5),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8, offset: const Offset(0, 4))],
+                  ),
+                  child: Column(
                     children: [
-                      const Row(children: [Icon(Icons.warning, color: Colors.redAccent, size: 16), SizedBox(width: 5), Text('تأثير المنشطات (100%):', style: TextStyle(color: Colors.white70, fontSize: 12))]),
-                      Text(_formatTimeLeft(player.activeSteroidEndTime, player.secureNow), style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('طاقتك الحالية:', style: TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Changa')),
+                          Row(
+                            children: [
+                              const Icon(Icons.bolt, color: Colors.yellow, size: 28),
+                              Text('${player.energy} / ${player.maxEnergy}', style: const TextStyle(color: Colors.yellow, fontSize: 26, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const Divider(color: Colors.white24, height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(children: [Icon(Icons.home, color: Colors.greenAccent, size: 16), SizedBox(width: 5), Text('مكافأة السعادة:', style: TextStyle(color: Colors.white70, fontSize: 12))]),
+                          Text('+${player.happiness}', style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(children: [Icon(Icons.person, color: Colors.orangeAccent, size: 16), SizedBox(width: 5), Text('تأثير المدرب:', style: TextStyle(color: Colors.white70, fontSize: 12))]),
+                          Text(coachName, style: TextStyle(color: player.activeCoach != null ? Colors.orangeAccent : Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      if (hasSteroid) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(children: [Icon(Icons.warning, color: Colors.redAccent, size: 16), SizedBox(width: 5), Text('تأثير المنشطات (100%):', style: TextStyle(color: Colors.white70, fontSize: 12))]),
+                            Text(_formatTimeLeft(player.activeSteroidEndTime, player.secureNow), style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 15),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('مجموع الإحصائيات (الحالي / الأقصى)', style: TextStyle(color: Colors.white54, fontSize: 12, fontFamily: 'Changa')),
+                              Text('${currentStats.toStringAsFixed(1)} / ${maxStats.toStringAsFixed(1)}', style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: progress, backgroundColor: Colors.black45, valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber), minHeight: 10)),
+
+                          if (progress >= 1.0) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.info_outline, color: Colors.redAccent, size: 16),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      'ارفع مستواك لـ $nextLevel لفتح الحد الأقصى (${nextMaxStats.toStringAsFixed(0)})',
+                                      style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Changa'),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                ],
-                const SizedBox(height: 15),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('مجموع الإحصائيات (الحالي / الأقصى)', style: TextStyle(color: Colors.white54, fontSize: 12, fontFamily: 'Changa')),
-                        Text('${currentStats.toStringAsFixed(1)} / ${maxStats.toStringAsFixed(1)}', style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: progress, backgroundColor: Colors.black45, valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber), minHeight: 10)),
-                  ],
                 ),
+                const SizedBox(height: 20),
+
+                _buildStatCard(context, player, audio, cubit, 'القوة', Icons.fitness_center, Colors.redAccent, player.baseStrength, strE, totalAllocated, (v) => setState(() => strE = v), () {
+                  int available = player.energy;
+                  if (available > 0) cubit.trainStats(player, available, 0, 0, 0);
+                }),
+                _buildStatCard(context, player, audio, cubit, 'الدفاع', Icons.shield, Colors.blueAccent, player.baseDefense, defE, totalAllocated, (v) => setState(() => defE = v), () {
+                  int available = player.energy;
+                  if (available > 0) cubit.trainStats(player, 0, available, 0, 0);
+                }),
+                _buildStatCard(context, player, audio, cubit, 'السرعة', Icons.speed, Colors.orangeAccent, player.baseSpeed, spdE, totalAllocated, (v) => setState(() => spdE = v), () {
+                  int available = player.energy;
+                  if (available > 0) cubit.trainStats(player, 0, 0, 0, available);
+                }),
+                _buildStatCard(context, player, audio, cubit, 'المهارة', Icons.psychology, Colors.greenAccent, player.baseSkill, skillE, totalAllocated, (v) => setState(() => skillE = v), () {
+                  int available = player.energy;
+                  if (available > 0) cubit.trainStats(player, 0, 0, available, 0);
+                }),
+                const SizedBox(height: 10),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+        ),
 
-          _buildStatCard(context, player, 'القوة', Icons.fitness_center, Colors.redAccent, player.baseStrength, strE, totalAllocated, (v) => setState(() => strE = v)),
-          _buildStatCard(context, player, 'الدفاع', Icons.shield, Colors.blueAccent, player.baseDefense, defE, totalAllocated, (v) => setState(() => defE = v)),
-          _buildStatCard(context, player, 'السرعة', Icons.speed, Colors.orangeAccent, player.baseSpeed, spdE, totalAllocated, (v) => setState(() => spdE = v)),
-          _buildStatCard(context, player, 'المهارة', Icons.psychology, Colors.greenAccent, player.baseSkill, skillE, totalAllocated, (v) => setState(() => skillE = v)),
-
-          const SizedBox(height: 20),
-
-          AnimatedContainer(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: const BoxDecoration(
+            color: Color(0xFF1A1A1D),
+            border: Border(top: BorderSide(color: Colors.white10)),
+          ),
+          child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: double.infinity,
             height: 55,
@@ -461,27 +583,26 @@ class _GymViewContentState extends State<_GymViewContent> {
                 if (totalAllocated > player.energy) {
                   QuickRecoveryDialog.show(context, 'energy', totalAllocated - player.energy);
                 } else {
-                  _confirmAction(context, 'تأكيد التدريب', Text('هل أنت متأكد أنك تريد استهلاك $totalAllocated طاقة للتدريب؟', style: const TextStyle(color: Colors.white, fontFamily: 'Changa')), () {
-                    // 🟢 استدعاء التدريب من الكيوبت
+                  _confirmAction(context, 'تأكيد التدريب', Text('هل أنت متأكد أنك تريد استهلاك $totalAllocated طاقة للتدريب المخصص؟', style: const TextStyle(color: Colors.white, fontFamily: 'Changa')), () {
                     cubit.trainStats(player, strE, defE, skillE, spdE);
                   });
                 }
               } : null,
               child: Text(
-                  totalAllocated > 0 ? 'بدء التدريب الشاق ($totalAllocated طاقة)' : 'حدد الطاقة للبدء',
+                  totalAllocated > 0 ? 'بدء التدريب المخصص ($totalAllocated طاقة)' : 'حدد الطاقة للبدء',
                   style: TextStyle(color: totalAllocated > 0 ? Colors.black : Colors.white54, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Changa')
               ),
             ),
           ),
-          const SizedBox(height: 20),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildStatCard(BuildContext context, PlayerProvider player, String name, IconData icon, Color color, double currentStat, int allocated, int totalAllocated, Function(int) onChanged) {
+  Widget _buildStatCard(BuildContext context, PlayerProvider player, AudioProvider audio, GymCubit cubit, String name, IconData icon, Color color, double currentStat, int allocated, int totalAllocated, Function(int) onChanged, VoidCallback onQuickTrain) {
     int otherAllocated = totalAllocated - allocated;
-    int maxAllowed = player.maxEnergy - otherAllocated;
+    int maxAllowed = player.energy - otherAllocated;
+    if (maxAllowed < 0) maxAllowed = 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -505,39 +626,59 @@ class _GymViewContentState extends State<_GymViewContent> {
                   ],
                 ),
               ),
-              Row(
-                children: [
-                  IconButton(onPressed: allocated > 0 ? () => onChanged(allocated - 1) : null, icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-                  const SizedBox(width: 5),
 
-                  GestureDetector(
-                    onTap: () => _showNumberInputDialog(context, name, allocated, maxAllowed, onChanged),
-                    child: Container(
-                      width: 45, alignment: Alignment.center, padding: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.withValues(alpha: 0.4))),
-                      child: Text(allocated.toString(), style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-
-                  const SizedBox(width: 5),
-                  IconButton(onPressed: allocated < maxAllowed ? () => onChanged(allocated + 1) : null, icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => onChanged(maxAllowed),
-                    child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(8)), child: const Text('MAX', style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold))),
-                  ),
-                ],
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: color.withValues(alpha: 0.2),
+                    foregroundColor: color,
+                    elevation: 0,
+                    side: BorderSide(color: color.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    minimumSize: const Size(0, 32)
+                ),
+                onPressed: player.energy > 0 ? () {
+                  audio.playEffect('click.mp3');
+                  onQuickTrain();
+                } : () {
+                  audio.playEffect('click.mp3');
+                  QuickRecoveryDialog.show(context, 'energy', 10);
+                },
+                icon: const Icon(Icons.flash_on, size: 16),
+                label: const Text('تدريب MAX', style: TextStyle(fontFamily: 'Changa', fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
-          if (maxAllowed > 0)
-            SliderTheme(
-              data: SliderThemeData(trackHeight: 4, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8), overlayShape: const RoundSliderOverlayShape(overlayRadius: 16), activeTrackColor: color, inactiveTrackColor: Colors.white12, thumbColor: Colors.white),
-              child: Slider(
-                value: allocated.toDouble(), min: 0, max: maxAllowed.toDouble(),
-                onChanged: (val) => onChanged(val.toInt()),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              IconButton(onPressed: allocated > 0 ? () => onChanged(allocated - 1) : null, icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              const SizedBox(width: 5),
+
+              GestureDetector(
+                onTap: () => _showNumberInputDialog(context, name, allocated, maxAllowed, onChanged),
+                child: Container(
+                  width: 45, alignment: Alignment.center, padding: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.withValues(alpha: 0.4))),
+                  child: Text(allocated.toString(), style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
               ),
-            ),
+
+              const SizedBox(width: 5),
+              IconButton(onPressed: allocated < maxAllowed ? () => onChanged(allocated + 1) : null, icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              const SizedBox(width: 8),
+
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(trackHeight: 4, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8), overlayShape: const RoundSliderOverlayShape(overlayRadius: 16), activeTrackColor: color, inactiveTrackColor: Colors.white12, thumbColor: Colors.white),
+                  child: Slider(
+                    value: allocated.toDouble(), min: 0, max: maxAllowed > 0 ? maxAllowed.toDouble() : 1.0,
+                    onChanged: maxAllowed > 0 ? (val) => onChanged(val.toInt()) : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -618,7 +759,6 @@ class _GymViewContentState extends State<_GymViewContent> {
                     const Text('؟\n\n', style: TextStyle(color: Colors.white, fontFamily: 'Changa')),
                     const Text('⚠️ احذر: لن تتمكن من استئجار أي مدرب آخر لمدة 6 ساعات بعد الانتهاء!', style: TextStyle(color: Colors.redAccent, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
                   ]), () {
-                    // 🟢 استدعاء الشراء من الكيوبت
                     cubit.hireCoach(player, id, price, name);
                   });
                 } : null,
@@ -701,7 +841,6 @@ class _GymViewContentState extends State<_GymViewContent> {
                         onPressed: player.cash >= 15000 ? () {
                           audio.playEffect('click.mp3');
                           _confirmAction(context, 'شراء وحقن المنشط ⚠️', const Text('هل أنت متأكد؟ سيتضاعف تدريبك لمدة 20 دقيقة، ولن تستطيع استخدامه مجدداً لمدة 6 ساعات.', style: TextStyle(color: Colors.white, fontFamily: 'Changa')), () {
-                            // 🟢 استدعاء المنشطات من الكيوبت
                             cubit.buySteroids(player, 15000);
                           });
                         } : null,
