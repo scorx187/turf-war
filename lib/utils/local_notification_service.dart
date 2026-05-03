@@ -34,7 +34,7 @@ class LocalNotificationService {
     // إنشاء وإرسال الإشعار للجوال
     await AwesomeNotifications().createNotification(
       content: NotificationContent(
-        id: DateTime.now().millisecond,
+        id: DateTime.now().millisecondsSinceEpoch % 2147483647,
         channelKey: 'turf_war_channel',
         title: title,
         body: body,

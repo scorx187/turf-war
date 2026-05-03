@@ -1,4 +1,4 @@
-﻿// Ø§Ù„Ù…Ø³Ø§Ø±: lib/providers/player_stats_logic.dart
+// المسار: lib/providers/player_stats_logic.dart
 part of 'player_provider.dart';
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
@@ -79,8 +79,8 @@ extension PlayerStatsLogic on PlayerProvider {
   }
 
   int get maxCourage {
-    // ðŸŸ¢ Ø§Ù„Ø£Ø³Ø§Ø³ 29 Ù„Ù„Ø§Ø¹Ø¨ Ø§Ù„Ø¹Ø§Ø¯ÙŠ (29 + Ù…Ø³ØªÙˆÙ‰ 1 = 30)
-    // ðŸŸ¢ Ø¥Ø°Ø§ ÙƒØ§Ù† Ø§Ù„Ù„Ø§Ø¹Ø¨ VIP Ø¬Ø¹Ù„Ù†Ø§ Ø§Ù„Ø£Ø³Ø§Ø³ 60 ÙƒÙ€ Ù…ÙŠØ²Ø© Ø¥Ø¶Ø§ÙÙŠØ©
+    // 🟢 الأساس 29 للاعب العادي (29 + مستوى 1 = 30)
+    // 🟢 إذا كان اللاعب VIP جعلنا الأساس 60 كـ ميزة إضافية
     int crg = (isVIP ? 60 : 29) + _crimeLevel;
 
     if (_perks.containsKey('max_courage_boost')) crg += (_perks['max_courage_boost']! * 1);

@@ -1,4 +1,4 @@
-﻿// Ø§Ù„Ù…Ø³Ø§Ø±: lib/providers/player_actions_logic.dart
+// المسار: lib/providers/player_actions_logic.dart
 part of 'player_provider.dart';
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
@@ -21,7 +21,7 @@ extension PlayerActionsLogic on PlayerProvider {
     if (success) {
       _isInPrison = false;
       _prisonReleaseTime = null;
-      _notificationStream.add("Ù‡Ø±ÙˆØ¨ Ù†Ø§Ø¬Ø­ ðŸƒâ€â™‚ï¸|Ù„Ù‚Ø¯ ØªÙ…ÙƒÙ†Øª Ù…Ù† Ø§Ù„Ù‡Ø±ÙˆØ¨ Ù…Ù† Ø§Ù„Ø³Ø¬Ù† Ø¨Ù†Ø¬Ø§Ø­!");
+      _notificationStream.add("هروب ناجح 🏃‍♂️|لقد تمكنت من الهروب من السجن بنجاح!");
     }
     _syncWithFirestore();
     notifyListeners();
@@ -57,7 +57,7 @@ extension PlayerActionsLogic on PlayerProvider {
       _currentCity = city;
       _syncWithFirestore();
       notifyListeners();
-      _sendSystemNotification("Ø§Ù„Ø³ÙØ± âœˆï¸", "Ù‡Ø¨Ø·Øª Ø·Ø§Ø¦Ø±ØªÙƒ Ø¨Ø³Ù„Ø§Ù… ÙÙŠ $city!", "info");
+      _sendSystemNotification("السفر ✈️", "هبطت طائرتك بسلام في $city!", "info");
     }
   }
 
@@ -72,14 +72,14 @@ extension PlayerActionsLogic on PlayerProvider {
   void increaseHeat(double amount) { _heat = min(100, _heat + amount); notifyListeners(); }
   void reduceHeat(double amount) { _heat = max(0, _heat - amount); notifyListeners(); }
 
-  void addCash(int amount, {String reason = "Ù…ÙƒØ§ÙØ£Ø©", String? senderUid}) {
+  void addCash(int amount, {String reason = "مكافأة", String? senderUid}) {
     _cash += amount;
     _addTransaction(reason, amount, true, senderUid: senderUid);
     _syncWithFirestore();
     notifyListeners();
   }
 
-  void removeCash(int amount, {String reason = "Ø®ØµÙ…", String? senderUid}) {
+  void removeCash(int amount, {String reason = "خصم", String? senderUid}) {
     _cash = max(0, _cash - amount);
     _addTransaction(reason, amount, false, senderUid: senderUid);
     _syncWithFirestore();
@@ -114,7 +114,7 @@ extension PlayerActionsLogic on PlayerProvider {
     if (_crimeXP >= xpToNextLevel) {
       _crimeXP -= xpToNextLevel;
       _crimeLevel++;
-      _notificationStream.add("ØªØ±Ù‚ÙŠØ© ðŸ”«|ØªÙ‡Ø§Ù†ÙŠÙ†Ø§! ÙˆØµÙ„Øª Ù„Ù„Ù…Ø³ØªÙˆÙ‰ $_crimeLevel ÙÙŠ Ø§Ù„Ø¬Ø±ÙŠÙ…Ø©");
+      _notificationStream.add("ترقية 🔫|تهانينا! وصلت للمستوى $_crimeLevel في الجريمة");
     }
     _syncWithFirestore();
     notifyListeners();
@@ -150,9 +150,9 @@ extension PlayerActionsLogic on PlayerProvider {
     _ownedProperties = []; _activePropertyId = null; _ownedBusinesses = {}; _happiness = 0; _inventory = {'name_change_card': 1};
     _equippedWeaponId = null; _equippedArmorId = null; _equippedMaskId = null; _equippedSpecialId = null; _vipUntil = null; _totalVipDays = 0; _totalLabCrafts = 0; _luckyWheelSpins = 0; _unlockedTitlesList = [];
     _isHospitalized = false; _hospitalReleaseTime = null; _crimeLevel = 1; _workLevel = 1; _crimeXP = 0; _workXP = 0; _isInPrison = false; _prisonReleaseTime = null; _lockedBalance = 0; _lockedProfits = 0; _lockedUntil = null;
-    _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "Ø¹Ø¶Ùˆ"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {};
+    _arenaLevel = 1; _loanAmount = 0; _creditScore = 0; _loanTime = null; _gangName = null; _gangRank = "عضو"; _gangContribution = 0; _gangWarWins = 0; _territoryOwners = {};
     crimeSuccessCountsMap = {}; _transactions = []; _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
-    _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "Ù„Ø§ ÙŠÙˆØ¬Ø¯ ÙˆØµÙ Ø­Ø§Ù„ÙŠØ§Ù‹... Ø±Ø¬Ù„ Ø£ÙØ¹Ø§Ù„ Ù„Ø§ Ø£Ù‚ÙˆØ§Ù„."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'Ù…Ù„Ø§Ø°';
+    _heat = 0.0; _spareParts = 0; _durability = {}; _equippedCrimeToolId = null; _bio = "لا يوجد وصف حالياً... رجل أفعال لا أقوال."; _profilePicUrl = null; _backgroundPicUrl = null; _currentCity = 'ملاذ';
     _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null; _lastPassiveIncomeTime = secureNow;
     _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _pvpWins = 0; _totalStolenCash = 0; _perks = {}; _selectedTitle = null; _baseMaxHealth = 100; _bonusPerkPoints = 0;
     _lastEnergyUpdate = DateTime.now();
@@ -168,9 +168,9 @@ extension PlayerActionsLogic on PlayerProvider {
       _perks[perkId] = currentLvl + 1;
       _syncWithFirestore();
       notifyListeners();
-      _sendSystemNotification("Ø´Ø¬Ø±Ø© Ø§Ù„Ø§Ù…ØªÙŠØ§Ø²Ø§Øª â­", "ØªÙ… ØªÙØ¹ÙŠÙ„ Ø§Ù„Ø§Ù…ØªÙŠØ§Ø² Ø¨Ù†Ø¬Ø§Ø­!", "star");
+      _sendSystemNotification("شجرة الامتيازات ⭐", "تم تفعيل الامتياز بنجاح!", "star");
     } else {
-      _sendSystemNotification("Ù†Ù‚Ø§Ø· ØºÙŠØ± ÙƒØ§ÙÙŠØ© âš ï¸", "Ø­Ù‚Ù‚ Ø§Ù„Ù…Ø²ÙŠØ¯ Ù…Ù† Ø§Ù„Ø£Ù„Ù‚Ø§Ø¨ Ù„Ø¬Ù…Ø¹ Ø§Ù„Ù†Ù‚Ø§Ø·.", "warning");
+      _sendSystemNotification("نقاط غير كافية ⚠️", "حقق المزيد من الألقاب لجمع النقاط.", "warning");
     }
   }
 

@@ -1,4 +1,4 @@
-﻿// Ø§Ù„Ù…Ø³Ø§Ø±: lib/providers/player_game_loop.dart
+// المسار: lib/providers/player_game_loop.dart
 part of 'player_provider.dart';
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
@@ -54,7 +54,7 @@ extension PlayerGameLoop on PlayerProvider {
       if (_uid != null) {
         _firestore.collection('players').doc(_uid).update({'inventory.steroid_cooldown': FieldValue.delete()}).catchError((_) {});
       }
-      _sendSystemNotification("Ø³ÙˆÙ‚ Ø§Ù„Ù…Ù†Ø´Ø·Ø§Øª ðŸ’‰", "Ø§Ù†ØªÙ‡Øª ÙØªØ±Ø© Ø§Ù„Ø±Ø§Ø­Ø© Ù„Ù„Ù…Ù†Ø´Ø·Ø§Øª! ÙŠÙ…ÙƒÙ†Ùƒ Ø´Ø±Ø§Ø¡ ÙˆØ­Ù‚Ù† Ø¬Ø±Ø¹Ø© Ø¬Ø¯ÙŠØ¯Ø© Ø§Ù„Ø¢Ù†.", "info");
+      _sendSystemNotification("سوق المنشطات 💉", "انتهت فترة الراحة للمنشطات! يمكنك شراء وحقن جرعة جديدة الآن.", "info");
       changed = true;
     }
     int coachCooldown = _inventory['coach_cooldown'] ?? 0;
@@ -63,7 +63,7 @@ extension PlayerGameLoop on PlayerProvider {
       if (_uid != null) {
         _firestore.collection('players').doc(_uid).update({'inventory.coach_cooldown': FieldValue.delete()}).catchError((_) {});
       }
-      _sendSystemNotification("ØµØ§Ù„Ø© Ø§Ù„ØªØ¯Ø±ÙŠØ¨ ðŸ¥Š", "Ø§Ù„Ù…Ø¯Ø±Ø¨ÙˆÙ† Ù…ØªØ§Ø­ÙˆÙ† Ø§Ù„Ø¢Ù† Ù„Ù„ØªØ¹Ø§Ù‚Ø¯ Ù…Ù† Ø¬Ø¯ÙŠØ¯!", "info");
+      _sendSystemNotification("صالة التدريب 🥊", "المدربون متاحون الآن للتعاقد من جديد!", "info");
       changed = true;
     }
     return changed;
@@ -75,7 +75,7 @@ extension PlayerGameLoop on PlayerProvider {
       String propId = _activeRentedProperty!['id'];
       _activeRentedProperty = null;
       if (_activePropertyId == propId) { _activePropertyId = null; _happiness = 0; }
-      _sendSystemNotification("Ø¥ÙŠØ¬Ø§Ø± Ø§Ù„Ø³ÙƒÙ† ðŸ ", "Ø§Ù†ØªÙ‡Ù‰ Ø¹Ù‚Ø¯ Ø¥ÙŠØ¬Ø§Ø± Ø³ÙƒÙ†Ùƒ Ø§Ù„Ø­Ø§Ù„ÙŠ!", "home");
+      _sendSystemNotification("إيجار السكن 🏠", "انتهى عقد إيجار سكنك الحالي!", "home");
       changed = true;
     }
     if (_rentedOutProperties.isNotEmpty) {
@@ -85,7 +85,7 @@ extension PlayerGameLoop on PlayerProvider {
       });
       for (var id in expired) {
         _rentedOutProperties.remove(id);
-        _sendSystemNotification("Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø£Ù…Ù„Ø§Ùƒ ðŸ”‘", "Ø§Ù†ØªÙ‡Øª Ù…Ø¯Ø© Ø¥ÙŠØ¬Ø§Ø± Ø¹Ù‚Ø§Ø±Ùƒ ($id) ÙˆØ¹Ø§Ø¯ Ø¥Ù„ÙŠÙƒ!", "key");
+        _sendSystemNotification("إدارة الأملاك 🔑", "انتهت مدة إيجار عقارك ($id) وعاد إليك!", "key");
         changed = true;
       }
     }
@@ -103,7 +103,7 @@ extension PlayerGameLoop on PlayerProvider {
       if (_health >= maxHealth && _isHospitalized) {
         _isHospitalized = false;
         _hospitalReleaseTime = null;
-        _sendSystemNotification("Ø§Ù„Ù…Ø³ØªØ´ÙÙ‰ ðŸ¥", "ØªØ¹Ø§ÙÙŠØª Ø¨Ø§Ù„ÙƒØ§Ù…Ù„ ÙˆØ®Ø±Ø¬Øª Ù…Ù† Ø§Ù„Ù…Ø³ØªØ´ÙÙ‰!", "hospital");
+        _sendSystemNotification("المستشفى 🏥", "تعافيت بالكامل وخرجت من المستشفى!", "hospital");
       }
       return true;
     }
@@ -116,7 +116,7 @@ extension PlayerGameLoop on PlayerProvider {
     int passiveIncome = getTotalPassiveIncomePerDay() + getPropertyRentIncomePerDay();
     if (passiveIncome > 0) {
       _cash += passiveIncome;
-      _sendSystemNotification("Ø§Ù„Ø£Ø±Ø¨Ø§Ø­ Ø§Ù„ÙŠÙˆÙ…ÙŠØ© ðŸ¢", "Ø§Ø³ØªÙ„Ù…Øª Ø£Ø±Ø¨Ø§Ø­Ùƒ Ø§Ù„ÙŠÙˆÙ…ÙŠØ©: \$${_formatWithCommas(passiveIncome)}", "money");
+      _sendSystemNotification("الأرباح اليومية 🏢", "استلمت أرباحك اليومية: \$${_formatWithCommas(passiveIncome)}", "money");
     }
     _lastPassiveIncomeTime = _lastPassiveIncomeTime!.add(const Duration(hours: 24));
     return true;
@@ -138,7 +138,7 @@ extension PlayerGameLoop on PlayerProvider {
     if (secureNow.difference(_loanTime!).inHours < 2) return false;
     _loanAmount = (_loanAmount * 1.1).floor();
     _loanTime = secureNow;
-    _sendSystemNotification("Ø§Ù„Ø¨Ù†Ùƒ ðŸ¦", "ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© ÙÙˆØ§Ø¦Ø¯ 10% Ø¹Ù„Ù‰ Ù‚Ø±Ø¶Ùƒ Ù„ØªØ£Ø®Ø±Ùƒ ÙÙŠ Ø§Ù„Ø³Ø¯Ø§Ø¯!", "bank");
+    _sendSystemNotification("البنك 🏦", "تمت إضافة فوائد 10% على قرضك لتأخرك في السداد!", "bank");
     return true;
   }
 
@@ -147,7 +147,7 @@ extension PlayerGameLoop on PlayerProvider {
     if (!secureNow.isAfter(_prisonReleaseTime!)) return false;
     _isInPrison = false;
     _prisonReleaseTime = null;
-    _notificationStream.add("Ø¥ÙØ±Ø§Ø¬ ðŸ”“|ØªÙ… Ø§Ù„Ø¥ÙØ±Ø§Ø¬ Ø¹Ù†Ùƒ Ù…Ù† Ø§Ù„Ø³Ø¬Ù† Ø¨Ø¹Ø¯ Ø§Ù†ØªÙ‡Ø§Ø¡ Ù…Ø¯Ø© Ø¹Ù‚ÙˆØ¨ØªÙƒ.");
+    _notificationStream.add("إفراج 🔓|تم الإفراج عنك من السجن بعد انتهاء مدة عقوبتك.");
     return true;
   }
 
@@ -157,7 +157,7 @@ extension PlayerGameLoop on PlayerProvider {
     _isHospitalized = false;
     _hospitalReleaseTime = null;
     _health = (maxHealth * 0.25).toInt();
-    _sendSystemNotification("Ø§Ù„Ù…Ø³ØªØ´ÙÙ‰ ðŸ¥", "ØªÙ… Ø®Ø±ÙˆØ¬Ùƒ Ù…Ù† Ø§Ù„Ù…Ø³ØªØ´ÙÙ‰!", "hospital");
+    _sendSystemNotification("المستشفى 🏥", "تم خروجك من المستشفى!", "hospital");
     return true;
   }
 
@@ -168,7 +168,7 @@ extension PlayerGameLoop on PlayerProvider {
     _lockedBalance = 0;
     _lockedProfits = 0;
     _lockedUntil = null;
-    _sendSystemNotification("Ø§Ù„Ø§Ø³ØªØ«Ù…Ø§Ø± ðŸ“ˆ", "Ø§Ù†ØªÙ‡Ù‰ Ø§Ù„Ø§Ø³ØªØ«Ù…Ø§Ø±! Ø§Ø³ØªÙ„Ù…Øª $total ÙƒØ§Ø´", "invest");
+    _sendSystemNotification("الاستثمار 📈", "انتهى الاستثمار! استلمت $total كاش", "invest");
     return true;
   }
 
@@ -177,7 +177,7 @@ extension PlayerGameLoop on PlayerProvider {
     if (secureNow.difference(_lastContractRewardTime!).inMinutes < 1) return false;
     _cash += _contractSalary;
     _lastContractRewardTime = secureNow;
-    _addTransaction("Ø±Ø§ØªØ¨ Ø¹Ù‚Ø¯: $_activeContractName", _contractSalary, true);
+    _addTransaction("راتب عقد: $_activeContractName", _contractSalary, true);
     _workXP += 5;
     if (_workXP >= workXPToNextLevel) { _workXP -= workXPToNextLevel; _workLevel++; }
     return true;

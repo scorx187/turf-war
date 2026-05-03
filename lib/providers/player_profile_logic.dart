@@ -1,4 +1,4 @@
-﻿// Ø§Ù„Ù…Ø³Ø§Ø±: lib/providers/player_profile_logic.dart
+// المسار: lib/providers/player_profile_logic.dart
 part of 'player_provider.dart';
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
@@ -40,12 +40,12 @@ extension PlayerProfileLogic on PlayerProvider {
       }
       await batch.commit();
 
-      _sendSystemNotification("ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø­Ø³Ø§Ø¨ ðŸ“¸", "ØªÙ… Ø±ÙØ¹ ÙˆØªØ­Ø¯ÙŠØ« ØµÙˆØ±ØªÙƒ Ø§Ù„Ø´Ø®ØµÙŠØ© Ø¨Ù†Ø¬Ø§Ø­!", "info");
+      _sendSystemNotification("تحديث الحساب 📸", "تم رفع وتحديث صورتك الشخصية بنجاح!", "info");
       notifyListeners();
       return downloadUrl;
     } catch (e) {
-      debugPrint("Ø®Ø·Ø£ ÙÙŠ Ø±ÙØ¹ Ø§Ù„ØµÙˆØ±Ø©: $e");
-      _sendSystemNotification("Ø®Ø·Ø£ âš ï¸", "ÙØ´Ù„ Ø±ÙØ¹ Ø§Ù„ØµÙˆØ±Ø©ØŒ ØªØ£ÙƒØ¯ Ù…Ù† Ø§ØªØµØ§Ù„Ùƒ Ø¨Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª.", "error");
+      debugPrint("خطأ في رفع الصورة: $e");
+      _sendSystemNotification("خطأ ⚠️", "فشل رفع الصورة، تأكد من اتصالك بالإنترنت.", "error");
       return null;
     }
   }
@@ -66,12 +66,12 @@ extension PlayerProfileLogic on PlayerProvider {
       _backgroundPicUrl = downloadUrl;
       await _syncWithFirestore();
 
-      _sendSystemNotification("ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø­Ø³Ø§Ø¨ ðŸ“¸", "ØªÙ… Ø±ÙØ¹ ÙˆØªØ­Ø¯ÙŠØ« ØµÙˆØ±Ø© Ø§Ù„ØºÙ„Ø§Ù Ø¨Ù†Ø¬Ø§Ø­!", "info");
+      _sendSystemNotification("تحديث الحساب 📸", "تم رفع وتحديث صورة الغلاف بنجاح!", "info");
       notifyListeners();
       return downloadUrl;
     } catch (e) {
-      debugPrint("Ø®Ø·Ø£ ÙÙŠ Ø±ÙØ¹ ØµÙˆØ±Ø© Ø§Ù„ØºÙ„Ø§Ù: $e");
-      _sendSystemNotification("Ø®Ø·Ø£ âš ï¸", "ÙØ´Ù„ Ø±ÙØ¹ ØµÙˆØ±Ø© Ø§Ù„ØºÙ„Ø§Ù.", "error");
+      debugPrint("خطأ في رفع صورة الغلاف: $e");
+      _sendSystemNotification("خطأ ⚠️", "فشل رفع صورة الغلاف.", "error");
       return null;
     }
   }
@@ -92,7 +92,7 @@ extension PlayerProfileLogic on PlayerProvider {
         return data;
       }
     } catch (e) {
-      debugPrint("Ø®Ø·Ø£ ÙÙŠ Ø¬Ù„Ø¨ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù„Ø§Ø¹Ø¨: $e");
+      debugPrint("خطأ في جلب بيانات اللاعب: $e");
     }
     return null;
   }

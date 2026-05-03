@@ -1,4 +1,4 @@
-﻿// Ø§Ù„Ù…Ø³Ø§Ø±: lib/providers/player_combat_logic.dart
+// المسار: lib/providers/player_combat_logic.dart
 
 part of 'player_provider.dart';
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
@@ -14,7 +14,7 @@ extension PlayerCombatLogic on PlayerProvider {
       _activeSteroidEndTime = secureNow.add(const Duration(minutes: 20));
       _inventory['steroid_cooldown'] = secureNow.add(const Duration(hours: 6, minutes: 20)).millisecondsSinceEpoch;
 
-      _addTransaction("Ø´Ø±Ø§Ø¡ Ù…Ù†Ø´Ø·Ø§Øª", price, false);
+      _addTransaction("شراء منشطات", price, false);
       await _syncWithFirestore();
       notifyListeners();
     }
@@ -30,44 +30,44 @@ extension PlayerCombatLogic on PlayerProvider {
       _coachEndTime = secureNow.add(const Duration(minutes: 30));
       _inventory['coach_cooldown'] = secureNow.add(const Duration(hours: 6, minutes: 30)).millisecondsSinceEpoch;
 
-      _addTransaction("Ø§Ø³ØªØ¦Ø¬Ø§Ø± Ù…Ø¯Ø±Ø¨ Ø®Ø§Øµ", price, false);
+      _addTransaction("استئجار مدرب خاص", price, false);
       await _syncWithFirestore();
       notifyListeners();
     }
   }
 
   void addCrimeXP(int amount) {
-    if (_crimeLevel >= 500) return; // ðŸŸ¢ Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ 500
+    if (_crimeLevel >= 500) return; // 🟢 الحد الأقصى 500
     _crimeXP += amount;
     bool leveledUp = false;
 
     while (_crimeXP >= xpToNextLevel && _crimeLevel < 500) {
       _crimeXP -= xpToNextLevel;
 
-      // ðŸŸ¢ ØªÙ… Ø­Ù„ Ù…Ø´ÙƒÙ„Ø© num Ø¥Ù„Ù‰ double Ø¨Ø¥Ø¶Ø§ÙØ© .toDouble()
+      // 🟢 تم حل مشكلة num إلى double بإضافة .toDouble()
       double oldBase = _crimeLevel <= 100
           ? (100 * pow(1.06, _crimeLevel - 1)).toDouble()
           : ((100 * pow(1.06, 99)) * pow(1.0194488, _crimeLevel - 100)).toDouble();
 
       _crimeLevel++;
 
-      // ðŸŸ¢ ØªÙ… Ø­Ù„ Ø§Ù„Ù…Ø´ÙƒÙ„Ø© Ù‡Ù†Ø§ Ø£ÙŠØ¶Ø§Ù‹
+      // 🟢 تم حل المشكلة هنا أيضاً
       double newBase = _crimeLevel <= 100
           ? (100 * pow(1.06, _crimeLevel - 1)).toDouble()
           : ((100 * pow(1.06, 99)) * pow(1.0194488, _crimeLevel - 100)).toDouble();
 
-      // ðŸŸ¢ Ù†Ø¶ÙŠÙ Ø§Ù„ÙØ±Ù‚ ÙÙ‚Ø· Ù„ÙƒÙŠ Ù†Ø­Ø§ÙØ¸ Ø¹Ù„Ù‰ ØµØ­Ø© Ø§Ù„Ù†Ø§Ø¯ÙŠ
+      // 🟢 نضيف الفرق فقط لكي نحافظ على صحة النادي
       _baseMaxHealth += (newBase - oldBase).toInt();
-      // ðŸŒŸ Ø§Ù„Ø³Ø·Ø± Ø§Ù„Ø³Ø­Ø±ÙŠ: ØªØµØ­ÙŠØ­ Ø£Ø®Ø·Ø§Ø¡ Ø§Ù„Ù„Ø§Ø¹Ø¨ÙŠÙ† Ø§Ù„Ù‚Ø¯Ø§Ù…Ù‰
+      // 🌟 السطر السحري: تصحيح أخطاء اللاعبين القدامى
       if (_baseMaxHealth < newBase.toInt()) {
         _baseMaxHealth = newBase.toInt();
       }
-      if (_baseMaxHealth > 100000000) _baseMaxHealth = 100000000; // ðŸŸ¢ Ø³Ù‚Ù 100 Ù…Ù„ÙŠÙˆÙ†
+      if (_baseMaxHealth > 100000000) _baseMaxHealth = 100000000; // 🟢 سقف 100 مليون
 
       leveledUp = true;
     }
 
-    if (leveledUp) _showNotification("ðŸŽ‰ Ù„ÙÙ„ Ø¥Ø¬Ø±Ø§Ù…ÙŠ Ø¬Ø¯ÙŠØ¯: $_crimeLevel");
+    if (leveledUp) _showNotification("🎉 لفل إجرامي جديد: $_crimeLevel");
     _syncWithFirestore();
     notifyListeners();
   }
@@ -129,7 +129,7 @@ extension PlayerCombatLogic on PlayerProvider {
       double randomMultiplier = hpBoostChance + Random().nextDouble() * 7.0;
       int hpBoost = (defGain * randomMultiplier).toInt();
       if (hpBoost > 0) {
-        _baseMaxHealth = min(100000000, _baseMaxHealth + hpBoost); // ðŸŸ¢ Ø³Ù‚Ù 100 Ù…Ù„ÙŠÙˆÙ†
+        _baseMaxHealth = min(100000000, _baseMaxHealth + hpBoost); // 🟢 سقف 100 مليون
       }
     }
 
@@ -170,10 +170,10 @@ extension PlayerCombatLogic on PlayerProvider {
     int cost = isVIP ? max(1, (missing * 0.8).toInt()) : missing;
     if (_cash >= cost) {
       _cash -= cost; _health = maxHealth; _isHospitalized = false; _hospitalReleaseTime = null;
-      _addTransaction("ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ù…Ø³ØªØ´ÙÙ‰", cost, false); _syncWithFirestore(); notifyListeners();
-      _showNotification("ðŸ¥ ØªÙ… Ø§Ù„Ø¹Ù„Ø§Ø¬ Ø¨Ø§Ù„ÙƒØ§Ù…Ù„ Ù…Ù‚Ø§Ø¨Ù„ $cost ÙƒØ§Ø´!");
+      _addTransaction("فاتورة المستشفى", cost, false); _syncWithFirestore(); notifyListeners();
+      _showNotification("🏥 تم العلاج بالكامل مقابل $cost كاش!");
     } else {
-      _showNotification("âš ï¸ ÙƒØ§Ø´ ØºÙŠØ± ÙƒØ§ÙÙŠ! ØªØ­ØªØ§Ø¬ $cost");
+      _showNotification("⚠️ كاش غير كافي! تحتاج $cost");
     }
   }
 
@@ -192,12 +192,12 @@ extension PlayerCombatLogic on PlayerProvider {
     if (_cash >= cost) {
       try {
         _cash -= cost;
-        _addTransaction("Ø¯ÙØ¹ ÙƒÙØ§Ù„Ø© Ù„Ù€ $targetName", cost, false);
+        _addTransaction("دفع كفالة لـ $targetName", cost, false);
         _syncWithFirestore(); notifyListeners();
         await _firestore.collection('players').doc(targetUid).update({'isInPrison': false, 'prisonReleaseTime': null});
-        _showNotification("ðŸ‘® ØªÙ…Øª Ø§Ù„Ø¹Ù…Ù„ÙŠØ©! Ø¯ÙØ¹Øª Ø§Ù„ÙƒÙØ§Ù„Ø© ÙˆØ®Ø±Ø¬ $targetName Ù…Ù† Ø§Ù„Ø³Ø¬Ù†.");
-      } catch(e) { debugPrint("Ø®Ø·Ø£ ÙÙŠ Ø¯ÙØ¹ Ø§Ù„ÙƒÙØ§Ù„Ø©: $e"); }
-    } else { _showNotification("âš ï¸ ÙƒØ§Ø´ ØºÙŠØ± ÙƒØ§ÙÙŠ Ù„Ø¯ÙØ¹ Ø§Ù„ÙƒÙØ§Ù„Ø©!"); }
+        _showNotification("👮 تمت العملية! دفعت الكفالة وخرج $targetName من السجن.");
+      } catch(e) { debugPrint("خطأ في دفع الكفالة: $e"); }
+    } else { _showNotification("⚠️ كاش غير كافي لدفع الكفالة!"); }
   }
 
   Future<List<Map<String, dynamic>>> fetchRealOpponents() async {
@@ -274,16 +274,16 @@ extension PlayerCombatLogic on PlayerProvider {
       if (result == 'win') {
         _pvpWins++;
         _totalStolenCash += reward;
-        if (reward > 0) addCash(reward, reason: "ØºÙ†ÙŠÙ…Ø© Ù…Ù† $enemyName");
-        _showNotification("âš”ï¸ Ø§Ù†ØªØµØ±Øª Ø¹Ù„Ù‰ $enemyName ÙˆØ£Ø±Ø³Ù„ØªÙ‡ Ù„Ù„Ù…Ø³ØªØ´ÙÙ‰!");
+        if (reward > 0) addCash(reward, reason: "غنيمة من $enemyName");
+        _showNotification("⚔️ انتصرت على $enemyName وأرسلته للمستشفى!");
       }
-      else if (result == 'loss') { enterHospital(15); _showNotification("ðŸ¥ Ù„Ù‚Ø¯ Ø®Ø³Ø±Øª Ø§Ù„Ù…Ø¹Ø±ÙƒØ© ÙˆØªÙ… Ù†Ù‚Ù„Ùƒ Ù„Ù„Ù…Ø³ØªØ´ÙÙ‰!"); }
-      else if (result == 'draw') { setHealth(max(1, health - 20)); _showNotification("ðŸ¤ Ø§Ù†ØªÙ‡Øª Ø§Ù„Ù…Ø¹Ø±ÙƒØ© Ø¨Ø§Ù„ØªØ¹Ø§Ø¯Ù„! ØªØ¶Ø±Ø±Øª ØµØ­ØªÙƒ."); }
-    } catch (e) { debugPrint("Ø®Ø·Ø£ ÙÙŠ Ø­ÙØ¸ Ù†ØªÙŠØ¬Ø© Ø§Ù„Ù…Ø¹Ø±ÙƒØ©: $e"); }
+      else if (result == 'loss') { enterHospital(15); _showNotification("🏥 لقد خسرت المعركة وتم نقلك للمستشفى!"); }
+      else if (result == 'draw') { setHealth(max(1, health - 20)); _showNotification("🤝 انتهت المعركة بالتعادل! تضررت صحتك."); }
+    } catch (e) { debugPrint("خطأ في حفظ نتيجة المعركة: $e"); }
   }
 
   Future<List<Map<String, dynamic>>> fetchAttacksLog() async { if (_uid == null) return []; try { QuerySnapshot snapshot = await _firestore.collection('players').doc(_uid).collection('attacks_log').orderBy('date', descending: true).limit(20).get(); List<Map<String, dynamic>> logs = []; for (var doc in snapshot.docs) { Map<String, dynamic> data = doc.data() as Map<String, dynamic>; data['logId'] = doc.id; logs.add(data); } return logs; } catch (e) { return []; } }
   // ignore: empty_catches
   Future<void> markAsAvenged(String logId) async { if (_uid == null) return; try { await _firestore.collection('players').doc(_uid).collection('attacks_log').doc(logId).update({'hasAvenged': true}); } catch (e) {} }
-  void unlockAllCrimesForDev() { for (int catIndex = 0; catIndex < 20; catIndex++) { for (int crimeIndex = 0; crimeIndex < 20; crimeIndex++) { String crimeId = 'cat_${catIndex}_crime_$crimeIndex'; crimeSuccessCountsMap[crimeId] = 10; } } _syncWithFirestore(); notifyListeners(); _showNotification("ðŸ› ï¸ (Ø£Ø¯Ø§Ø© Ø§Ù„Ù…Ø·ÙˆØ±): ØªÙ… ÙØªØ­ Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø¬Ø±Ø§Ø¦Ù… Ø¨Ù†Ø¬Ø§Ø­!"); }
+  void unlockAllCrimesForDev() { for (int catIndex = 0; catIndex < 20; catIndex++) { for (int crimeIndex = 0; crimeIndex < 20; crimeIndex++) { String crimeId = 'cat_${catIndex}_crime_$crimeIndex'; crimeSuccessCountsMap[crimeId] = 10; } } _syncWithFirestore(); notifyListeners(); _showNotification("🛠️ (أداة المطور): تم فتح جميع الجرائم بنجاح!"); }
 }

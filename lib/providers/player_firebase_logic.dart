@@ -1,4 +1,4 @@
-﻿// Ø§Ù„Ù…Ø³Ø§Ø±: lib/providers/player_firebase_logic.dart
+// المسار: lib/providers/player_firebase_logic.dart
 part of 'player_provider.dart';
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
@@ -33,7 +33,7 @@ extension PlayerFirebaseLogic on PlayerProvider {
         }
       },
       onError: (error) {
-        debugPrint("âŒ Ø®Ø·Ø£ ÙÙŠ stream Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù„Ø§Ø¹Ø¨: $error");
+        debugPrint("❌ خطأ في stream بيانات اللاعب: $error");
       },
     );
   }
@@ -52,7 +52,7 @@ extension PlayerFirebaseLogic on PlayerProvider {
         }
       }
     }, onError: (error) {
-      debugPrint("âŒ Ø®Ø·Ø£ ÙÙŠ Ù‚Ø±Ø§Ø¡Ø© Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù„Ø¹Ø¨Ø©: $error");
+      debugPrint("❌ خطأ في قراءة إعدادات اللعبة: $error");
     });
   }
 
@@ -73,13 +73,13 @@ extension PlayerFirebaseLogic on PlayerProvider {
         notifyListeners();
       }
     }, onError: (error) {
-      debugPrint("âŒ Ø®Ø·Ø£ ÙÙŠ Ù‚Ø±Ø§Ø¡Ø© Ø§Ù„Ø£Ø­Ø¯Ø§Ø«: $error");
+      debugPrint("❌ خطأ في قراءة الأحداث: $error");
     });
   }
 
   void _applyFirestoreData(Map<String, dynamic> data) {
     _playerName = data['playerName'] ?? _playerName; _gameId = data['gameId'] ?? _gameId; _bio = data['bio'] ?? _bio;
-    _profilePicUrl = data['profilePicUrl']; _backgroundPicUrl = data['backgroundPicUrl']; _currentCity = data['currentCity'] ?? 'Ù…Ù„Ø§Ø°';
+    _profilePicUrl = data['profilePicUrl']; _backgroundPicUrl = data['backgroundPicUrl']; _currentCity = data['currentCity'] ?? 'ملاذ';
     _cash = data['cash'] ?? _cash; _gold = data['gold'] ?? _gold; _bankBalance = data['bankBalance'] ?? _bankBalance;
 
     _baseMaxHealth = data['maxHealth'] ?? _baseMaxHealth;
@@ -126,13 +126,13 @@ extension PlayerFirebaseLogic on PlayerProvider {
     _rentedOutProperties = {};
     if (data['rentedOutProperties'] != null) {
       (data['rentedOutProperties'] as Map).forEach((k, v) {
-        if (v is String) { _rentedOutProperties[k.toString()] = {'expire': v, 'renterId': '', 'renterName': 'Ù…Ø¬Ù‡ÙˆÙ„'}; }
+        if (v is String) { _rentedOutProperties[k.toString()] = {'expire': v, 'renterId': '', 'renterName': 'مجهول'}; }
         else { _rentedOutProperties[k.toString()] = Map<String, dynamic>.from(v); }
       });
     }
     if (data['activeRentedProperty'] != null) _activeRentedProperty = Map<String, dynamic>.from(data['activeRentedProperty']);
     _ownedBusinesses = Map<String, int>.from(data['ownedBusinesses'] ?? {}); _inventory = Map<String, int>.from(data['inventory'] ?? {});
-    _crimeLevel = data['crimeLevel'] ?? 1; _crimeXP = data['crimeXP'] ?? 0; _lastCrimeName = data['lastCrimeName'] ?? "ØªØ³ÙƒØ¹ ÙÙŠ Ø§Ù„Ø´ÙˆØ§Ø±Ø¹"; _playerBailCost = data['bailCost'] ?? 1500;
+    _crimeLevel = data['crimeLevel'] ?? 1; _crimeXP = data['crimeXP'] ?? 0; _lastCrimeName = data['lastCrimeName'] ?? "تسكع في الشوارع"; _playerBailCost = data['bailCost'] ?? 1500;
     _workLevel = data['workLevel'] ?? 1; _workXP = data['workXP'] ?? 0; _arenaLevel = data['arenaLevel'] ?? 1;
 
     bool wasInPrison = _isInPrison;
@@ -146,7 +146,7 @@ extension PlayerFirebaseLogic on PlayerProvider {
     }
 
     if (wasInPrison && !_isInPrison && oldRelease != null && secureNow.isBefore(oldRelease)) {
-      _notificationStream.add("ðŸ’¸ ÙƒÙØ§Ù„Ø©!|Ù„Ù‚Ø¯ ØªÙ… Ø¯ÙØ¹ ÙƒÙØ§Ù„ØªÙƒ ÙˆØ¥Ø®Ø±Ø§Ø¬Ùƒ Ù…Ù† Ø§Ù„Ø³Ø¬Ù†!");
+      _notificationStream.add("💸 كفالة!|لقد تم دفع كفالتك وإخراجك من السجن!");
     }
 
     _isHospitalized = data['isHospitalized'] ?? false; if (data['hospitalReleaseTime'] != null) _hospitalReleaseTime = DateTime.parse(data['hospitalReleaseTime']);
@@ -156,7 +156,7 @@ extension PlayerFirebaseLogic on PlayerProvider {
     _totalLabCrafts = data['totalLabCrafts'] ?? 0;
     _luckyWheelSpins = data['luckyWheelSpins'] ?? 0;
     _loanAmount = data['loanAmount'] ?? 0; _creditScore = data['creditScore'] ?? 0; if (data['loanTime'] != null) _loanTime = DateTime.parse(data['loanTime']);
-    _gangName = data['gangName']; _gangRank = data['gangRank'] ?? "Ø¹Ø¶Ùˆ"; _gangContribution = data['gangContribution'] ?? 0; _gangWarWins = data['gangWarWins'] ?? 0;
+    _gangName = data['gangName']; _gangRank = data['gangRank'] ?? "عضو"; _gangContribution = data['gangContribution'] ?? 0; _gangWarWins = data['gangWarWins'] ?? 0;
     if (data['territoryOwners'] != null) _territoryOwners = Map<String, String>.from(data['territoryOwners']);
     if (data['contractEndTime'] != null) _contractEndTime = DateTime.parse(data['contractEndTime']);
     _activeContractName = data['activeContractName']; _contractSalary = data['contractSalary'] ?? 0; _ownedCars = List<String>.from(data['ownedCars'] ?? []); _activeCarId = data['activeCarId'];
@@ -217,13 +217,17 @@ extension PlayerFirebaseLogic on PlayerProvider {
       if (hoursPassed >= 24) {
         int daysPassed = hoursPassed ~/ 24;
         int passiveIncome = (getTotalPassiveIncomePerDay() + getPropertyRentIncomePerDay()) * daysPassed;
-        if (passiveIncome > 0) { _cash += passiveIncome; Future.microtask(() => _sendSystemNotification("Ø§Ù„Ø£Ø±Ø¨Ø§Ø­ Ø§Ù„ÙŠÙˆÙ…ÙŠØ© ðŸ¢", "Ø§Ø³ØªÙ„Ù…Øª Ø£Ø±Ø¨Ø§Ø­Ùƒ Ø¨Ù‚ÙŠÙ…Ø©: \$${_formatWithCommas(passiveIncome)}", "money")); }
+        if (passiveIncome > 0) { _cash += passiveIncome; Future.microtask(() => _sendSystemNotification("الأرباح اليومية 🏢", "استلمت أرباحك بقيمة: \$${_formatWithCommas(passiveIncome)}", "money")); }
         _lastPassiveIncomeTime = _lastPassiveIncomeTime!.add(Duration(days: daysPassed));
       }
     } else { _lastPassiveIncomeTime = secureNow; }
 
     if (data['unlockedTitlesList'] != null) {
-      _unlockedTitlesList = List<String>.from(data['unlockedTitlesList']);
+      // دمج بدل الاستبدال لمنع حذف الألقاب الجديدة بسبب race condition مع Firestore listener
+      final serverList = List<String>.from(data['unlockedTitlesList']);
+      for (final t in serverList) {
+        if (!_unlockedTitlesList.contains(t)) _unlockedTitlesList.add(t);
+      }
     } else {
       _unlockedTitlesList = getAllTitles().where((t) => t['unlocked'] == true).map((t) => t['name'] as String).toList();
     }

@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../providers/player_provider.dart';
 import '../main.dart';
+import '../utils/crime_data.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -128,6 +129,34 @@ class _SettingsViewState extends State<SettingsView> {
                 '* ملاحظة: هذا الإجراء مطلوب حسب سياسات متجر جوجل بلاي ولا يمكن التراجع عنه.',
                 style: TextStyle(color: Colors.white38, fontFamily: 'Changa', fontSize: 12),
               ),
+
+              const SizedBox(height: 24),
+              const Text(
+                'أدوات المطور',
+                style: TextStyle(color: Colors.white54, fontFamily: 'Changa', fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Divider(color: Colors.white24),
+              const SizedBox(height: 10),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[800],
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.list_alt, color: Colors.amber),
+                  label: const Text(
+                    'عرض جميع الجرائم',
+                    style: TextStyle(fontFamily: 'Changa', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const _AllCrimesScreen()),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -204,6 +233,59 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
             child: const Text('إلغاء', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 16)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AllCrimesScreen extends StatelessWidget {
+  const _AllCrimesScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final categories = CrimeData.categories;
+    final crimeNames = CrimeData.crimeNames;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          title: const Text('جميع الجرائم', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.grey[900],
+          centerTitle: true,
+        ),
+        body: ListView.builder(
+          itemCount: categories.length,
+          itemBuilder: (context, catIndex) {
+            final cat = categories[catIndex];
+            final crimes = crimeNames[catIndex];
+            return ExpansionTile(
+              leading: Icon(cat['icon'] as IconData, color: cat['color'] as Color),
+              title: Text(
+                '${catIndex + 1}. ${cat['name']}',
+                style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              collapsedBackgroundColor: const Color(0xFF1E1E1E),
+              backgroundColor: const Color(0xFF111111),
+              iconColor: Colors.amber,
+              collapsedIconColor: Colors.white54,
+              children: crimes.asMap().entries.map((entry) {
+                return ListTile(
+                  dense: true,
+                  leading: Text(
+                    '${entry.key + 1}',
+                    style: const TextStyle(color: Colors.white38, fontFamily: 'Changa', fontSize: 12),
+                  ),
+                  title: Text(
+                    entry.value,
+                    style: const TextStyle(fontFamily: 'Changa', fontSize: 14, color: Colors.white70),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
       ),
     );
   }
