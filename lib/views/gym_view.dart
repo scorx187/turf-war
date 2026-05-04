@@ -601,6 +601,10 @@ class _GymViewContentState extends State<_GymViewContent> {
     int maxAllowed = player.energy - otherAllocated;
     if (maxAllowed < 0) maxAllowed = 0;
 
+    // 🟢 الحماية من الكراش: نضمن إن القيمة ما تتعدى الحد الأقصى أبداً 🟢
+    double safeMax = maxAllowed > 0 ? maxAllowed.toDouble() : 1.0;
+    double safeValue = allocated.toDouble().clamp(0.0, safeMax);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -649,27 +653,27 @@ class _GymViewContentState extends State<_GymViewContent> {
           const SizedBox(height: 10),
           Row(
             children: [
-              IconButton(onPressed: allocated > 0 ? () => onChanged(allocated - 1) : null, icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              IconButton(onPressed: safeValue > 0 ? () => onChanged((safeValue - 1).toInt()) : null, icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
               const SizedBox(width: 5),
 
               GestureDetector(
-                onTap: () => _showNumberInputDialog(context, name, allocated, maxAllowed, onChanged),
+                onTap: () => _showNumberInputDialog(context, name, safeValue.toInt(), maxAllowed, onChanged),
                 child: Container(
                   width: 45, alignment: Alignment.center, padding: const EdgeInsets.symmetric(vertical: 4),
                   decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.withValues(alpha: 0.4))),
-                  child: Text(allocated.toString(), style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: Text(safeValue.toInt().toString(), style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ),
 
               const SizedBox(width: 5),
-              IconButton(onPressed: allocated < maxAllowed ? () => onChanged(allocated + 1) : null, icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              IconButton(onPressed: safeValue < maxAllowed ? () => onChanged((safeValue + 1).toInt()) : null, icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
               const SizedBox(width: 8),
 
               Expanded(
                 child: SliderTheme(
                   data: SliderThemeData(trackHeight: 4, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8), overlayShape: const RoundSliderOverlayShape(overlayRadius: 16), activeTrackColor: color, inactiveTrackColor: Colors.white12, thumbColor: Colors.white),
                   child: Slider(
-                    value: allocated.toDouble(), min: 0, max: maxAllowed > 0 ? maxAllowed.toDouble() : 1.0,
+                    value: safeValue, min: 0, max: safeMax,
                     onChanged: maxAllowed > 0 ? (val) => onChanged(val.toInt()) : null,
                   ),
                 ),

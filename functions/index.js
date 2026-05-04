@@ -701,35 +701,140 @@ exports.manageBusiness = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 12. دوال سوق الإيجارات
+// 12. دوال سوق الإيجارات (النسخة الرسمية والمستقرة 100%)
 // =======================================================
+
 exports.listPropertyForRent = functions.https.onCall(async (request) => {
-    const { uid, propertyId, dailyPrice, days, playerName } = request.data || request;
+    const data = request.data || request;
+    const uid = data.uid;
+    const propertyId = data.propertyId;
+    const dailyPrice = Number(data.dailyPrice) || 0;
+    const days = Number(data.days) || 0;
+    const playerName = data.playerName || 'مجهول';
+
+    if (!uid || !propertyId || dailyPrice <= 0 || days <= 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'بيانات الإعلان غير مكتملة.');
+    }
+
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
     const listingRef = db.collection('property_rentals').doc(`${uid}_${propertyId}`);
 
     return db.runTransaction(async (transaction) => {
+        // 1. القراءة
         const pDoc = await transaction.get(playerRef);
-        const pData = pDoc.data();
+        if (!pDoc.exists) throw new functions.https.HttpsError('not-found', 'اللاعب غير موجود.');
 
+        // 2. التجهيز
+        const pData = pDoc.data();
         let updates = { listedProperties: admin.firestore.FieldValue.arrayUnion(propertyId) };
+
         if (pData.activePropertyId === propertyId) {
             updates.activePropertyId = null;
             updates.happiness = 0;
         }
 
+        // 3. الكتابة
         transaction.update(playerRef, updates);
         transaction.set(listingRef, {
-            ownerId: uid, ownerName: playerName || 'مجهول', propertyId: propertyId,
-            dailyPrice: dailyPrice, days: days, timestamp: admin.firestore.FieldValue.serverTimestamp()
+            ownerId: String(uid),
+            ownerName: String(playerName),
+            propertyId: String(propertyId),
+            dailyPrice: dailyPrice,
+            days: days,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
         });
+
         return { success: true };
     });
 });
 
+exports.rentPropertyFromMarket = functions.https.onCall(async (request) => {
+    const data = request.data || request;
+    const uid = data.uid;
+    const listingId = data.listingId;
+    const happinessGain = Number(data.happinessGain) || 0;
+    const renterName = data.renterName || 'لاعب';
+
+    if (!uid || !listingId) {
+        throw new functions.https.HttpsError('invalid-argument', 'بيانات الاستئجار غير مكتملة.');
+    }
+
+    const db = admin.firestore();
+    const listingRef = db.collection('property_rentals').doc(listingId);
+    const meRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (transaction) => {
+        // 1. جميع عمليات القراءة أولاً (تطبيق صارم لقواعد فايربيس)
+        const listingSnap = await transaction.get(listingRef);
+        if (!listingSnap.exists) throw new functions.https.HttpsError('failed-precondition', 'العقار لم يعد متاحاً أو تم استئجاره!');
+        const listingData = listingSnap.data();
+
+        const meSnap = await transaction.get(meRef);
+        if (!meSnap.exists) throw new functions.https.HttpsError('not-found', 'حساب المستأجر غير موجود.');
+        const meData = meSnap.data();
+
+        const ownerId = listingData.ownerId;
+        const ownerRef = db.collection('players').doc(ownerId);
+        const ownerSnap = await transaction.get(ownerRef);
+
+        // 2. التحقق من الشروط
+        const dailyPrice = Number(listingData.dailyPrice) || 0;
+        const days = Number(listingData.days) || 0;
+        const totalPrice = dailyPrice * days;
+
+        if ((meData.cash || 0) < totalPrice) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي للاستئجار!');
+        if (meData.activeRentedProperty && meData.activeRentedProperty.id) throw new functions.https.HttpsError('failed-precondition', 'أنت مستأجر عقاراً حالياً!');
+        if (uid === ownerId) throw new functions.https.HttpsError('failed-precondition', 'لا يمكنك استئجار عقارك الخاص!');
+
+        // 3. تجهيز التحديثات
+        let expireDate = new Date();
+        expireDate.setDate(expireDate.getDate() + days);
+
+        let meUpdates = {
+            cash: Math.max(0, (meData.cash || 0) - totalPrice),
+            activeRentedProperty: {
+                id: String(listingData.propertyId || ''),
+                expire: expireDate.toISOString(),
+                ownerId: String(ownerId || ''),
+                ownerName: String(listingData.ownerName || 'مجهول')
+            },
+            activePropertyId: String(listingData.propertyId || ''),
+            happiness: happinessGain
+        };
+
+        let newTx = { title: "استئجار عقار", amount: totalPrice, date: new Date().toISOString(), isPositive: false };
+        let currentTxs = meData.transactions || [];
+        currentTxs.unshift(newTx);
+        if (currentTxs.length > 20) currentTxs.pop();
+        meUpdates.transactions = currentTxs;
+
+        // 4. تنفيذ أوامر الكتابة (Updates/Deletes)
+        transaction.update(meRef, meUpdates);
+
+        if (ownerSnap.exists) {
+            const ownerData = ownerSnap.data();
+            transaction.update(ownerRef, {
+                cash: (ownerData.cash || 0) + totalPrice,
+                listedProperties: admin.firestore.FieldValue.arrayRemove(listingData.propertyId),
+                [`rentedOutProperties.${listingData.propertyId}`]: {
+                    expire: expireDate.toISOString(),
+                    renterId: String(uid),
+                    renterName: String(renterName)
+                }
+            });
+        }
+
+        transaction.delete(listingRef);
+        return { success: true, days: days };
+    });
+});
+
 exports.cancelRentalListing = functions.https.onCall(async (request) => {
-    const { uid, propertyId } = request.data || request;
+    const data = request.data || request;
+    const uid = data.uid;
+    const propertyId = data.propertyId;
+
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
     const listingRef = db.collection('property_rentals').doc(`${uid}_${propertyId}`);
@@ -741,75 +846,28 @@ exports.cancelRentalListing = functions.https.onCall(async (request) => {
     });
 });
 
-exports.rentPropertyFromMarket = functions.https.onCall(async (request) => {
-    const { uid, listingId, ownerId, propertyId, dailyPrice, days, happinessGain, renterName } = request.data || request;
-    const db = admin.firestore();
-
-    const listingRef = db.collection('property_rentals').doc(listingId);
-    const ownerRef = db.collection('players').doc(ownerId);
-    const meRef = db.collection('players').doc(uid);
-
-    return db.runTransaction(async (transaction) => {
-        const listingSnap = await transaction.get(listingRef);
-        if (!listingSnap.exists) throw new functions.https.HttpsError('failed-precondition', 'العقار لم يعد متاحاً!');
-
-        const listingData = listingSnap.data();
-        const totalPrice = listingData.dailyPrice * listingData.days;
-
-        const meSnap = await transaction.get(meRef);
-        const meData = meSnap.data();
-
-        if ((meData.cash || 0) < totalPrice) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي للاستئجار!');
-        if (meData.activeRentedProperty) throw new functions.https.HttpsError('failed-precondition', 'أنت مستأجر عقاراً حالياً!');
-
-        let expireDate = new Date();
-        expireDate.setDate(expireDate.getDate() + listingData.days);
-
-        let meUpdates = {
-            cash: meData.cash - totalPrice,
-            activeRentedProperty: { id: listingData.propertyId, expire: expireDate.toISOString(), ownerId: listingData.ownerId, ownerName: listingData.ownerName },
-            activePropertyId: listingData.propertyId,
-            happiness: happinessGain || 0
-        };
-
-        let newTx = { title: "استئجار عقار", amount: totalPrice, date: new Date().toISOString(), isPositive: false };
-        let currentTxs = meData.transactions || [];
-        currentTxs.unshift(newTx);
-        if (currentTxs.length > 20) currentTxs.pop();
-        meUpdates.transactions = currentTxs;
-
-        transaction.update(meRef, meUpdates);
-
-        const ownerSnap = await transaction.get(ownerRef);
-        if (ownerSnap.exists) {
-            const ownerData = ownerSnap.data();
-            transaction.update(ownerRef, {
-                cash: (ownerData.cash || 0) + totalPrice,
-                listedProperties: admin.firestore.FieldValue.arrayRemove(listingData.propertyId),
-                [`rentedOutProperties.${listingData.propertyId}`]: { expire: expireDate.toISOString(), renterId: uid, renterName: renterName || 'لاعب' }
-            });
-        }
-
-        transaction.delete(listingRef);
-        return { success: true, days: listingData.days };
-    });
-});
-
 exports.cancelRentedProperty = functions.https.onCall(async (request) => {
-    const { uid } = request.data || request;
+    const data = request.data || request;
+    const uid = data.uid;
+
     const db = admin.firestore();
     const meRef = db.collection('players').doc(uid);
 
     return db.runTransaction(async (transaction) => {
         const meSnap = await transaction.get(meRef);
+        if (!meSnap.exists) throw new functions.https.HttpsError('not-found', 'اللاعب غير موجود.');
         const meData = meSnap.data();
 
-        if (!meData.activeRentedProperty) throw new functions.https.HttpsError('failed-precondition', 'لست مستأجراً!');
+        if (!meData.activeRentedProperty) throw new functions.https.HttpsError('failed-precondition', 'لست مستأجراً لأي عقار!');
+
         const propId = meData.activeRentedProperty.id;
         const ownerId = meData.activeRentedProperty.ownerId;
 
         let updates = { activeRentedProperty: admin.firestore.FieldValue.delete() };
-        if (meData.activePropertyId === propId) { updates.activePropertyId = null; updates.happiness = 0; }
+        if (meData.activePropertyId === propId) {
+            updates.activePropertyId = null;
+            updates.happiness = 0;
+        }
 
         if (ownerId && ownerId !== 'bank_system') {
             const ownerRef = db.collection('players').doc(ownerId);

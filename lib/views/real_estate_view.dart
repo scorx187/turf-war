@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 استدعاء البلوك
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../providers/market_provider.dart';
 import '../utils/game_data.dart';
 import 'player_profile_view.dart';
-import '../controllers/real_estate_cubit.dart'; // 🟢 استدعاء الكيوبت
+import '../controllers/real_estate_cubit.dart';
 
 class RealEstateView extends StatefulWidget {
   final VoidCallback onBack;
@@ -22,8 +22,18 @@ class RealEstateView extends StatefulWidget {
 }
 
 class _RealEstateViewState extends State<RealEstateView> {
-  String _currentFilter = 'newest';
+  String _currentFilter = 'date';
   int _marketTab = 0;
+
+  // 🟢 ذاكرة ذكية لكل فلتر تحفظ حالته (تصاعدي/تنازلي) 🟢
+  final Map<String, bool> _filterAscending = {
+    'date': false,
+    'happy': false,
+    'price': false,
+  };
+
+  Stream<QuerySnapshot>? _generalMarketStream;
+  Stream<QuerySnapshot>? _myListingsStream;
 
   String _formatNumber(int number) {
     return number.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
@@ -42,24 +52,12 @@ class _RealEstateViewState extends State<RealEstateView> {
   void _openProfile(BuildContext context, String? uid) {
     if (uid == null || uid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('اللاعب مجهول (هذا العقد تم قبل التحديث الأخير)', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.redAccent,
-          )
+          const SnackBar(content: Text('اللاعب مجهول', style: TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.redAccent)
       );
       return;
     }
-
     Navigator.push(context, MaterialPageRoute(
-      builder: (_) => Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: PlayerProfileView(
-            targetUid: uid,
-            onBack: () => Navigator.pop(context),
-          ),
-        ),
-      ),
+      builder: (_) => Scaffold(backgroundColor: Colors.black, body: SafeArea(child: PlayerProfileView(targetUid: uid, onBack: () => Navigator.pop(context)))),
     ));
   }
 
@@ -77,10 +75,7 @@ class _RealEstateViewState extends State<RealEstateView> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء', style: TextStyle(color: Colors.white54))),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-              onPressed: () {
-                Navigator.pop(context);
-                onConfirm();
-              },
+              onPressed: () { Navigator.pop(context); onConfirm(); },
               child: const Text('تأكيد', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
             )
           ],
@@ -107,16 +102,47 @@ class _RealEstateViewState extends State<RealEstateView> {
                 Text('تزيد من نسبة السعادة اللي تضاعف تدريبك بالنادي. تقدر تسكن فيها أو تعرضها للإيجار.', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
                 SizedBox(height: 10),
                 Text('🤝 سوق الإيجارات:', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
-                Text('تقدر تستأجر عقار من لاعب ثاني لفترة محددة. إذا فسخت العقد قبل وقته (قانون المافيا: الفلوس ما ترجع!).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
+                Text('تقدر تستأجر عقار من لاعب ثاني لفترة محددة. إذا فسخت العقد قبل وقته (الفلوس ما ترجع!).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
                 SizedBox(height: 10),
                 Text('🏢 مشاريع تجارية:', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                 Text('تدر عليك كاش تلقائي كل يوم. أسعارها تتأثر بحالة السوق العالمية (كل 6 ساعات).', style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Changa')),
               ],
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('حسناً فهمت', style: TextStyle(color: Colors.amber))),
-          ],
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('حسناً فهمت', style: TextStyle(color: Colors.amber)))],
+        ),
+      ),
+    );
+  }
+
+  // 🟢 الدالة الذكية لفلتر النصوص
+  String _getFilterLabel(String code) {
+    bool isAsc = _filterAscending[code] ?? false;
+    if (code == 'date') return isAsc ? 'الأقدم' : 'الأحدث';
+    if (code == 'happy') return isAsc ? 'السعادة الأقل' : 'السعادة الأعلى';
+    if (code == 'price') return isAsc ? 'السعر الأقل' : 'السعر الأعلى';
+    return '';
+  }
+
+  // 🟢 ودجت الفلتر المحدث
+  Widget _filterChip(String code) {
+    bool isSel = _currentFilter == code;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (_currentFilter == code) {
+            _filterAscending[code] = !(_filterAscending[code]!); // يعكس الترتيب
+          } else {
+            _currentFilter = code; // ينتقل للفلتر مع الاحتفاظ بذاكرته السابقة
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(color: isSel ? Colors.amber : Colors.transparent, border: Border.all(color: Colors.amber), borderRadius: BorderRadius.circular(20)),
+        child: Text(
+            _getFilterLabel(code), // يجيب النص حسب حالته الحالية دايمًا
+            style: TextStyle(color: isSel ? Colors.black : Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)
         ),
       ),
     );
@@ -128,17 +154,17 @@ class _RealEstateViewState extends State<RealEstateView> {
     final market = Provider.of<MarketProvider>(context);
     final audio = Provider.of<AudioProvider>(context, listen: false);
 
-    // 🟢 تغليف كامل الشاشة بالكيوبت
+    _generalMarketStream ??= FirebaseFirestore.instance.collection('property_rentals').snapshots();
+    if (player.uid != null) {
+      _myListingsStream ??= FirebaseFirestore.instance.collection('property_rentals').where('ownerId', isEqualTo: player.uid).snapshots();
+    }
+
     return BlocProvider(
       create: (context) => RealEstateCubit(),
       child: BlocConsumer<RealEstateCubit, RealEstateState>(
         listener: (context, state) {
-          if (state.errorMessage.isNotEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage, style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent));
-          }
-          if (state.successMessage.isNotEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.successMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green));
-          }
+          if (state.errorMessage.isNotEmpty) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.errorMessage, style: const TextStyle(fontFamily: 'Changa')), backgroundColor: Colors.redAccent)); }
+          if (state.successMessage.isNotEmpty) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.successMessage, style: const TextStyle(fontFamily: 'Changa', fontWeight: FontWeight.bold)), backgroundColor: Colors.green)); }
         },
         builder: (context, state) {
           final cubit = context.read<RealEstateCubit>();
@@ -146,56 +172,41 @@ class _RealEstateViewState extends State<RealEstateView> {
           return Stack(
             children: [
               Scaffold(
-                body: Container(
-                  decoration: const BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage('assets/images/ui/crime_bg.jpg'),
-                      fit: BoxFit.cover,
-                      colorFilter: ColorFilter.mode(Colors.black87, BlendMode.darken),
-                    ),
-                  ),
-                  child: SafeArea(
-                    bottom: false,
-                    child: Directionality(
-                      textDirection: TextDirection.rtl,
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 5),
-                          const Center(
-                            child: Text('إمبراطورية العقارات 🏙️', style: TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(height: 5),
+                // 🟢 اللون الثابت المريح للعين والموحد مع اللعبة 🟢
+                backgroundColor: const Color(0xFF1A1A1D),
+                body: SafeArea(
+                  bottom: false,
+                  child: Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 5),
+                        const Center(child: Text('إمبراطورية العقارات 🏙️', style: TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold))),
+                        const SizedBox(height: 5),
 
-                          Expanded(
-                            child: DefaultTabController(
-                              length: 3,
-                              child: Column(
-                                children: [
-                                  const TabBar(
-                                    indicatorColor: Colors.amber,
-                                    labelColor: Colors.amber,
-                                    unselectedLabelColor: Colors.white54,
-                                    tabs: [
-                                      Tab(text: "عقاراتي"),
-                                      Tab(text: "سوق الإيجارات"),
-                                      Tab(text: "مشاريع تجارية"),
+                        Expanded(
+                          child: DefaultTabController(
+                            length: 3,
+                            child: Column(
+                              children: [
+                                const TabBar(
+                                  indicatorColor: Colors.amber, labelColor: Colors.amber, unselectedLabelColor: Colors.white54,
+                                  tabs: [Tab(text: "عقاراتي"), Tab(text: "سوق الإيجارات"), Tab(text: "مشاريع تجارية")],
+                                ),
+                                Expanded(
+                                  child: TabBarView(
+                                    children: [
+                                      _buildResidentialTab(context, player, audio, cubit),
+                                      _buildRentalMarketTab(context, player, audio, cubit),
+                                      _buildCommercialTab(context, player, market, audio, cubit),
                                     ],
                                   ),
-                                  Expanded(
-                                    child: TabBarView(
-                                      children: [
-                                        _buildResidentialTab(context, player, audio, cubit),
-                                        _buildRentalMarketTab(context, player, audio, cubit),
-                                        _buildCommercialTab(context, player, market, audio, cubit),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -205,20 +216,9 @@ class _RealEstateViewState extends State<RealEstateView> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.black87,
-                      image: const DecorationImage(
-                        image: AssetImage('assets/images/ui/bottom_navbar_bg.png'),
-                        fit: BoxFit.cover,
-                      ),
-                      border: const Border(
-                        top: BorderSide(color: Color(0xFF856024), width: 2),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 10,
-                          offset: const Offset(0, -5),
-                        ),
-                      ],
+                      image: const DecorationImage(image: AssetImage('assets/images/ui/bottom_navbar_bg.png'), fit: BoxFit.cover),
+                      border: const Border(top: BorderSide(color: Color(0xFF856024), width: 2)),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.8), blurRadius: 10, offset: const Offset(0, -5))],
                     ),
                     padding: const EdgeInsets.only(top: 8, bottom: 20, left: 25, right: 25),
                     child: SafeArea(
@@ -228,35 +228,14 @@ class _RealEstateViewState extends State<RealEstateView> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           GestureDetector(
-                            onTap: () {
-                              audio.playEffect('click.mp3');
-                              widget.onBack();
-                            },
+                            onTap: () { audio.playEffect('click.mp3'); widget.onBack(); },
                             behavior: HitTestBehavior.opaque,
-                            child: const Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24),
-                                SizedBox(height: 4),
-                                Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
+                            child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.arrow_forward_ios, color: Color(0xFFE2C275), size: 24), SizedBox(height: 4), Text('رجوع', style: TextStyle(color: Color(0xFFE2C275), fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
                           ),
-
                           GestureDetector(
-                            onTap: () {
-                              audio.playEffect('click.mp3');
-                              _showExplanationDialog(context);
-                            },
+                            onTap: () { audio.playEffect('click.mp3'); _showExplanationDialog(context); },
                             behavior: HitTestBehavior.opaque,
-                            child: const Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.menu_book, color: Colors.white70, size: 24),
-                                SizedBox(height: 4),
-                                Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
+                            child: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.menu_book, color: Colors.white70, size: 24), SizedBox(height: 4), Text('شرح', style: TextStyle(color: Colors.white70, fontFamily: 'Changa', fontSize: 12, fontWeight: FontWeight.bold))]),
                           ),
                         ],
                       ),
@@ -265,7 +244,6 @@ class _RealEstateViewState extends State<RealEstateView> {
                 ),
               ),
 
-              // 🟢 شاشة التحميل تحجب الشاشة بالكامل أثناء التنفيذ
               if (state.isLoading)
                 Container(
                   color: Colors.black87,
@@ -305,18 +283,13 @@ class _RealEstateViewState extends State<RealEstateView> {
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-            side: BorderSide(
-              color: (isActive || isActiveRented) ? Colors.green : (isListed ? Colors.amber : (isOwned ? Colors.blue : (prop['color'] as Color).withValues(alpha: 0.3))),
-            ),
+            side: BorderSide(color: (isActive || isActiveRented) ? Colors.green : (isListed ? Colors.amber : (isOwned ? Colors.blue : (prop['color'] as Color).withValues(alpha: 0.3)))),
           ),
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: (prop['color'] as Color).withValues(alpha: 0.2),
-                  child: Icon(prop['icon'] as IconData, color: prop['color']),
-                ),
+                CircleAvatar(backgroundColor: (prop['color'] as Color).withValues(alpha: 0.2), child: Icon(prop['icon'] as IconData, color: prop['color'])),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -349,7 +322,8 @@ class _RealEstateViewState extends State<RealEstateView> {
                         onTap: () => _openProfile(context, player.activeRentedProperty!['ownerId']),
                         child: Row(
                           children: [
-                            Text('مؤجر من: ${player.activeRentedProperty!['ownerName'] ?? 'لاعب'}', style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                            // 🟢 حذفنا الـ Underline من هنا
+                            Text('مؤجر من: ${player.activeRentedProperty!['ownerName'] ?? 'لاعب'}', style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold)),
                             const SizedBox(width: 4),
                             const Icon(Icons.account_circle, color: Colors.blueAccent, size: 14),
                           ],
@@ -376,13 +350,11 @@ class _RealEstateViewState extends State<RealEstateView> {
                     Column(
                       children: [
                         GestureDetector(
-                          onTap: () {
-                            String renterId = player.rentedOutProperties[prop['id']]['renterId'] ?? '';
-                            _openProfile(context, renterId);
-                          },
+                          onTap: () { String renterId = player.rentedOutProperties[prop['id']]['renterId'] ?? ''; _openProfile(context, renterId); },
                           child: Row(
                             children: [
-                              Text('مؤجر لـ: ${player.rentedOutProperties[prop['id']]['renterName'] ?? 'مجهول'}', style: const TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                              // 🟢 حذفنا الـ Underline من هنا
+                              Text('مؤجر لـ: ${player.rentedOutProperties[prop['id']]['renterName'] ?? 'مجهول'}', style: const TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold)),
                               const SizedBox(width: 4),
                               const Icon(Icons.account_circle, color: Colors.orangeAccent, size: 14),
                             ],
@@ -486,9 +458,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                             keyboardType: TextInputType.number,
                             style: const TextStyle(color: Colors.greenAccent),
                             decoration: const InputDecoration(hintText: 'مثال: 50000', hintStyle: TextStyle(color: Colors.white24)),
-                            onChanged: (val) {
-                              setState(() { dailyPrice = int.tryParse(val) ?? 0; });
-                            },
+                            onChanged: (val) { setState(() { dailyPrice = int.tryParse(val) ?? 0; }); },
                           ),
                           const SizedBox(height: 20),
                           Text('مدة الإيجار: $rentDays يوم', style: const TextStyle(color: Colors.white, fontSize: 14)),
@@ -533,18 +503,6 @@ class _RealEstateViewState extends State<RealEstateView> {
     );
   }
 
-  Widget _filterChip(String label, String code) {
-    bool isSel = _currentFilter == code;
-    return GestureDetector(
-      onTap: () => setState(() => _currentFilter = code),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(color: isSel ? Colors.amber : Colors.transparent, border: Border.all(color: Colors.amber), borderRadius: BorderRadius.circular(20)),
-        child: Text(label, style: TextStyle(color: isSel ? Colors.black : Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
   Widget _buildRentalMarketTab(BuildContext context, PlayerProvider player, AudioProvider audio, RealEstateCubit cubit) {
     return Column(
       children: [
@@ -557,11 +515,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                   onTap: () { audio.playEffect('click.mp3'); setState(() => _marketTab = 0); },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                        color: _marketTab == 0 ? Colors.amber : Colors.black45,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.amber)
-                    ),
+                    decoration: BoxDecoration(color: _marketTab == 0 ? Colors.amber : Colors.black45, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber)),
                     child: Center(child: Text("السوق العام", style: TextStyle(color: _marketTab == 0 ? Colors.black : Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa'))),
                   ),
                 ),
@@ -572,11 +526,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                   onTap: () { audio.playEffect('click.mp3'); setState(() => _marketTab = 1); },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                        color: _marketTab == 1 ? Colors.amber : Colors.black45,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.amber)
-                    ),
+                    decoration: BoxDecoration(color: _marketTab == 1 ? Colors.amber : Colors.black45, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber)),
                     child: Center(child: Text("إعلاناتي", style: TextStyle(color: _marketTab == 1 ? Colors.black : Colors.amber, fontWeight: FontWeight.bold, fontFamily: 'Changa'))),
                   ),
                 ),
@@ -590,50 +540,62 @@ class _RealEstateViewState extends State<RealEstateView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _filterChip('الأحدث', 'newest'),
-              _filterChip('السعادة الأعلى', 'happy_desc'),
-              _filterChip('السعر الأعلى', 'price_desc'),
+              _filterChip('date'),
+              _filterChip('happy'),
+              _filterChip('price'),
             ],
           ),
         ),
 
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            // 🟢 التعديل هنا: الفلترة صارت تتم على مستوى قاعدة البيانات مباشرة بدل ما نسحب كل شيء
-            stream: _marketTab == 1
-                ? FirebaseFirestore.instance.collection('property_rentals').where('ownerId', isEqualTo: player.uid).snapshots()
-                : FirebaseFirestore.instance.collection('property_rentals').snapshots(),
+            stream: _marketTab == 1 ? _myListingsStream : _generalMarketStream,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Colors.amber));
+
+              if (snapshot.hasError) {
+                return Center(child: Text("يوجد خطأ في الصلاحيات: ${snapshot.error}", style: const TextStyle(color: Colors.redAccent, fontFamily: 'Changa')));
+              }
+
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(child: Text(_marketTab == 0 ? "لا توجد عقارات معروضة للإيجار حالياً." : "ليس لديك أي إعلانات في السوق.", style: const TextStyle(color: Colors.white54, fontSize: 16)));
+                return Center(child: Text(_marketTab == 0 ? "لا توجد عقارات معروضة للإيجار حالياً." : "ليس لديك أي إعلانات في السوق.", style: const TextStyle(color: Colors.white54, fontSize: 16, fontFamily: 'Changa')));
               }
 
               var docs = snapshot.data!.docs.map((d) {
-                var map = d.data() as Map<String, dynamic>;
+                var map = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
                 map['docId'] = d.id;
                 return map;
               }).toList();
 
-              // 🟢 فلترة إضافية للسوق العام عشان ما يظهر إعلانك فيه
               if (_marketTab == 0) {
                 docs = docs.where((d) => d['ownerId'] != player.uid).toList();
               }
 
               if (docs.isEmpty) {
-                return Center(child: Text(_marketTab == 0 ? "السوق فارغ حالياً." : "ليس لديك أي إعلانات في السوق.", style: const TextStyle(color: Colors.white54, fontSize: 16)));
+                return Center(child: Text(_marketTab == 0 ? "السوق فارغ حالياً." : "ليس لديك أي إعلانات في السوق.", style: const TextStyle(color: Colors.white54, fontSize: 16, fontFamily: 'Changa')));
               }
 
-              if (_currentFilter == 'newest') {
-                docs.sort((a, b) => (b['timestamp'] as Timestamp?)?.compareTo(a['timestamp'] as Timestamp? ?? Timestamp.now()) ?? 0);
-              } else if (_currentFilter == 'happy_desc') {
+              // 🟢 استخدام المتغير الجديد _filterAscending للترتيب 🟢
+              bool isAsc = _filterAscending[_currentFilter] ?? false;
+
+              if (_currentFilter == 'date') {
+                docs.sort((a, b) {
+                  Timestamp tA = a['timestamp'] is Timestamp ? a['timestamp'] : Timestamp.now();
+                  Timestamp tB = b['timestamp'] is Timestamp ? b['timestamp'] : Timestamp.now();
+                  return isAsc ? tA.compareTo(tB) : tB.compareTo(tA);
+                });
+              } else if (_currentFilter == 'happy') {
                 docs.sort((a, b) {
                   int hA = GameData.residentialProperties.firstWhere((p) => p['id'] == a['propertyId'], orElse: () => {'happiness': 0})['happiness'];
                   int hB = GameData.residentialProperties.firstWhere((p) => p['id'] == b['propertyId'], orElse: () => {'happiness': 0})['happiness'];
-                  return hB.compareTo(hA);
+                  return isAsc ? hA.compareTo(hB) : hB.compareTo(hA);
                 });
-              } else if (_currentFilter == 'price_desc') {
-                docs.sort((a, b) => (b['dailyPrice'] as int).compareTo(a['dailyPrice'] as int));
+              } else if (_currentFilter == 'price') {
+                docs.sort((a, b) {
+                  int pA = (a['dailyPrice'] as num?)?.toInt() ?? 0;
+                  int pB = (b['dailyPrice'] as num?)?.toInt() ?? 0;
+                  return isAsc ? pA.compareTo(pB) : pB.compareTo(pA);
+                });
               }
 
               return ListView.builder(
@@ -642,7 +604,11 @@ class _RealEstateViewState extends State<RealEstateView> {
                 itemBuilder: (context, index) {
                   final listing = docs[index];
                   final prop = GameData.residentialProperties.firstWhere((p) => p['id'] == listing['propertyId'], orElse: () => GameData.residentialProperties[0]);
-                  int totalPrice = listing['dailyPrice'] * listing['days'];
+
+                  int dailyPrice = (listing['dailyPrice'] as num?)?.toInt() ?? 0;
+                  int days = (listing['days'] as num?)?.toInt() ?? 0;
+                  int totalPrice = dailyPrice * days;
+
                   bool isMyListing = listing['ownerId'] == player.uid;
 
                   return Card(
@@ -666,15 +632,29 @@ class _RealEstateViewState extends State<RealEstateView> {
                                     if (isMyListing)
                                       const Text('المالك: أنت 👑', style: TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold))
                                     else
-                                      GestureDetector(
-                                        onTap: () => _openProfile(context, listing['ownerId']),
-                                        child: Row(
-                                          children: [
-                                            Text('المالك: ${listing['ownerName']}', style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
-                                            const SizedBox(width: 4),
-                                            const Icon(Icons.account_circle, color: Colors.blueAccent, size: 14),
-                                          ],
-                                        ),
+                                      FutureBuilder<Map<String, dynamic>?>(
+                                          future: player.getPlayerById(listing['ownerId']),
+                                          builder: (context, snapshot) {
+                                            String? picUrl = snapshot.data?['profilePicUrl'];
+                                            var imageBytes = player.getDecodedImage(picUrl);
+
+                                            return GestureDetector(
+                                              onTap: () => _openProfile(context, listing['ownerId']),
+                                              child: Row(
+                                                children: [
+                                                  // 🟢 الخط انحذف من هنا
+                                                  Text('المالك: ${listing['ownerName']}', style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                                                  const SizedBox(width: 4),
+                                                  CircleAvatar(
+                                                    radius: 9,
+                                                    backgroundColor: Colors.grey[800],
+                                                    backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
+                                                    child: imageBytes == null ? const Icon(Icons.person, size: 12, color: Colors.white54) : null,
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }
                                       ),
                                   ],
                                 ),
@@ -683,10 +663,10 @@ class _RealEstateViewState extends State<RealEstateView> {
                                 Row(
                                   children: [
                                     const Text('الإيجار اليومي: ', style: TextStyle(color: Colors.greenAccent, fontSize: 11)),
-                                    _moneyText(listing['dailyPrice']),
+                                    _moneyText(dailyPrice),
                                   ],
                                 ),
-                                Text('المدة: ${listing['days']} أيام', style: const TextStyle(color: Colors.blueAccent, fontSize: 11)),
+                                Text('المدة: $days أيام', style: const TextStyle(color: Colors.blueAccent, fontSize: 11)),
                               ],
                             ),
                           ),
@@ -698,7 +678,6 @@ class _RealEstateViewState extends State<RealEstateView> {
                               const SizedBox(height: 4),
                               if (isMyListing)
                                 ElevatedButton(
-                                  // 🟢 زر سحب العقار من السوق لإعلاناتك
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(horizontal: 10), minimumSize: const Size(60, 30)),
                                   onPressed: () {
                                     audio.playEffect('click.mp3');

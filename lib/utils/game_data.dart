@@ -10,12 +10,12 @@ class GameData {
   ];
 
   static const Map<String, int> businessBaseIncome = {
-    'coffee_stand': 300, 'mini_market': 1000, 'car_wash': 2200, 'fast_food': 4500,
-    'nightclub': 8000, 'auto_shop': 15000, 'light_weapons': 35000, 'security_firm': 65000,
-    'shell_company': 100000, 'local_casino': 140000, 'smuggling_net': 220000,
-    'private_bank': 350000, 'city_casino': 550000, 'shipping_port': 850000,
-    'airline': 1500000, 'heavy_weapons': 2800000, 'telecom': 5000000,
-    'cartel': 8500000, 'oil_company': 15000000, 'shadow_bank': 45000000,
+    'coffee_stand': 120, 'mini_market': 400, 'car_wash': 800, 'fast_food': 1800,
+    'nightclub': 3000, 'auto_shop': 6000, 'light_weapons': 14000, 'security_firm': 25000,
+    'shell_company': 40000, 'local_casino': 55000, 'smuggling_net': 85000,
+    'private_bank': 140000, 'city_casino': 220000, 'shipping_port': 340000,
+    'airline': 600000, 'heavy_weapons': 1100000, 'telecom': 2000000,
+    'cartel': 3400000, 'oil_company': 6000000, 'shadow_bank': 18000000,
   };
 
   static const Map<String, int> propertyRentIncome = {
@@ -27,49 +27,169 @@ class GameData {
   };
 
   static const List<Map<String, dynamic>> residentialProperties = [
-    {'id': 'shack', 'name': 'غرفة بسيطة', 'description': 'بداية متواضعة جداً.', 'price': 5000, 'happiness': 50, 'icon': Icons.meeting_room, 'color': Colors.grey},
-    {'id': 'tent', 'name': 'خيمة بسيطة', 'description': 'توفر لك الحد الأدنى.', 'price': 25000, 'happiness': 100, 'icon': Icons.holiday_village_outlined, 'color': Colors.brown},
-    {'id': 'wooden_cabin', 'name': 'كوخ خشبي', 'description': 'كوخ ريفي هادئ.', 'price': 75000, 'happiness': 180, 'icon': Icons.home_outlined, 'color': Colors.orangeAccent},
-    {'id': 'small_apt', 'name': 'شقة صغيرة', 'description': 'شقة في حي شعبي.', 'price': 150000, 'happiness': 250, 'icon': Icons.apartment, 'color': Colors.blueGrey},
-    {'id': 'apartment', 'name': 'شقة وسط المدينة', 'description': 'مريحة وعملية.', 'price': 300000, 'happiness': 350, 'icon': Icons.business, 'color': Colors.blueAccent},
-    {'id': 'loft', 'name': 'دور علوي', 'description': 'مساحة مفتوحة حديثة.', 'price': 600000, 'happiness': 450, 'icon': Icons.weekend, 'color': Colors.teal},
-    {'id': 'penthouse', 'name': 'بنتهاوس فاخر', 'description': 'إطلالة خلابة.', 'price': 1200000, 'happiness': 600, 'icon': Icons.location_city, 'color': Colors.indigoAccent},
-    {'id': 'suburban', 'name': 'منزل ريفي', 'description': 'هادئ مع حديقة.', 'price': 2500000, 'happiness': 750, 'icon': Icons.house, 'color': Colors.lightGreen},
-    {'id': 'villa', 'name': 'فيلا حديثة', 'description': 'حديقة ومسابح.', 'price': 5000000, 'happiness': 900, 'icon': Icons.villa, 'color': Colors.green},
-    {'id': 'classic_manor', 'name': 'قصر كلاسيكي', 'description': 'تصميم قديم وأصيل.', 'price': 8000000, 'happiness': 1100, 'icon': Icons.account_balance, 'color': Colors.brown},
-    {'id': 'beach_house', 'name': 'منزل شاطئي', 'description': 'صوت الأمواج.', 'price': 12000000, 'happiness': 1300, 'icon': Icons.beach_access, 'color': Colors.cyan},
-    {'id': 'horse_ranch', 'name': 'مزرعة خيول', 'description': 'لعشاق الخيول.', 'price': 18000000, 'happiness': 1500, 'icon': Icons.agriculture, 'color': Colors.lime},
-    {'id': 'royal_mansion', 'name': 'قصر ملكي', 'description': 'سكن العظماء.', 'price': 25000000, 'happiness': 1800, 'icon': Icons.castle, 'color': Colors.purpleAccent},
-    {'id': 'private_estate', 'name': 'عزبة خاصة', 'description': 'خصوصية تامة.', 'price': 40000000, 'happiness': 2100, 'icon': Icons.landscape, 'color': Colors.green},
-    {'id': 'skyscraper', 'name': 'ناطحة سحاب', 'description': 'برج كامل لك.', 'price': 65000000, 'happiness': 2400, 'icon': Icons.domain, 'color': Colors.blueGrey},
-    {'id': 'island', 'name': 'جزيرة خاصة', 'description': 'جنة على الأرض.', 'price': 100000000, 'happiness': 2800, 'icon': Icons.holiday_village, 'color': Colors.amber},
-    {'id': 'castle', 'name': 'قلعة تاريخية', 'description': 'حصن في الجبل.', 'price': 250000000, 'happiness': 3100, 'icon': Icons.fort, 'color': Colors.deepPurple},
-    {'id': 'resort', 'name': 'منتجع سياحي', 'description': 'لراحتك الشخصية.', 'price': 500000000, 'happiness': 3500, 'icon': Icons.pool, 'color': Colors.lightBlueAccent},
-    {'id': 'space_station', 'name': 'محطة فضائية', 'description': 'قمة الترف.', 'price': 1500000000, 'happiness': 3800, 'icon': Icons.rocket_launch, 'color': Colors.deepOrange},
-    {'id': 'mafia_empire', 'name': 'إمبراطورية الزعيم', 'description': 'المقر الرئيسي.', 'price': 5000000000, 'happiness': 4000, 'icon': Icons.star, 'color': Colors.redAccent},
+    {
+      'id': 'shack', 'name': 'غرفة في زقاق', 'description': 'غرفة ضيقة ومظلمة في أحد الأزقة الخلفية، تكفي فقط لإخفاء رأسك من الشرطة.',
+      'price': 5000, 'happiness': 50, 'icon': Icons.meeting_room, 'color': Colors.grey
+    },
+    {
+      'id': 'tent', 'name': 'نزل شعبي رخيص', 'description': 'غرفة متواضعة في نزل قديم، جدرانها رقيقة بالكاد تمنع برد الشتاء.',
+      'price': 25000, 'happiness': 100, 'icon': Icons.bed, 'color': Colors.brown
+    },
+    {
+      'id': 'wooden_cabin', 'name': 'مقصورة خشبية مخفية', 'description': 'ملاذ ريفي بعيد عن صخب المدينة، ممتاز لتخزين البضائع المهربة والراحة.',
+      'price': 75000, 'happiness': 180, 'icon': Icons.home_outlined, 'color': Colors.orangeAccent
+    },
+    {
+      'id': 'small_apt', 'name': 'شقة في حي العمال', 'description': 'شقة صغيرة في مبنى مزدحم، توفر لك تغطية ممتازة بين عامة الناس.',
+      'price': 150000, 'happiness': 250, 'icon': Icons.apartment, 'color': Colors.blueGrey
+    },
+    {
+      'id': 'apartment', 'name': 'شقة بوسط المدينة', 'description': 'شقة أنيقة قريبة من مراكز الأعمال، مثالية لإدارة عملياتك اليومية.',
+      'price': 300000, 'happiness': 350, 'icon': Icons.business, 'color': Colors.blueAccent
+    },
+    {
+      'id': 'loft', 'name': 'دور علوي واسع (Loft)', 'description': 'مساحة واسعة في الطابق العلوي لمصنع قديم، تم تحويلها لمقر سري ومريح.',
+      'price': 600000, 'happiness': 450, 'icon': Icons.weekend, 'color': Colors.teal
+    },
+    {
+      'id': 'penthouse', 'name': 'جناح فندقي فاخر', 'description': 'إقامة دائمة في أرقى فنادق المدينة، مع خدمة ممتازة وخصوصية تامة للزعماء.',
+      'price': 1200000, 'happiness': 600, 'icon': Icons.location_city, 'color': Colors.indigoAccent
+    },
+    {
+      'id': 'suburban', 'name': 'منزل بضاحية هادئة', 'description': 'منزل أنيق بحديقة خلفية، يبعدك عن شبهات الشرطة ويمنحك واجهة محترمة.',
+      'price': 2500000, 'happiness': 750, 'icon': Icons.house, 'color': Colors.lightGreen
+    },
+    {
+      'id': 'villa', 'name': 'فيلا بطراز الآرت ديكو', 'description': 'فيلا فخمة بتصميم عصري لحقبة العشرينات، تعكس ذوقك الرفيع ومكانتك الصاعدة.',
+      'price': 5000000, 'happiness': 900, 'icon': Icons.villa, 'color': Colors.green
+    },
+    {
+      'id': 'classic_manor', 'name': 'قصر كلاسيكي عتيق', 'description': 'قصر مهيب بأسوار عالية وتصميم فيكتوري، يليق بزعيم يفرض احترامه على الجميع.',
+      'price': 8000000, 'happiness': 1100, 'icon': Icons.account_balance, 'color': Colors.brown
+    },
+    {
+      'id': 'beach_house', 'name': 'قصر شاطئي', 'description': 'ملاذ فاخر على الساحل، يوفر لك الهدوء وميناءً خاصاً لرسو قوارب التهريب ليلاً.',
+      'price': 12000000, 'happiness': 1300, 'icon': Icons.beach_access, 'color': Colors.cyan
+    },
+    {
+      'id': 'horse_ranch', 'name': 'مزرعة خيول شاسعة', 'description': 'مزرعة ضخمة للخيول الأصيلة، واجهة مثالية لغسيل الأموال وتوسيع نفوذك.',
+      'price': 18000000, 'happiness': 1500, 'icon': Icons.agriculture, 'color': Colors.lime
+    },
+    {
+      'id': 'royal_mansion', 'name': 'قصر مخملي', 'description': 'قصر ضخم مليء بالثريات والرخام، يستضيف كبار رجال السياسة والمال لتوقيع الصفقات.',
+      'price': 25000000, 'happiness': 1800, 'icon': Icons.castle, 'color': Colors.purpleAccent
+    },
+    {
+      'id': 'private_estate', 'name': 'عزبة خاصة محصنة', 'description': 'مساحة شاسعة من الأراضي بداخلها قصرك وحرسك الخاص، أشبه بدولة داخل دولة.',
+      'price': 40000000, 'happiness': 2100, 'icon': Icons.landscape, 'color': Colors.green
+    },
+    {
+      'id': 'skyscraper', 'name': 'برج تجاري كامل', 'description': 'ناطحة سحاب في قلب المدينة تملكها بالكامل، تطل على إمبراطوريتك من الأعلى.',
+      'price': 65000000, 'happiness': 2400, 'icon': Icons.domain, 'color': Colors.blueGrey
+    },
+    {
+      'id': 'island', 'name': 'جزيرة معزولة', 'description': 'جزيرة خاصة لا يجرؤ أحد على الاقتراب منها، ملاذك الآمن والمطلق لجمع رجالك.',
+      'price': 100000000, 'happiness': 2800, 'icon': Icons.holiday_village, 'color': Colors.amber
+    },
+    {
+      'id': 'castle', 'name': 'قلعة جبلية', 'description': 'قلعة تاريخية تم تجديدها، محصنة بقوة ضد أي هجوم مفاجئ من السلطات أو المنافسين.',
+      'price': 250000000, 'happiness': 3100, 'icon': Icons.fort, 'color': Colors.deepPurple
+    },
+    {
+      'id': 'resort', 'name': 'نادي ريفي حصري', 'description': 'نادي فاره لأثرياء العالم، أنت تملكه وتدير صفقات المافيا من خلف كواليسه الفخمة.',
+      'price': 500000000, 'happiness': 3500, 'icon': Icons.pool, 'color': Colors.lightBlueAccent
+    },
+    {
+      'id': 'space_station', 'name': 'قاعدة سرية تحت الأرض', 'description': 'مقر عمليات سري لا يمكن اكتشافه، مزود بأحدث تقنيات العشرينات الدفاعية.',
+      'price': 1500000000, 'happiness': 3800, 'icon': Icons.security, 'color': Colors.deepOrange
+    },
+    {
+      'id': 'mafia_empire', 'name': 'إمبراطورية الزعيم', 'description': 'عرش العالم السفلي! قصر أسطوري لا يمتلكه إلا الحاكم الفعلي والمطلق للمدينة.',
+      'price': 5000000000, 'happiness': 4000, 'icon': Icons.star, 'color': Colors.redAccent
+    },
   ];
 
   static const List<Map<String, dynamic>> businessData = [
-    {'id': 'coffee_stand', 'name': 'كشك قهوة', 'maxLevel': 75, 'basePrice': 10000, 'icon': Icons.coffee, 'color': Colors.brown},
-    {'id': 'mini_market', 'name': 'بقالة صغيرة', 'maxLevel': 70, 'basePrice': 40000, 'icon': Icons.store, 'color': Colors.orange},
-    {'id': 'car_wash', 'name': 'مغسلة سيارات', 'maxLevel': 65, 'basePrice': 100000, 'icon': Icons.local_car_wash, 'color': Colors.cyan},
-    {'id': 'fast_food', 'name': 'مطعم وجبات', 'maxLevel': 60, 'basePrice': 250000, 'icon': Icons.fastfood, 'color': Colors.red},
-    {'id': 'nightclub', 'name': 'ملهى ليلي', 'maxLevel': 55, 'basePrice': 500000, 'icon': Icons.nightlife, 'color': Colors.purpleAccent},
-    {'id': 'auto_shop', 'name': 'ورشة سيارات', 'maxLevel': 50, 'basePrice': 1000000, 'icon': Icons.build, 'color': Colors.blueGrey},
-    {'id': 'light_weapons', 'name': 'أسلحة خفيفة', 'maxLevel': 45, 'basePrice': 2500000, 'icon': Icons.precision_manufacturing, 'color': Colors.redAccent},
-    {'id': 'security_firm', 'name': 'شركة حراسات', 'maxLevel': 40, 'basePrice': 5000000, 'icon': Icons.security, 'color': Colors.blue},
-    {'id': 'shell_company', 'name': 'شركة واجهة', 'maxLevel': 35, 'basePrice': 8000000, 'icon': Icons.business_center, 'color': Colors.grey},
-    {'id': 'local_casino', 'name': 'كازينو محلي', 'maxLevel': 30, 'basePrice': 12000000, 'icon': Icons.casino, 'color': Colors.amber},
-    {'id': 'smuggling_net', 'name': 'شبكة تهريب', 'maxLevel': 25, 'basePrice': 20000000, 'icon': Icons.local_shipping, 'color': Colors.teal},
-    {'id': 'private_bank', 'name': 'بنك خاص', 'maxLevel': 20, 'basePrice': 35000000, 'icon': Icons.account_balance, 'color': Colors.green},
-    {'id': 'city_casino', 'name': 'كازينو المدينة', 'maxLevel': 15, 'basePrice': 60000000, 'icon': Icons.monetization_on, 'color': Colors.amberAccent},
-    {'id': 'shipping_port', 'name': 'ميناء شحن', 'maxLevel': 12, 'basePrice': 100000000, 'icon': Icons.directions_boat, 'color': Colors.blueAccent},
-    {'id': 'airline', 'name': 'شركة طيران', 'maxLevel': 10, 'basePrice': 200000000, 'icon': Icons.flight, 'color': Colors.lightBlue},
-    {'id': 'heavy_weapons', 'name': 'أسلحة ثقيلة', 'maxLevel': 8, 'basePrice': 400000000, 'icon': Icons.hardware, 'color': Colors.deepOrange},
-    {'id': 'telecom', 'name': 'شبكة اتصالات', 'maxLevel': 6, 'basePrice': 800000000, 'icon': Icons.cell_tower, 'color': Colors.lightGreen},
-    {'id': 'cartel', 'name': 'كارتل دولي', 'maxLevel': 5, 'basePrice': 1500000000, 'icon': Icons.public, 'color': Colors.deepPurple},
-    {'id': 'oil_company', 'name': 'شركة نفط', 'maxLevel': 4, 'basePrice': 3000000000, 'icon': Icons.oil_barrel, 'color': Colors.black},
-    {'id': 'shadow_bank', 'name': 'البنك الموازي', 'maxLevel': 3, 'basePrice': 10000000000, 'icon': Icons.account_balance_wallet, 'color': Colors.amber},
+    {
+      'id': 'coffee_stand', 'name': 'كشك لبيع الصحف والتبغ', 'description': 'واجهة مثالية لجمع المعلومات ومراقبة تحركات أفراد الشرطة في الشوارع.',
+      'maxLevel': 75, 'basePrice': 10000, 'icon': Icons.menu_book, 'color': Colors.brown
+    },
+    {
+      'id': 'mini_market', 'name': 'متجر بقالة محلي', 'description': 'متجر متواضع يستخدم كواجهة لغسيل الأموال الناتجة عن الجرائم الصغرى.',
+      'maxLevel': 70, 'basePrice': 40000, 'icon': Icons.store, 'color': Colors.orange
+    },
+    {
+      'id': 'car_wash', 'name': 'محطة وقود ومستودع', 'description': 'نقطة استراتيجية لتزويد مركبات العصابة بالوقود وتخزين البضائع المهربة.',
+      'maxLevel': 65, 'basePrice': 100000, 'icon': Icons.local_gas_station, 'color': Colors.cyan
+    },
+    {
+      'id': 'fast_food', 'name': 'مخبز وحلويات', 'description': 'واجهة كلاسيكية لأعمال المافيا الإيطالية، تدر أرباحاً هادئة ومستقرة.',
+      'maxLevel': 60, 'basePrice': 250000, 'icon': Icons.bakery_dining, 'color': Colors.red
+    },
+    {
+      'id': 'nightclub', 'name': 'الملهى الليلي', 'description': 'مكان صاخب يجتمع فيه كبار الشخصيات، ويعد مركزاً رئيسياً لعقد الصفقات المشبوهة.',
+      'maxLevel': 55, 'basePrice': 500000, 'icon': Icons.nightlife, 'color': Colors.purpleAccent
+    },
+    {
+      'id': 'auto_shop', 'name': 'ورشة إصلاح المركبات', 'description': 'ورشة متخصصة في تعديل سيارات الهروب وتزوير لوحاتها بعيداً عن الأعين.',
+      'maxLevel': 50, 'basePrice': 1000000, 'icon': Icons.build, 'color': Colors.blueGrey
+    },
+    {
+      'id': 'light_weapons', 'name': 'متجر أدوات الصيد', 'description': 'واجهة قانونية لبيع وتوزيع الأسلحة النارية الخفيفة على رجال العصابة الموثوقين.',
+      'maxLevel': 45, 'basePrice': 2500000, 'icon': Icons.precision_manufacturing, 'color': Colors.redAccent
+    },
+    {
+      'id': 'security_firm', 'name': 'وكالة حراسات ليلية', 'description': 'مؤسسة لفرض الإتاوات وتوفير الحماية الإجبارية لأصحاب المحلات التجارية.',
+      'maxLevel': 40, 'basePrice': 5000000, 'icon': Icons.security, 'color': Colors.blue
+    },
+    {
+      'id': 'shell_company', 'name': 'شركة استيراد وتصدير', 'description': 'الطريقة المثلى والتقليدية لإخفاء وتمرير الأموال الطائلة عبر الحدود.',
+      'maxLevel': 35, 'basePrice': 8000000, 'icon': Icons.business_center, 'color': Colors.grey
+    },
+    {
+      'id': 'local_casino', 'name': 'صالة مراهنات سرية', 'description': 'غرفة خفية تعج بألعاب الورق والمراهنات بعيداً عن أعين المحققين والسلطات.',
+      'maxLevel': 30, 'basePrice': 12000000, 'icon': Icons.casino, 'color': Colors.amber
+    },
+    {
+      'id': 'smuggling_net', 'name': 'شبكة تهريب دولية', 'description': 'منظومة معقدة لتهريب البضائع المحظورة والممنوعات وتوزيعها في الخفاء.',
+      'maxLevel': 25, 'basePrice': 20000000, 'icon': Icons.local_shipping, 'color': Colors.teal
+    },
+    {
+      'id': 'private_bank', 'name': 'مصرف ائتماني محلي', 'description': 'مؤسسة مالية صغيرة تغض الطرف عن مصادر أموالك المشبوهة وتسهل أعمالك.',
+      'maxLevel': 20, 'basePrice': 35000000, 'icon': Icons.account_balance, 'color': Colors.green
+    },
+    {
+      'id': 'city_casino', 'name': 'نادي القمار الفاخر', 'description': 'كازينو باذخ يرتاده الساسة وكبار تجار المدينة، يدر أرباحاً هائلة.',
+      'maxLevel': 15, 'basePrice': 60000000, 'icon': Icons.monetization_on, 'color': Colors.amberAccent
+    },
+    {
+      'id': 'shipping_port', 'name': 'أرصفة الشحن والتفريغ', 'description': 'السيطرة التامة على حركة السفن التجارية وعمليات التهريب البحري الكبرى.',
+      'maxLevel': 12, 'basePrice': 100000000, 'icon': Icons.directions_boat, 'color': Colors.blueAccent
+    },
+    {
+      'id': 'airline', 'name': 'شركة السكك الحديدية', 'description': 'شريان النقل البري الأساسي، يضمن لك السيطرة على خطوط الإمداد والتوزيع.',
+      'maxLevel': 10, 'basePrice': 200000000, 'icon': Icons.train, 'color': Colors.lightBlue
+    },
+    {
+      'id': 'heavy_weapons', 'name': 'مصنع صلب وذخائر', 'description': 'منشأة صناعية ضخمة لتزويد عصابات المدينة بالعتاد الثقيل والأسلحة.',
+      'maxLevel': 8, 'basePrice': 400000000, 'icon': Icons.hardware, 'color': Colors.deepOrange
+    },
+    {
+      'id': 'telecom', 'name': 'شبكة البرق والبريد', 'description': 'سنترال يتيح لك مراقبة اتصالات الشرطة واعتراض رسائل العصابات المنافسة.',
+      'maxLevel': 6, 'basePrice': 800000000, 'icon': Icons.tty, 'color': Colors.lightGreen
+    },
+    {
+      'id': 'cartel', 'name': 'نقابة الجريمة المنظمة', 'description': 'تحالف إجرامي واسع يفرض سيطرته المطلقة على اقتصاد الولاية بالكامل.',
+      'maxLevel': 5, 'basePrice': 1500000000, 'icon': Icons.public, 'color': Colors.deepPurple
+    },
+    {
+      'id': 'oil_company', 'name': 'شركة تنقيب عن النفط', 'description': 'الذهب الأسود الذي يصنع ثروات طائلة ويمنحك نفوذاً سياسياً واقتصادياً.',
+      'maxLevel': 4, 'basePrice': 3000000000, 'icon': Icons.oil_barrel, 'color': Colors.black
+    },
+    {
+      'id': 'shadow_bank', 'name': 'البنك المركزي السري', 'description': 'المركز المالي الخفي لأباطرة العالم السفلي، يتحكم في اقتصاد الظل بأسره.',
+      'maxLevel': 3, 'basePrice': 10000000000, 'icon': Icons.account_balance_wallet, 'color': Colors.amber
+    },
   ];
 
   static const Map<String, Map<String, double>> weaponStats = {
