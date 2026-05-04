@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
-import 'dart:math';
 import '../providers/player_provider.dart';
 import '../providers/audio_provider.dart';
 import '../widgets/quick_recovery_dialog.dart';
@@ -95,11 +94,10 @@ class _GymViewContentState extends State<_GymViewContent> {
     });
   }
 
-  // 🟢 تعديل الـ Pop-Up ليظهر المستوى المطلوب والحد الجديد (كل 5 مستويات)
+  // 🟢 الـ Pop-Up لما اللاعب يضرب الحد الأقصى - يقرأ المحطة القادمة من الـ provider مباشرة
   void _showMaxStatsDialog(BuildContext context, AudioProvider audio, PlayerProvider player) {
-    int currentTier = ((player.crimeLevel - 1) ~/ 5) + 1;
-    int nextLevel = currentTier * 5 + 1;
-    double nextMaxStats = 100.0 + (nextLevel * 50.0) + (pow(nextLevel, 2) * 2.0);
+    int nextLevel = player.nextStatMilestone;
+    double nextMaxStats = player.nextMaxGymStats;
 
     showGeneralDialog(
       context: context,
@@ -428,10 +426,9 @@ class _GymViewContentState extends State<_GymViewContent> {
     double currentStats = player.currentBaseStats;
     double progress = (currentStats / maxStats).clamp(0.0, 1.0);
 
-    // 🟢 حساب الحد الأقصى للفل (أو الـ Tier) القادم وعرضه في الواجهة
-    int currentTier = ((player.crimeLevel - 1) ~/ 5) + 1;
-    int nextLevel = currentTier * 5 + 1;
-    double nextMaxStats = 100.0 + (nextLevel * 50.0) + (pow(nextLevel, 2) * 2.0);
+    // 🟢 نقرأ المحطة القادمة من الـ provider مباشرة (مصدر واحد للحقيقة)
+    int nextLevel = player.nextStatMilestone;
+    double nextMaxStats = player.nextMaxGymStats;
 
     bool hasSteroid = player.activeSteroidEndTime != null;
     String coachName = player.activeCoach == 'russian' ? 'الروسي (+قوة)' : (player.activeCoach == 'tactical' ? 'التكتيكي (+دفاع)' : (player.activeCoach == 'ninja' ? 'النينجا (+سرعة ومهارة)' : 'لا يوجد'));

@@ -2,6 +2,17 @@
 part of 'player_provider.dart';
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
+// 🟢 محطات الإحصائيات (Tier Milestones) في صالة التدريب
+// كل رقم هنا هو المستوى الإجرامي اللي يفتح فيه اللاعب حد أقصى جديد للإحصائيات.
+// البداية كل 5 مستويات (5، 10، 15...)، وبعدها الفجوات تكبر تدريجياً مع تقدم اللاعب.
+// ⚠️ مهم: لو عدلت القائمة هنا، عدلها بنفس القيم في functions/index.js (STAT_MILESTONES).
+const List<int> kStatMilestones = [
+  5, 10, 15, 20, 25, 30, 35, 40, 45,    // البداية: كل 5 مستويات
+  55, 70, 85, 105,                        // فجوات 10-15-20
+  130, 160, 195, 235, 280,               // قفزات متوسطة
+  330, 385, 445, 500,                     // النهاية حتى الحد الأقصى
+];
+
 extension PlayerStatsLogic on PlayerProvider {
 
   // 🟢 إجمالي الإحصائيات الأساسية الحالية
@@ -12,18 +23,28 @@ extension PlayerStatsLogic on PlayerProvider {
   // 🟢 الحد الأقصى لمستوى اللعبة
   int get maxGameLevel => 500;
 
-  // 🟢 اللفل الفعال (يثبت المحطة الحالية ويتغير بالضبط عند 5، 10، 15...)
+  // 🟢 اللفل الفعال = أعلى محطة وصلها اللاعب فعلياً
+  // (لو ما وصل لأي محطة بعد، نرجع 1 كقيمة افتراضية للحفاظ على سقف بداية معقول)
   int get effectiveLevel {
     int lvl = _crimeLevel > maxGameLevel ? maxGameLevel : _crimeLevel;
-    if (lvl < 5) return 1;
-    return (lvl ~/ 5) * 5;
+    int reached = 1;
+    for (final int m in kStatMilestones) {
+      if (lvl >= m) {
+        reached = m;
+      } else {
+        break;
+      }
+    }
+    return reached;
   }
 
-  // 🟢 اللفل المطلوب لفتح المحطة القادمة
+  // 🟢 المحطة القادمة اللي يحتاج اللاعب يوصلها لفتح حد أقصى جديد
   int get nextStatMilestone {
-    if (_crimeLevel >= maxGameLevel) return maxGameLevel;
-    if (_crimeLevel < 5) return 5;
-    return effectiveLevel + 5;
+    int lvl = _crimeLevel > maxGameLevel ? maxGameLevel : _crimeLevel;
+    for (final int m in kStatMilestones) {
+      if (lvl < m) return m;
+    }
+    return maxGameLevel; // اللاعب وصل أعلى محطة
   }
 
   // 🟢 قراءة الحد الأقصى الحالي بناءً على اللفل الفعال
@@ -31,7 +52,7 @@ extension PlayerStatsLogic on PlayerProvider {
     return 100.0 + (effectiveLevel * 50.0) + (pow(effectiveLevel, 2) * 2.0);
   }
 
-  // 🟢 قراءة الحد الأقصى القادم (عشان تظهر للّاعب في شاشة القفل)
+  // 🟢 قراءة الحد الأقصى للمحطة القادمة (تظهر للّاعب في شاشة القفل)
   double get nextMaxGymStats {
     int nextLvl = nextStatMilestone;
     return 100.0 + (nextLvl * 50.0) + (pow(nextLvl, 2) * 2.0);

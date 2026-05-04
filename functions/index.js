@@ -30,6 +30,25 @@ function getFinalMaxHealth(pData, currentBaseMaxHealth) {
     return Math.floor(hp);
 }
 
+// 🟢 3. محطات الإحصائيات في صالة التدريب - يجب أن تطابق kStatMilestones في lib/providers/player_stats_logic.dart
+const STAT_MILESTONES = [
+    5, 10, 15, 20, 25, 30, 35, 40, 45,
+    55, 70, 85, 105,
+    130, 160, 195, 235, 280,
+    330, 385, 445, 500
+];
+
+// 🟢 4. دالة حساب اللفل الفعال في النادي (أعلى محطة وصلها اللاعب فعلياً)
+function getEffectiveGymLevel(crimeLevel) {
+    let lvl = crimeLevel > 500 ? 500 : crimeLevel;
+    let reached = 1;
+    for (const m of STAT_MILESTONES) {
+        if (lvl >= m) reached = m;
+        else break;
+    }
+    return reached;
+}
+
 // =======================================================
 // 1. دالة الجرائم
 // =======================================================
@@ -987,12 +1006,9 @@ exports.trainMultipleStats = functions.https.onCall(async (request) => {
             throw new functions.https.HttpsError('failed-precondition', 'طاقة غير كافية للتدريب المطلوب');
         }
 
-// 🟢 1. حساب الحد الأقصى بنظام المحطات الرياضية (يفتح بالضبط على 5, 10, 15... حتى 500)
+        // 🟢 1. حساب الحد الأقصى بنظام المحطات (يفتح عند 5, 10, 15... ثم فجوات تكبر تدريجياً حتى 500)
         let crimeLevel = data.crimeLevel || 1;
-        if (crimeLevel > 500) crimeLevel = 500; // قفل اللفل على 500 كحد أقصى
-
-        // 🟢 التعديل الجديد: اللفل الفعال يتغير بالضبط عند مضاعفات الرقم 5
-        let effectiveLevel = crimeLevel < 5 ? 1 : Math.floor(crimeLevel / 5) * 5;
+        let effectiveLevel = getEffectiveGymLevel(crimeLevel);
 
         // حساب السقف بناءً على المحطة الحالية
         let maxGymStats = 100.0 + (effectiveLevel * 50.0) + (Math.pow(effectiveLevel, 2) * 2.0);
