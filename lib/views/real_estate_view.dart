@@ -110,7 +110,6 @@ class _RealEstateViewState extends State<RealEstateView> {
     );
   }
 
-  // 🟢 نافذة التفاصيل الشاملة (Bottom Sheet) 🟢
   void _showPropertyDetailsBottomSheet(BuildContext context, Map<String, dynamic> prop, RealEstateCubit cubit, AudioProvider audio) {
     showModalBottomSheet(
         context: context,
@@ -142,7 +141,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                 List<String> currentUps = player.propertyUpgrades[propId] ?? [];
 
                 return Container(
-                  height: MediaQuery.of(context).size.height * 0.75, // ياخذ 75% من الشاشة عشان يعرض كل التفاصيل
+                  height: MediaQuery.of(context).size.height * 0.75,
                   decoration: const BoxDecoration(
                     color: Color(0xFF151515),
                     borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
@@ -158,7 +157,6 @@ class _RealEstateViewState extends State<RealEstateView> {
                           Center(child: Text('معلومات ${prop['name']}', style: const TextStyle(color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Changa'))),
                           const Divider(color: Colors.white24, height: 30),
 
-                          // 🟢 1. حالة المبنى والصيانة 🟢
                           if (isOwned) ...[
                             const Text('حالة العقار والصيانة 🛠️', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                             const SizedBox(height: 10),
@@ -190,7 +188,6 @@ class _RealEstateViewState extends State<RealEstateView> {
                             const Divider(color: Colors.white24, height: 30),
                           ],
 
-                          // 🟢 2. إدارة العقار (سكن / تأجير / عرض) 🟢
                           const Text('إدارة العقار والاستخدام 🔑', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                           const SizedBox(height: 10),
 
@@ -257,7 +254,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                                 audio.playEffect('click.mp3');
                                 _confirmAction(context, 'الانتقال للعقار', Text('هل تريد الانتقال للسكن هنا والحصول على السعادة؟', style: const TextStyle(color: Colors.white, fontFamily: 'Changa')), () {
                                   cubit.executeAction(() => player.setActiveProperty(propId, prop['happiness']), 'تم الانتقال للسكن الجديد بنجاح!');
-                                  Navigator.pop(context); // إغلاق النافذة بعد الانتقال
+                                  Navigator.pop(context);
                                 });
                               },
                               label: const Text('الانتقال للسكن في العقار', style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold)),
@@ -271,8 +268,8 @@ class _RealEstateViewState extends State<RealEstateView> {
                                 style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, minimumSize: const Size(double.infinity, 40)),
                                 onPressed: () {
                                   audio.playEffect('click.mp3');
-                                  Navigator.pop(context); // أغلق النافذة الحالية
-                                  _showRentDialog(context, player, prop, cubit); // افتح نافذة الإيجار
+                                  Navigator.pop(context);
+                                  _showRentDialog(context, player, prop, cubit);
                                 },
                                 label: const Text('عرض نسخة للإيجار في السوق', style: TextStyle(fontSize: 13, color: Colors.black, fontWeight: FontWeight.bold)),
                               ),
@@ -299,7 +296,6 @@ class _RealEstateViewState extends State<RealEstateView> {
 
                           const Divider(color: Colors.white24, height: 30),
 
-                          // 🟢 3. الترقيات 🟢
                           if (isOwned) ...[
                             const Text('الترقيات والتحسينات ⭐', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                             const SizedBox(height: 10),
@@ -380,10 +376,11 @@ class _RealEstateViewState extends State<RealEstateView> {
     );
   }
 
-  // 🟢 دالة عرض البانر 21:9 بشكل مثالي 🟢
+  // 🟢 تصغير ارتفاع البانر ليكون مضغوط (85 بكسل فقط) 🟢
   Widget _buildPropertyImage(Map<String, dynamic> prop) {
-    return AspectRatio(
-      aspectRatio: 21 / 9, // النسبة المثالية لصور الميدجيرني العريضة
+    return SizedBox(
+      width: double.infinity,
+      height: 85,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -395,14 +392,14 @@ class _RealEstateViewState extends State<RealEstateView> {
               return Container(
                 color: (prop['color'] as Color).withOpacity(0.2),
                 child: Center(
-                  child: Icon(prop['icon'] as IconData, color: prop['color'], size: 45),
+                  child: Icon(prop['icon'] as IconData, color: prop['color'], size: 35),
                 ),
               );
             },
           ),
           Positioned(
             bottom: 0, left: 0, right: 0,
-            height: 40,
+            height: 30,
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -534,7 +531,6 @@ class _RealEstateViewState extends State<RealEstateView> {
     );
   }
 
-  // 🟢 بناء الكرت النظيف (عقاراتي) 🟢
   Widget _buildResidentialTab(BuildContext context, PlayerProvider player, AudioProvider audio, RealEstateCubit cubit) {
     return ListView.builder(
       itemCount: GameData.residentialProperties.length,
@@ -549,7 +545,7 @@ class _RealEstateViewState extends State<RealEstateView> {
 
         return Card(
           color: Colors.black45,
-          margin: const EdgeInsets.only(bottom: 16),
+          margin: const EdgeInsets.only(bottom: 10), // تقليل مسافة الكروت
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
@@ -560,38 +556,39 @@ class _RealEstateViewState extends State<RealEstateView> {
             children: [
               _buildPropertyImage(prop),
               Padding(
-                padding: const EdgeInsets.all(12.0),
+                padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0), // تقليل الحواف
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(child: Text(prop['name'], style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))),
-                        _moneyText(prop['price'], fontSize: 14, color: Colors.greenAccent),
+                        Expanded(child: Text(prop['name'], style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))), // تصغير الخط 14
+                        _moneyText(prop['price'], fontSize: 12, color: Colors.greenAccent), // تصغير الخط 12
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    Text(prop['description'], style: const TextStyle(color: Colors.white54, fontSize: 10, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 6),
-                    Text(prop['description'], style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4)), // النص أخذ راحته
-                    const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Icon(Icons.sentiment_very_satisfied, color: Colors.yellow, size: 16),
+                        const Icon(Icons.sentiment_very_satisfied, color: Colors.yellow, size: 14),
                         const SizedBox(width: 4),
-                        Text('سعادة: ${prop['happiness']}', style: const TextStyle(color: Colors.yellow, fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text('سعادة: ${prop['happiness']}', style: const TextStyle(color: Colors.yellow, fontSize: 11, fontWeight: FontWeight.bold)),
                         const Spacer(),
-                        if (isOwned) Text('الكمية: $ownedCount/5', style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                        if (isOwned) Text('الكمية: $ownedCount/5', style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            icon: const Icon(Icons.shopping_cart, size: 16, color: Colors.black),
+                            icon: const Icon(Icons.shopping_cart, size: 14, color: Colors.black),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: player.cash >= prop['price'] && canBuy ? Colors.orange : Colors.grey,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding: const EdgeInsets.symmetric(vertical: 4), // زر أنحف
+                              minimumSize: const Size(0, 32),
                             ),
                             onPressed: player.cash >= prop['price'] && canBuy ? () {
                               audio.playEffect('click.mp3');
@@ -605,22 +602,23 @@ class _RealEstateViewState extends State<RealEstateView> {
                                 cubit.executeAction(() => player.buyProperty(propId, prop['price'], prop['happiness']), 'مبروك! تم الشراء بنجاح 🏠');
                               });
                             } : null,
-                            label: Text(isOwned ? 'شراء المزيد' : 'شراء العقار', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black, fontFamily: 'Changa')),
+                            label: Text(isOwned ? 'شراء المزيد' : 'شراء العقار', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black, fontFamily: 'Changa')),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton.icon(
-                            icon: const Icon(Icons.info_outline, size: 16, color: Colors.white),
+                            icon: const Icon(Icons.info_outline, size: 14, color: Colors.white),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blueGrey,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding: const EdgeInsets.symmetric(vertical: 4), // زر أنحف
+                              minimumSize: const Size(0, 32),
                             ),
                             onPressed: () {
                               audio.playEffect('click.mp3');
                               _showPropertyDetailsBottomSheet(context, prop, cubit, audio);
                             },
-                            label: const Text('معلومات العقار', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
+                            label: const Text('معلومات العقار', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Changa')),
                           ),
                         ),
                       ],
@@ -816,16 +814,15 @@ class _RealEstateViewState extends State<RealEstateView> {
 
                   return Card(
                     color: Colors.black45,
-                    margin: const EdgeInsets.only(bottom: 16),
+                    margin: const EdgeInsets.only(bottom: 10),
                     clipBehavior: Clip.antiAlias,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.amber.withOpacity(0.5), width: 1.5)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildPropertyImage(prop),
-
                         Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -836,9 +833,9 @@ class _RealEstateViewState extends State<RealEstateView> {
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(prop['name'], style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                                        Text(prop['name'], style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
                                         if (isMyListing)
-                                          const Text('المالك: أنت 👑', style: TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold))
+                                          const Text('أنت المالك', style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold))
                                         else
                                           FutureBuilder<Map<String, dynamic>?>(
                                               future: player.getPlayerById(listing['ownerId']),
@@ -850,13 +847,13 @@ class _RealEstateViewState extends State<RealEstateView> {
                                                   onTap: () => _openProfile(context, listing['ownerId']),
                                                   child: Row(
                                                     children: [
-                                                      Text('المالك: ${listing['ownerName']}', style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                                                      Text('${listing['ownerName']}', style: const TextStyle(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold)),
                                                       const SizedBox(width: 4),
                                                       CircleAvatar(
-                                                        radius: 9,
+                                                        radius: 8,
                                                         backgroundColor: Colors.grey[800],
                                                         backgroundImage: imageBytes != null ? MemoryImage(imageBytes) : null,
-                                                        child: imageBytes == null ? const Icon(Icons.person, size: 12, color: Colors.white54) : null,
+                                                        child: imageBytes == null ? const Icon(Icons.person, size: 10, color: Colors.white54) : null,
                                                       ),
                                                     ],
                                                   ),
@@ -866,14 +863,14 @@ class _RealEstateViewState extends State<RealEstateView> {
                                       ],
                                     ),
                                     const SizedBox(height: 4),
-                                    Text('سعادة: +${prop['happiness']}', style: const TextStyle(color: Colors.yellow, fontSize: 11)),
+                                    Text('سعادة: +${prop['happiness']}', style: const TextStyle(color: Colors.yellow, fontSize: 10)),
                                     Row(
                                       children: [
-                                        const Text('الإيجار اليومي: ', style: TextStyle(color: Colors.greenAccent, fontSize: 11)),
-                                        _moneyText(dailyPrice),
+                                        const Text('الإيجار اليومي: ', style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
+                                        _moneyText(dailyPrice, fontSize: 10),
                                       ],
                                     ),
-                                    Text('المدة: $days أيام', style: const TextStyle(color: Colors.blueAccent, fontSize: 11)),
+                                    Text('المدة: $days أيام', style: const TextStyle(color: Colors.blueAccent, fontSize: 10)),
                                   ],
                                 ),
                               ),
@@ -886,18 +883,18 @@ class _RealEstateViewState extends State<RealEstateView> {
                                   const SizedBox(height: 4),
                                   if (isMyListing)
                                     ElevatedButton(
-                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(horizontal: 10), minimumSize: const Size(60, 30)),
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(60, 24)),
                                       onPressed: () {
                                         audio.playEffect('click.mp3');
                                         _confirmAction(context, 'سحب الإعلان', const Text('هل متأكد أنك تريد سحب العقار من السوق؟', style: TextStyle(color: Colors.white)), () {
                                           cubit.executeAction(() => player.cancelRentalListing(prop['id']), 'تم سحب العقار من السوق بنجاح!');
                                         });
                                       },
-                                      child: const Text('سحب الإعلان', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                                      child: const Text('سحب الإعلان', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
                                     )
                                   else
                                     ElevatedButton(
-                                      style: ElevatedButton.styleFrom(backgroundColor: player.cash >= totalPrice ? Colors.amber : Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 10), minimumSize: const Size(60, 30)),
+                                      style: ElevatedButton.styleFrom(backgroundColor: player.cash >= totalPrice ? Colors.amber : Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(60, 24)),
                                       onPressed: player.cash >= totalPrice ? () {
                                         audio.playEffect('click.mp3');
                                         _confirmAction(context, 'استئجار عقار', Wrap(
@@ -910,7 +907,7 @@ class _RealEstateViewState extends State<RealEstateView> {
                                           cubit.executeAction(() => player.rentPropertyFromMarket(listing, prop['happiness']), 'تم توثيق عقد الإيجار بنجاح 🤝');
                                         });
                                       } : null,
-                                      child: const Text('استئجار', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                                      child: const Text('استئجار', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10)),
                                     ),
                                 ],
                               ),
