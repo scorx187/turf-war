@@ -119,6 +119,18 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
   DateTime? get coachEndTime => _coachEndTime;
 
   List<String> _ownedProperties = [];
+
+  // 🟢 نظام الكميات للعقارات 🟢
+  Map<String, int> _ownedPropertyCounts = {};
+  Map<String, int> get ownedPropertyCounts => _ownedPropertyCounts;
+
+  // 🟢 نظام الصيانة والترقيات 🟢
+  Map<String, double> _propertyConditions = {};
+  Map<String, double> get propertyConditions => _propertyConditions;
+
+  Map<String, List<String>> _propertyUpgrades = {};
+  Map<String, List<String>> get propertyUpgrades => _propertyUpgrades;
+
   String? _activePropertyId;
   int _happiness = 0;
 
@@ -388,7 +400,8 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
 
     _crimeLevel = 1; _crimeXP = 0; _workLevel = 1; _workXP = 0; _arenaLevel = 1;
 
-    _ownedProperties = []; _activePropertyId = null; _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null;
+    _ownedProperties = []; _ownedPropertyCounts = {}; _propertyConditions = {}; _propertyUpgrades = {};
+    _activePropertyId = null; _listedProperties = []; _rentedOutProperties = {}; _activeRentedProperty = null;
     _ownedBusinesses = {}; _inventory = {}; _ownedCars = []; _activeCarId = null;
 
     _transactions = []; _unlockedTitlesList = []; _perks = {}; crimeSuccessCountsMap = {};
@@ -404,7 +417,6 @@ class PlayerProvider with ChangeNotifier, WidgetsBindingObserver {
     _chopShopEndTime = null; _isChopping = false; _labEndTime = null; _isCrafting = false; _craftingItemId = null;
     _activeSteroidEndTime = null; _activeCoach = null; _coachEndTime = null; _contractEndTime = null; _activeContractName = null;
 
-    // 🟢 تصفير وضع المطور عند تسجيل الخروج
     _isDevModeUnlocked = false;
 
     _lastEnergyUpdate = null;

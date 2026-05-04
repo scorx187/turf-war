@@ -23,10 +23,10 @@ extension PlayerFirebaseLogic on PlayerProvider {
         _lastCourageUpdate = DateTime.now();
         _isLoading = false; await _syncWithFirestore();
       }
-    // ignore: empty_catches
+      // ignore: empty_catches
     } catch (e) {} finally { _isLoading = false; notifyListeners(); }
     _playerDataSubscription = _firestore.collection('players').doc(uid).snapshots().listen(
-      (snapshot) {
+          (snapshot) {
         if (snapshot.exists && snapshot.metadata.hasPendingWrites == false) {
           _applyFirestoreData(snapshot.data()!);
           notifyListeners();
@@ -122,11 +122,36 @@ extension PlayerFirebaseLogic on PlayerProvider {
     if (data['coachEndTime'] != null) _coachEndTime = DateTime.parse(data['coachEndTime']);
 
     _ownedProperties = List<String>.from(data['ownedProperties'] ?? []); _activePropertyId = data['activePropertyId'];
+
+    // 🟢 قراءة الكميات من السيرفر 🟢
+    if (data['ownedPropertyCounts'] != null) {
+      _ownedPropertyCounts = Map<String, int>.from(data['ownedPropertyCounts']);
+    } else {
+      _ownedPropertyCounts = {};
+      for (var id in _ownedProperties) {
+        _ownedPropertyCounts[id] = 1;
+      }
+    }
+
+    // 🟢 قراءة الصيانة والترقيات من السيرفر 🟢
+    if (data['propertyConditions'] != null) {
+      _propertyConditions = Map<String, double>.from((data['propertyConditions'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toDouble())));
+    } else {
+      _propertyConditions = {};
+    }
+
+    if (data['propertyUpgrades'] != null) {
+      _propertyUpgrades = {};
+      (data['propertyUpgrades'] as Map).forEach((k, v) {
+        _propertyUpgrades[k.toString()] = List<String>.from(v);
+      });
+    }
+
     _listedProperties = List<String>.from(data['listedProperties'] ?? []);
     _rentedOutProperties = {};
     if (data['rentedOutProperties'] != null) {
       (data['rentedOutProperties'] as Map).forEach((k, v) {
-        if (v is String) { _rentedOutProperties[k.toString()] = {'expire': v, 'renterId': '', 'renterName': 'مجهول'}; }
+        if (v is String) { _rentedOutProperties[k.toString()] = {'propertyId': k.toString(), 'expire': v, 'renterId': '', 'renterName': 'مجهول'}; }
         else { _rentedOutProperties[k.toString()] = Map<String, dynamic>.from(v); }
       });
     }
@@ -203,6 +228,21 @@ extension PlayerFirebaseLogic on PlayerProvider {
         _health = min(maxHealth, _health + gainedHealth);
 
         double lostHeat = secondsPassed * 0.0278; _heat = max(0, _heat - lostHeat);
+
+        // 🟢 نظام تهالك العقارات (15% يومياً) 🟢
+        double dailyDegradation = 15.0;
+        double degPerSecond = dailyDegradation / 86400.0;
+
+        for (var propId in _ownedProperties) {
+          double currentCond = _propertyConditions[propId] ?? 100.0;
+          List<String> ups = _propertyUpgrades[propId] ?? [];
+          double actualDeg = degPerSecond;
+
+          if (ups.contains('security_guards')) actualDeg *= 0.5;
+
+          _propertyConditions[propId] = max(0.0, currentCond - (actualDeg * secondsPassed));
+        }
+
         Future.microtask(() => _syncWithFirestore());
       }
 
@@ -223,7 +263,6 @@ extension PlayerFirebaseLogic on PlayerProvider {
     } else { _lastPassiveIncomeTime = secureNow; }
 
     if (data['unlockedTitlesList'] != null) {
-      // دمج بدل الاستبدال لمنع حذف الألقاب الجديدة بسبب race condition مع Firestore listener
       final serverList = List<String>.from(data['unlockedTitlesList']);
       for (final t in serverList) {
         if (!_unlockedTitlesList.contains(t)) _unlockedTitlesList.add(t);
@@ -243,7 +282,7 @@ extension PlayerFirebaseLogic on PlayerProvider {
         'cash': _cash, 'gold': _gold, 'bankBalance': _bankBalance,
         'prestige': _prestige, 'health': _health, 'maxHealth': _baseMaxHealth, 'happiness': _happiness, 'strength': _baseStrength, 'defense': _baseDefense, 'skill': _baseSkill, 'speed': _baseSpeed,
         'activeSteroidEndTime': _activeSteroidEndTime?.toIso8601String(), 'activeCoach': _activeCoach, 'coachEndTime': _coachEndTime?.toIso8601String(),
-        'ownedProperties': _ownedProperties, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),
+        'ownedProperties': _ownedProperties, 'ownedPropertyCounts': _ownedPropertyCounts, 'propertyConditions': _propertyConditions, 'propertyUpgrades': _propertyUpgrades, 'activePropertyId': _activePropertyId, 'listedProperties': _listedProperties, 'rentedOutProperties': _rentedOutProperties, 'activeRentedProperty': _activeRentedProperty, 'ownedBusinesses': _ownedBusinesses, 'lastPassiveIncomeTime': _lastPassiveIncomeTime?.toIso8601String(),
         'inventory': _inventory, 'crimeLevel': _crimeLevel, 'crimeXP': _crimeXP, 'workLevel': _workLevel, 'workXP': _workXP, 'arenaLevel': _arenaLevel, 'isInPrison': _isInPrison, 'prisonReleaseTime': _prisonReleaseTime?.toIso8601String(), 'isHospitalized': _isHospitalized, 'hospitalReleaseTime': _hospitalReleaseTime?.toIso8601String(), 'lockedBalance': _lockedBalance, 'lockedProfits': _lockedProfits, 'lockedUntil': _lockedUntil?.toIso8601String(), 'vipUntil': _vipUntil?.toIso8601String(), 'totalVipDays': _totalVipDays, 'totalLabCrafts': _totalLabCrafts, 'luckyWheelSpins': _luckyWheelSpins, 'loanAmount': _loanAmount, 'creditScore': _creditScore, 'loanTime': _loanTime?.toIso8601String(), 'gangName': _gangName, 'gangRank': _gangRank, 'gangContribution': _gangContribution, 'gangWarWins': _gangWarWins, 'territoryOwners': _territoryOwners, 'crimeSuccessCountsMap': crimeSuccessCountsMap, 'contractEndTime': _contractEndTime?.toIso8601String(), 'activeContractName': _activeContractName, 'contractSalary': _contractSalary, 'lastUpdate': FieldValue.serverTimestamp(), 'ownedCars': _ownedCars, 'activeCarId': _activeCarId, 'chopShopEndTime': _chopShopEndTime?.toIso8601String(), 'isChopping': _isChopping, 'labEndTime': _labEndTime?.toIso8601String(), 'isCrafting': _isCrafting, 'craftingItemId': _craftingItemId, 'heat': _heat, 'spareParts': _spareParts, 'durability': _durability,
         'equippedWeaponId': _equippedWeaponId, 'equippedArmorId': _equippedArmorId, 'equippedMaskId': _equippedMaskId, 'equippedCrimeToolId': _equippedCrimeToolId, 'equippedSpecialId': _equippedSpecialId,
         'bonusPerkPoints': _bonusPerkPoints,
@@ -254,7 +293,7 @@ extension PlayerFirebaseLogic on PlayerProvider {
         'selectedTitle': _selectedTitle,
         'unlockedTitlesList': _unlockedTitlesList,
       }, SetOptions(merge: true));
-    // ignore: empty_catches
+      // ignore: empty_catches
     } catch (e) {}
   }
 }

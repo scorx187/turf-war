@@ -626,9 +626,12 @@ exports.deletePlayerAccount = functions.https.onCall(async (request) => {
 // =======================================================
 // 10. دالة شراء العقارات
 // =======================================================
+// دالة شراء العقارات (تدعم نظام الكميات بحد أقصى 5)
 exports.buyRealEstate = functions.https.onCall(async (request) => {
-    const { uid, propertyId, price, happinessGain } = request.data || request;
-    if (!uid || !propertyId || price === undefined) throw new functions.https.HttpsError('invalid-argument', 'بيانات ناقصة');
+    const data = request.data || request;
+    const uid = data.uid;
+    const propertyId = data.propertyId;
+    const price = Number(data.price) || 0;
 
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
@@ -638,24 +641,34 @@ exports.buyRealEstate = functions.https.onCall(async (request) => {
         if (!pDoc.exists) throw new functions.https.HttpsError('not-found', 'اللاعب غير موجود');
         const pData = pDoc.data();
 
-        if ((pData.cash || 0) < price) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي!');
-        if ((pData.ownedProperties || []).includes(propertyId)) throw new functions.https.HttpsError('failed-precondition', 'أنت تملك هذا العقار مسبقاً!');
+        if ((pData.cash || 0) < price) {
+            throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي');
+        }
+
+        // نظام الكميات: الحد الأقصى 5
+        let currentCounts = pData.ownedPropertyCounts || {};
+        let currentCount = currentCounts[propertyId] || 0;
+
+        // التوافق مع الكود القديم لو اللاعب كان شاري العقار من قبل
+        if (currentCount === 0 && (pData.ownedProperties || []).includes(propertyId)) {
+            currentCount = 1;
+        }
+
+        if (currentCount >= 5) {
+            throw new functions.https.HttpsError('failed-precondition', 'لا يمكنك امتلاك أكثر من 5 عقارات من نفس النوع!');
+        }
+
+        currentCounts[propertyId] = currentCount + 1;
 
         let updates = {
             cash: pData.cash - price,
-            ownedProperties: admin.firestore.FieldValue.arrayUnion(propertyId)
+            ownedPropertyCounts: currentCounts,
         };
 
-        if (!pData.activePropertyId && !pData.activeRentedProperty) {
-            updates.activePropertyId = propertyId;
-            updates.happiness = happinessGain || 0;
+        // نحافظ على المصفوفة القديمة عشان ما يخرب كودك القديم
+        if (!(pData.ownedProperties || []).includes(propertyId)) {
+            updates.ownedProperties = admin.firestore.FieldValue.arrayUnion(propertyId);
         }
-
-        let newTx = { title: "شراء عقار", amount: price, date: new Date().toISOString(), isPositive: false };
-        let currentTxs = pData.transactions || [];
-        currentTxs.unshift(newTx);
-        if (currentTxs.length > 20) currentTxs.pop();
-        updates.transactions = currentTxs;
 
         transaction.update(playerRef, updates);
         return { success: true };
@@ -880,7 +893,125 @@ exports.cancelRentedProperty = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 13. دوال البنك (Bank)
+// 13. دوال الصيانة، الترقية، ووضع اليد للعقارات
+// =======================================================
+
+exports.maintainProperty = functions.https.onCall(async (request) => {
+    const data = request.data || request;
+    const uid = data.uid;
+    const propertyId = data.propertyId;
+    const cost = Number(data.cost) || 0;
+
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (t) => {
+        const pDoc = await t.get(playerRef);
+        const pData = pDoc.data();
+        if ((pData.cash || 0) < cost) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي للصيانة!');
+
+        t.update(playerRef, {
+            cash: pData.cash - cost,
+            [`propertyConditions.${propertyId}`]: 100.0
+        });
+        return { success: true };
+    });
+});
+
+exports.upgradeProperty = functions.https.onCall(async (request) => {
+    const data = request.data || request;
+    const uid = data.uid;
+    const propertyId = data.propertyId;
+    const upgradeId = data.upgradeId;
+    const cost = Number(data.cost) || 0;
+
+    const db = admin.firestore();
+    const playerRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (t) => {
+        const pDoc = await t.get(playerRef);
+        const pData = pDoc.data();
+        if ((pData.cash || 0) < cost) throw new functions.https.HttpsError('failed-precondition', 'كاش غير كافي للترقية!');
+
+        let currentUpgrades = pData.propertyUpgrades || {};
+        let propUps = currentUpgrades[propertyId] || [];
+        if (propUps.includes(upgradeId)) throw new functions.https.HttpsError('failed-precondition', 'الترقية موجودة مسبقاً!');
+
+        propUps.push(upgradeId);
+        currentUpgrades[propertyId] = propUps;
+
+        t.update(playerRef, {
+            cash: pData.cash - cost,
+            propertyUpgrades: currentUpgrades
+        });
+        return { success: true };
+    });
+});
+
+exports.takeoverProperty = functions.https.onCall(async (request) => {
+    const data = request.data || request;
+    const uid = data.uid;
+
+    const db = admin.firestore();
+    const meRef = db.collection('players').doc(uid);
+
+    return db.runTransaction(async (t) => {
+        const meSnap = await t.get(meRef);
+        const meData = meSnap.data();
+
+        if (!meData.activeRentedProperty) throw new functions.https.HttpsError('failed-precondition', 'لست مستأجراً لأي عقار!');
+        const { propertyId, ownerId, listingId } = meData.activeRentedProperty;
+
+        const ownerRef = db.collection('players').doc(ownerId);
+        const ownerSnap = await t.get(ownerRef);
+        if (!ownerSnap.exists) throw new functions.https.HttpsError('not-found', 'المالك الأصلي غير موجود!');
+
+        const ownerData = ownerSnap.data();
+        const condition = (ownerData.propertyConditions && ownerData.propertyConditions[propertyId]) !== undefined ? Number(ownerData.propertyConditions[propertyId]) : 100.0;
+
+        if (condition > 0) throw new functions.https.HttpsError('failed-precondition', 'لا يمكنك الاستيلاء! العقار لم يتهالك بالكامل بعد.');
+
+        const takeoverCost = 50000; // رسوم تسجيل العقار المنهوب
+        if ((meData.cash || 0) < takeoverCost) throw new functions.https.HttpsError('failed-precondition', 'تحتاج 50,000 كاش لدفع رسوم وضع اليد والتسجيل!');
+
+        // 1. إضافة العقار للمستأجر (اللص)
+        let myCounts = meData.ownedPropertyCounts || {};
+        myCounts[propertyId] = (myCounts[propertyId] || 0) + 1;
+
+        let meUpdates = {
+            cash: meData.cash - takeoverCost,
+            ownedPropertyCounts: myCounts,
+            activeRentedProperty: admin.firestore.FieldValue.delete(),
+            [`propertyConditions.${propertyId}`]: 100.0 // تجديد حالة المبنى للمالك الجديد
+        };
+        if (!(meData.ownedProperties || []).includes(propertyId)) {
+            meUpdates.ownedProperties = admin.firestore.FieldValue.arrayUnion(propertyId);
+        }
+
+        // 2. إزالة العقار من المالك المهمل
+        let ownerCounts = ownerData.ownedPropertyCounts || {};
+        ownerCounts[propertyId] = Math.max(0, (ownerCounts[propertyId] || 0) - 1);
+
+        let ownerUpdates = {
+            ownedPropertyCounts: ownerCounts,
+            [`rentedOutProperties.${listingId}`]: admin.firestore.FieldValue.delete()
+        };
+        // إذا انسرقت آخر نسخة، ينحذف العقار تماماً من ممتلكاته
+        if (ownerCounts[propertyId] === 0) {
+             ownerUpdates.ownedProperties = admin.firestore.FieldValue.arrayRemove(propertyId);
+             ownerUpdates[`propertyConditions.${propertyId}`] = admin.firestore.FieldValue.delete();
+             ownerUpdates[`propertyUpgrades.${propertyId}`] = admin.firestore.FieldValue.delete();
+        }
+
+        t.update(meRef, meUpdates);
+        t.update(ownerRef, ownerUpdates);
+
+        return { success: true };
+    });
+});
+
+// =======================================================
+// 14. دوال البنك (Bank)
 // =======================================================
 exports.depositToBank = functions.https.onCall(async (request) => {
     const { uid, amount } = request.data || request;
@@ -1028,7 +1159,7 @@ exports.startLockedInvestment = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 14. دوال صالة التدريب (Gym)
+// 15. دوال صالة التدريب (Gym)
 // =======================================================
 exports.trainMultipleStats = functions.https.onCall(async (request) => {
     const { uid, strE, defE, skillE, spdE, maxEnergy } = request.data || request;
@@ -1204,7 +1335,7 @@ exports.buyAndUseSteroids = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 15. دوال السجن (Prison) - دفع الكفالة
+// 16. دوال السجن (Prison) - دفع الكفالة
 // =======================================================
 exports.bailOutPlayer = functions.https.onCall(async (request) => {
     const { uid, targetUid, bailCost } = request.data || request;
@@ -1236,7 +1367,7 @@ exports.bailOutPlayer = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 16. دوال التشليح والورشة (Chop Shop)
+// 17. دوال التشليح والورشة (Chop Shop)
 // =======================================================
 exports.startChoppingCar = functions.https.onCall(async (request) => {
     const { uid } = request.data || request;
@@ -1284,7 +1415,7 @@ exports.collectChoppedCar = functions.https.onCall(async (request) => {
 });
 
 // =======================================================
-// 17. المخزن (استخدام الأدوات وقراءة الصحة المحدثة)
+// 18. المخزن (استخدام الأدوات وقراءة الصحة المحدثة)
 // =======================================================
 exports.consumeItem = functions.https.onCall(async (request) => {
     const { uid, itemId } = request.data || request;

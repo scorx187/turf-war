@@ -109,6 +109,13 @@ class GameData {
     },
   ];
 
+  // 🟢 ترقيات العقارات السكنية 🟢
+  static const Map<String, Map<String, dynamic>> propertyUpgradesData = {
+    'luxury_furniture': {'name': 'أثاث فاخر', 'priceMultiplier': 0.1, 'desc': 'يمنحك السكن في هذا العقار 20% سعادة إضافية.', 'icon': Icons.weekend},
+    'security_guards': {'name': 'حراسة مسلحة', 'priceMultiplier': 0.15, 'desc': 'يقلل سرعة تهالك وخراب العقار بنسبة 50%.', 'icon': Icons.security},
+    'hidden_vault': {'name': 'قبو سري', 'priceMultiplier': 0.2, 'desc': 'يعطيك هيبة ونفوذ إضافي بين العصابات.', 'icon': Icons.lock},
+  };
+
   static const List<Map<String, dynamic>> businessData = [
     {
       'id': 'coffee_stand', 'name': 'كشك لبيع الصحف والتبغ', 'description': 'واجهة مثالية لجمع المعلومات ومراقبة تحركات أفراد الشرطة في الشوارع.',
