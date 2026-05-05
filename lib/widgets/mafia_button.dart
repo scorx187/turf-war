@@ -17,10 +17,10 @@ class MafiaButton extends StatefulWidget {
     super.key,
     required this.label,
     required this.onPressed,
-    this.isPrimary = true, // افتراضياً الزر يكون الأساسي
+    this.isPrimary = true,
     this.width = double.infinity,
     this.height = 45,
-    this.fontSize = 14,
+    this.fontSize = 13,
     this.icon,
   });
 
@@ -35,7 +35,6 @@ class _MafiaButtonState extends State<MafiaButton> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    // إعداد الأنيميشن عشان الزر يصغر لما تضغط عليه
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 100));
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
@@ -65,13 +64,15 @@ class _MafiaButtonState extends State<MafiaButton> with SingleTickerProviderStat
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Opacity(
-          opacity: isDisabled ? 0.5 : 1.0, // إذا معطل يصير شفاف شوي
+          opacity: isDisabled ? 0.5 : 1.0,
           child: Container(
             width: widget.width,
             height: widget.height,
             decoration: BoxDecoration(
               image: DecorationImage(
                 image: AssetImage(bgImage),
+                // 🟢 الحسبة النهائية لزر مقاس 300x100 🟢
+                centerSlice: const Rect.fromLTRB(30, 30, 270, 70),
                 fit: BoxFit.fill,
               ),
             ),
@@ -91,9 +92,7 @@ class _MafiaButtonState extends State<MafiaButton> with SingleTickerProviderStat
                       fontSize: widget.fontSize,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'Changa',
-                      shadows: const [
-                        Shadow(color: Colors.black87, offset: Offset(1, 1), blurRadius: 2) // ظل خفيف للنص عشان يبرز
-                      ],
+                      shadows: const [Shadow(color: Colors.black87, offset: Offset(1, 1), blurRadius: 2)],
                     ),
                   ),
                 ],

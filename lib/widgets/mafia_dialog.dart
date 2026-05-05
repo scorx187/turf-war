@@ -24,17 +24,19 @@ class MafiaDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.transparent, // نخفي لون فلاتر الافتراضي
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        // Padding يضمن إن النص ما يلمس الإطار
+        padding: const EdgeInsets.only(top: 40, bottom: 25, left: 25, right: 25),
         decoration: BoxDecoration(
           image: const DecorationImage(
-            image: AssetImage('assets/images/ui/dialog_bg.png'), // خلفية المافيا الفخمة
+            image: AssetImage('assets/images/ui/dialog_bg.png'),
+            // 🟢 الحسبة النهائية لنافذة مقاس 400x530 🟢
+            centerSlice: Rect.fromLTRB(50, 50, 350, 480),
             fit: BoxFit.fill,
           ),
-          borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(0.8), blurRadius: 15, spreadRadius: 5)
           ],
@@ -42,62 +44,59 @@ class MafiaDialog extends StatelessWidget {
         child: Directionality(
           textDirection: TextDirection.rtl,
           child: Column(
-            mainAxisSize: MainAxisSize.min, // عشان النافذة تاخذ طول المحتوى بس
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // 🟢 الجزء العلوي: العنوان + زر الإغلاق X 🟢
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Changa'),
-                    ),
-                  ),
                   GestureDetector(
                     onTap: onCancel,
                     child: Image.asset(
                       'assets/images/ui/btn_close.png',
-                      width: 28, height: 28,
+                      width: 30, height: 30,
                       errorBuilder: (c,e,s) => const Icon(Icons.close, color: Colors.redAccent, size: 28),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Changa', height: 1.2),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
-              // 🟢 الفاصل الزخرفي 🟢
               Image.asset(
                 'assets/images/ui/divider.png',
-                height: 12, width: double.infinity, fit: BoxFit.contain,
+                height: 15, width: double.infinity, fit: BoxFit.contain,
                 errorBuilder: (c,e,s) => const Divider(color: Colors.amber, thickness: 1),
               ),
               const SizedBox(height: 15),
 
-              // 🟢 محتوى النافذة (النصوص أو الأرقام) 🟢
               content,
 
               const SizedBox(height: 25),
 
-              // 🟢 أزرار المافيا (تأكيد / إلغاء) 🟢
               Row(
                 children: [
                   Expanded(
                     child: MafiaButton(
-                      label: cancelText,
-                      isPrimary: false, // زر ثانوي رمادي
-                      onPressed: onCancel,
+                      label: confirmText,
+                      isPrimary: true,
+                      onPressed: () {
+                        onCancel();
+                        onConfirm();
+                      },
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: MafiaButton(
-                      label: confirmText,
-                      isPrimary: true, // زر أساسي بارز
-                      onPressed: () {
-                        onCancel(); // نقفل النافذة أول
-                        onConfirm(); // بعدين ننفذ أمر الشراء
-                      },
+                      label: cancelText,
+                      isPrimary: false,
+                      onPressed: onCancel,
                     ),
                   ),
                 ],
