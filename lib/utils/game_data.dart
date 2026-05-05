@@ -100,7 +100,7 @@ class GameData {
       'price': 500000000, 'happiness': 3500, 'icon': Icons.pool, 'color': Colors.lightBlueAccent
     },
     {
-      'id': 'space_station', 'name': 'قاعدة سرية تحت الأرض', 'description': 'مقر عمليات سري لا يمكن اكتشافه، مزود بأحدث تقنيات العشرينات الدفاعية.',
+      'id': 'space_station', 'name': 'مقر القيادة المحصن', 'description': 'مقر عمليات سري لا يمكن اكتشافه، مزود بأحدث تقنيات العشرينات الدفاعية.',
       'price': 1500000000, 'happiness': 3800, 'icon': Icons.security, 'color': Colors.deepOrange
     },
     {
